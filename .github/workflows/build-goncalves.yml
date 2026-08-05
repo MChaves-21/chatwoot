@@ -1,0 +1,73 @@
+# Build da imagem propria do Chatwoot para a Goncalves & Silva.
+#
+# Diferencas em relacao aos workflows do upstream:
+#   - publica no GHCR usando o GITHUB_TOKEN, entao nao ha secret para configurar;
+#   - so linux/amd64 (o VPS do Easypanel e amd64) — corta o tempo pela metade;
+#   - edicao "ee", igual a imagem chatwoot/chatwoot:latest que a instancia ja usa.
+#     Trocar para "ce" mudaria os recursos disponiveis.
+
+name: Build Chatwoot (Goncalves & Silva)
+
+on:
+  push:
+    branches:
+      - goncalves-main
+  workflow_dispatch:
+
+env:
+  IMAGE: ghcr.io/${{ github.repository_owner }}/chatwoot
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Definir edicao (ee, igual ao chatwoot/chatwoot:latest)
+        run: echo -en '\nENV CW_EDITION="ee"' >> docker/Dockerfile
+
+      - name: Nome da imagem em minusculas
+        run: echo "IMAGE=$(echo '${{ env.IMAGE }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login no GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build e push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/Dockerfile
+          platforms: linux/amd64
+          push: true
+          # Duas tags: "goncalves" para o Easypanel apontar e ficar fixo,
+          # e o sha do commit para dar rollback exato quando precisar.
+          tags: |
+            ${{ env.IMAGE }}:goncalves
+            ${{ env.IMAGE }}:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Resumo
+        run: |
+          {
+            echo "### Imagem publicada"
+            echo ""
+            echo '```'
+            echo "${{ env.IMAGE }}:goncalves"
+            echo "${{ env.IMAGE }}:${{ github.sha }}"
+            echo '```'
+            echo ""
+            echo "No Easypanel, aponte o servico para a tag \`:goncalves\`."
+          } >> $GITHUB_STEP_SUMMARY
