@@ -229,7 +229,7 @@ const BTN =
         :dragging-id="draggingId"
         :conversation-url="conversationUrl"
         @drop="onDrop(col.label)"
-        @load-more="board.loadColumn(col.label)"
+        @load-more="board.loadColumn(col.label).catch(() => {})"
         @open-card="openConversation = $event"
         @drag-start="onDragStart"
         @drag-end="onDragEnd"

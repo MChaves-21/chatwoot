@@ -12,7 +12,6 @@ import {
   LS_KEY,
   MANUAL_LABEL,
   MAX_PAGES_PER_COLUMN,
-  PAGE_SIZE,
 } from './constants';
 import {
   EMPTY_FILTERS,
@@ -101,7 +100,14 @@ export function useKanbanBoard() {
       payload.forEach(c => {
         if (!seen.has(c.id)) st.loaded.push(c);
       });
-      if (payload.length < PAGE_SIZE) st.done = true;
+      // Nao comparar com um tamanho de pagina fixo: o Chatwoot pagina com
+      // CONVERSATION_RESULTS_PER_PAGE, que e 25 por padrao mas e variavel de
+      // ambiente. Se ela ficar abaixo de 25, uma pagina cheia seria lida como
+      // "acabou" e a coluna truncaria em silencio. O total do meta.all_count e
+      // confiavel: o finder aplica o filtro de etiqueta antes de contar.
+      st.done =
+        payload.length === 0 ||
+        (st.total !== null && st.loaded.length >= st.total);
       delete errors[label];
     } catch (err) {
       st.page -= 1;
@@ -139,8 +145,14 @@ export function useKanbanBoard() {
       if (!st) continue;
       let guard = 0;
       while (!st.done && guard < MAX_PAGES_PER_COLUMN) {
-        // eslint-disable-next-line no-await-in-loop
-        await loadColumn(col.label);
+        try {
+          // eslint-disable-next-line no-await-in-loop
+          await loadColumn(col.label);
+        } catch (e) {
+          // Igual ao loadAll: uma coluna que falha nao derruba as outras. O
+          // erro ja esta em errors[label] e a coluna aparece marcada na tela.
+          break;
+        }
         guard += 1;
       }
     }

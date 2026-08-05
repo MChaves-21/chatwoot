@@ -517,7 +517,9 @@ function acharSituacao(text) {
  */
 export function buildPrevSummary({ conv, full, lead, msgs, columns, tags }) {
   const stageLabels = columns.map(c => c.label);
-  const labels = Array.isArray(full.labels) ? full.labels : convLabels(conv);
+  // Mesma razao do appliedLabels no ContactPopup: `full` e uma copia congelada
+  // na carga, `conv` e o objeto vivo do quadro.
+  const labels = convLabels(conv).length ? convLabels(conv) : convLabels(full);
   const stageLbl = labels.find(l => stageLabels.includes(l));
   const stageTitle = (columns.find(c => c.label === stageLbl) || {}).title || '-';
 

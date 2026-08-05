@@ -22,8 +22,9 @@ class KanbanAPI extends ApiClient {
   }
 
   /**
-   * Uma pagina de conversas de uma etiqueta. A API do Chatwoot pagina de 25
-   * em 25 (PAGE_SIZE) e devolve o total em meta.all_count.
+   * Uma pagina de conversas de uma etiqueta. O tamanho da pagina vem de
+   * CONVERSATION_RESULTS_PER_PAGE no servidor (25 por padrao), entao nao ha
+   * constante equivalente aqui; o total confiavel e o meta.all_count.
    */
   async listByLabel({ label, page = 1, status = 'all' }) {
     const params = new URLSearchParams();

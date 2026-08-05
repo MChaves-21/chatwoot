@@ -62,9 +62,6 @@ export const STAGE_EMOJI = {
 /** Etiqueta que o quadro acrescenta ao mover um card na mao. */
 export const MANUAL_LABEL = 'manual';
 
-/** Tamanho da pagina da API de conversas do Chatwoot. */
-export const PAGE_SIZE = 25;
-
 /** Teto de paginas por coluna em "carregar tudo", para nao inundar a API. */
 export const MAX_PAGES_PER_COLUMN = 200;
 

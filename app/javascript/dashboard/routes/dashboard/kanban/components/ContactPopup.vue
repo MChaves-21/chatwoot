@@ -49,10 +49,16 @@ const stageLabels = computed(() => props.columns.map(c => c.label));
 const name = computed(() => convDisplayName(props.conversation));
 const phone = computed(() => convPhone(props.conversation));
 
-const appliedLabels = computed(() => {
-  const fromFull = Array.isArray(full.value.labels) ? full.value.labels : null;
-  return fromFull || convLabels(props.conversation);
-});
+/**
+ * Fonte de verdade: o objeto do quadro. E nele que moveToStage e toggleTag
+ * escrevem, e ele ja vem com labels na carga da coluna.
+ *
+ * Preferir full.value.labels aqui era um bug: o GET /conversations/:id sempre
+ * devolve labels, entao esse ramo vencia sempre e congelava no momento da
+ * carga — os chips de tag paravam de responder ao clique mesmo com a gravacao
+ * dando certo.
+ */
+const appliedLabels = computed(() => convLabels(props.conversation));
 
 const stage = computed(() => {
   const lbl = convStageLabel({ labels: appliedLabels.value }, stageLabels.value);
