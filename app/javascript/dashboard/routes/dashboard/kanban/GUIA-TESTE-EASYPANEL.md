@@ -51,15 +51,39 @@ Projeto novo no Easypanel (sugestão: `chatwoot-teste`), três serviços.
 
 ### 1.1 Postgres
 
-Imagem **`pgvector/pgvector:pg16`**. A imagem padrão do template do Easypanel
-não tem a extensão pgvector e o Chatwoot quebra no meio das migrações — o erro
-aparece tarde, depois de vários minutos, e é fácil confundir com outra coisa.
+Imagem **`pgvector/pgvector:pg17`**. Duas coisas estão embutidas nessa escolha:
+
+- **pgvector**: a imagem padrão do template do Easypanel não tem a extensão e o
+  Chatwoot quebra no meio das migrações — o erro aparece tarde, depois de
+  vários minutos, e é fácil confundir com outra coisa.
+- **pg17, não pg16**: o contexto anterior dizia `pg16` e isso está errado. A
+  produção roda Postgres 17, e os backups dela são gravados no formato de
+  arquivo 1.16, que o `pg_restore` do 16 recusa com *"unsupported version (1.16)
+  in file header"*. Um ambiente de teste em pg16 não consegue ler o backup da
+  produção — e, pior, se alguém recriar o serviço de produção seguindo aquela
+  instrução, o banco novo também não lê os próprios backups anteriores.
 
 Anote host, usuário, senha e nome do banco.
 
 ### 1.2 Redis
 
 Imagem padrão. Nada de especial.
+
+### 1.2.1 Sidekiq: NÃO subir
+
+A produção tem um serviço `chatwoot-sidekiq`. O ambiente de teste **não deve
+ter o equivalente**, e a razão não é economizar memória.
+
+O banco de teste é uma cópia da produção. Ele vem com os contatos reais, os
+telefones reais, os webhooks apontando para o n8n de produção, as campanhas e as
+regras de automação — tudo configurado e ativo. O Sidekiq é quem executa isso.
+Um Sidekiq de teste rodando em cima desses dados dispara webhook para o n8n de
+produção e pode acabar mandando mensagem de WhatsApp para cliente de verdade, a
+partir de um ambiente que ninguém está olhando.
+
+Sem Sidekiq, o Chatwoot enfileira os jobs no Redis de teste e ninguém os
+consome. O quadro Kanban funciona igual: ele lê e escreve etiqueta pela API, de
+forma síncrona. É exatamente o que precisa ser testado.
 
 ### 1.3 App
 
@@ -91,8 +115,22 @@ ssh root@195.35.40.9
 ls -lt /etc/easypanel/backups/n8n/chatwoot-db/ | head
 ```
 
-Pegue o arquivo mais novo e restaure no banco de teste (não no `n8n`). Depois
-da restauração, confira que sobrou conversa nas duas caixas:
+**O nome do arquivo mente.** Os backups do Easypanel saem como
+`2026-08-06T18:21:07.073Z.sql.gz`, mas não são SQL puro — são dump em **formato
+custom** do `pg_dump`, comprimido. Mandar isso para o `psql` falha com *"The
+input is a PostgreSQL custom-format dump"* e não restaura nada. Numa emergência,
+esse é um erro que custa minutos preciosos. Use `pg_restore`:
+
+```
+gunzip -c /etc/easypanel/backups/n8n/chatwoot-db/<arquivo>.sql.gz \
+  | docker exec -i <container-do-postgres-de-teste> \
+    pg_restore -U postgres -d chatwoot --no-owner --no-privileges
+```
+
+O nome do container sai de `docker ps --format '{{.Names}}' | grep chatwoot-teste`.
+
+Restaure no banco de teste, **nunca no `n8n`**. Depois da restauração, confira
+que sobrou conversa nas duas caixas:
 
 ```
 bundle exec rails runner 'puts Conversation.group(:inbox_id).count'
@@ -100,6 +138,26 @@ bundle exec rails runner 'puts Conversation.group(:inbox_id).count'
 
 Esperado: algo próximo de `{6 => 336, 9 => 121}` na data em que isto foi
 escrito.
+
+### 1.5 Neutralizar a cópia antes de usar
+
+Fazer isto **logo depois do restore**, antes de abrir a tela. Não subir o
+Sidekiq (1.2.1) já elimina a maior parte do risco, mas o que sobra é barato de
+fechar:
+
+```ruby
+bundle exec rails runner '
+  Webhook.delete_all
+  Channel::Api.update_all(hmac_token: nil) if defined?(Channel::Api)
+  AutomationRule.update_all(active: false) if defined?(AutomationRule)
+  Campaign.update_all(campaign_status: 1) if defined?(Campaign)
+  puts "webhooks: #{Webhook.count} | regras ativas: #{AutomationRule.where(active: true).count}"
+'
+```
+
+Confirme que a saída mostra zero webhook e zero regra ativa. Enquanto esse
+comando não tiver rodado, trate o ambiente de teste como se ele pudesse falar
+com cliente — porque pode.
 
 ---
 

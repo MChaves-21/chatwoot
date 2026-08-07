@@ -207,8 +207,14 @@ const exportDay = async ({ list, mode, date }) => {
   }
 };
 
+/**
+ * Compacto de proposito. Com o seletor de funil no cabecalho, os rotulos
+ * antigos ("Exportar Excel", "Atualizados hoje") em text-sm nao cabiam mais na
+ * largura util e o botao Configuracoes quebrava para uma segunda linha sozinho.
+ * Os rotulos foram encurtados e o title= carrega o texto completo.
+ */
 const BTN =
-  'px-3 py-1.5 text-sm rounded-lg border transition-colors border-n-weak text-n-slate-12 hover:bg-n-alpha-2 disabled:opacity-50';
+  'px-2.5 py-1.5 text-xs whitespace-nowrap rounded-lg border transition-colors border-n-weak text-n-slate-12 hover:bg-n-alpha-2 disabled:opacity-50';
 </script>
 
 <template>
@@ -216,10 +222,12 @@ const BTN =
     <header
       class="flex flex-wrap gap-2 items-center px-4 py-2.5 border-b border-n-weak"
     >
-      <h1 class="text-base font-bold text-n-slate-12">Kanban Comercial</h1>
+      <h1 class="text-base font-bold whitespace-nowrap text-n-slate-12">
+        Kanban
+      </h1>
 
       <div
-        class="flex overflow-hidden rounded-lg border border-n-weak"
+        class="flex overflow-hidden rounded-lg border shrink-0 border-n-weak"
         role="group"
         aria-label="Funil"
       >
@@ -230,7 +238,7 @@ const BTN =
           :disabled="isSwitchingFunnel"
           :aria-pressed="f.id === activeFunnelId"
           :class="[
-            'px-3 py-1.5 text-sm transition-colors disabled:opacity-50',
+            'px-2.5 py-1.5 text-xs whitespace-nowrap transition-colors disabled:opacity-50',
             f.id === activeFunnelId
               ? 'bg-n-brand text-white'
               : 'text-n-slate-12 hover:bg-n-alpha-2',
@@ -241,19 +249,39 @@ const BTN =
         </button>
       </div>
 
-      <span class="flex-1" />
+      <span class="flex-1 min-w-0" />
 
-      <span class="text-xs text-n-slate-11">{{ statusText }}</span>
+      <span
+        class="overflow-hidden text-xs whitespace-nowrap text-ellipsis text-n-slate-11 max-w-[150px]"
+        :title="statusText"
+      >
+        {{ statusText }}
+      </span>
 
       <button :class="BTN" @click="showFilters = true">
         Filtros<template v-if="filterCount"> ({{ filterCount }})</template>
       </button>
-      <button :class="BTN" :disabled="isExporting" @click="exportBoard">
-        {{ isExporting ? 'Gerando...' : 'Exportar Excel' }}
+      <button
+        :class="BTN"
+        :disabled="isExporting"
+        title="Exportar para Excel"
+        @click="exportBoard"
+      >
+        {{ isExporting ? 'Gerando...' : 'Excel' }}
       </button>
-      <button :class="BTN" @click="openDayView('created')">Criados hoje</button>
-      <button :class="BTN" @click="openDayView('updated')">
-        Atualizados hoje
+      <button
+        :class="BTN"
+        title="Conversas criadas em um dia"
+        @click="openDayView('created')"
+      >
+        Criados
+      </button>
+      <button
+        :class="BTN"
+        title="Conversas atualizadas em um dia"
+        @click="openDayView('updated')"
+      >
+        Atualizados
       </button>
       <button :class="BTN" @click="board.loadAll()">Recarregar</button>
       <button :class="BTN" @click="showSettings = true">Configurações</button>
