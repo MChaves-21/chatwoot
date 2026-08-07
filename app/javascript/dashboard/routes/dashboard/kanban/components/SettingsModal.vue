@@ -18,21 +18,11 @@ const status = ref(props.prefs.status || 'all');
 const leadUrl = ref(props.prefs.leadUrl || '');
 const summaryUrl = ref(props.prefs.summaryUrl || '');
 const secret = ref(props.prefs.secret || '');
-const columnsText = ref(JSON.stringify(props.prefs.columns || [], null, 2));
 const tagsText = ref(JSON.stringify(props.prefs.tags || [], null, 2));
 const error = ref('');
 
 const save = () => {
-  let columns;
   let tags;
-  try {
-    columns = JSON.parse(columnsText.value);
-    if (!Array.isArray(columns) || !columns.length)
-      throw new Error('a lista de colunas não pode ficar vazia');
-  } catch (e) {
-    error.value = `JSON de colunas inválido: ${e.message}`;
-    return;
-  }
   try {
     tags = JSON.parse(tagsText.value || '[]');
     if (!Array.isArray(tags)) throw new Error('tags devem ser uma lista');
@@ -46,7 +36,6 @@ const save = () => {
     leadUrl: leadUrl.value.trim(),
     summaryUrl: summaryUrl.value.trim(),
     secret: secret.value.trim(),
-    columns,
     tags,
   });
 };
@@ -57,8 +46,8 @@ const save = () => {
     <h2 class="mb-1 text-lg font-semibold text-n-slate-12">Configurações</h2>
     <p class="mb-4 text-xs leading-relaxed text-n-slate-11">
       Não há mais campos de URL, account, token ou proxy: dentro do Chatwoot o
-      quadro usa a sessão do agente que está logado. Restam as colunas, as tags
-      e os dois webhooks do n8n que continuam externos.
+      quadro usa a sessão do agente que está logado. Restam as tags e os dois
+      webhooks do n8n que continuam externos.
     </p>
 
     <label :class="LABEL">Status das conversas a incluir</label>
@@ -68,8 +57,15 @@ const save = () => {
       placeholder="all (all, open, resolved, pending, snoozed)"
     />
 
-    <label :class="LABEL">Colunas / estágios (JSON: title, label, color)</label>
-    <textarea v-model="columnsText" spellcheck="false" :class="TEXTAREA" />
+    <div class="p-3 mt-4 rounded-lg border border-n-weak bg-n-alpha-2">
+      <p class="text-[11px] leading-relaxed text-n-slate-11">
+        As colunas deixaram de ser editáveis aqui. Cada funil — Auxílio Acidente
+        e BPC — tem o seu conjunto de etapas definido no código, igual para toda
+        a equipe. Antes cada navegador guardava a sua própria lista, o que fazia
+        o mesmo quadro ficar diferente para cada pessoa. Use o seletor de funil
+        no topo da tela para alternar entre os dois.
+      </p>
+    </div>
 
     <label :class="LABEL">Tags do contato (JSON: title, label, color)</label>
     <textarea v-model="tagsText" spellcheck="false" :class="TEXTAREA" />

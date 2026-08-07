@@ -16,6 +16,7 @@ import {
   todaySP,
   ymdToBR,
 } from '../helpers';
+import { UNSTAGED_LABEL } from '../constants';
 
 const props = defineProps({
   conversations: { type: Array, default: () => [] },
@@ -53,7 +54,12 @@ const list = computed(() => {
 const isToday = computed(() => date.value === todaySP());
 
 const stageOf = conv => {
-  const lbl = convStageLabel(conv, stageLabels.value);
+  const found = convStageLabel(conv, stageLabels.value);
+  // Ver ContactPopup: cartao sem etiqueta de etapa num funil que tem a coluna
+  // Sem etapa pertence a ela, e nao a um traco.
+  const lbl =
+    found ||
+    (stageLabels.value.includes(UNSTAGED_LABEL) ? UNSTAGED_LABEL : '');
   const col = props.columns.find(c => c.label === lbl);
   return {
     title: col ? col.title : '-',

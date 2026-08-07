@@ -6,7 +6,12 @@
  * escapa por padrao, e era ela que segurava o XSS na versao com innerHTML.
  */
 
-import { STAGE_EMOJI, STATUS_LABELS, LEAD_FLAGS } from './constants';
+import {
+  STAGE_EMOJI,
+  STATUS_LABELS,
+  LEAD_FLAGS,
+  UNSTAGED_LABEL,
+} from './constants';
 
 // ---------------------------------------------------------------- primitivas
 
@@ -345,10 +350,13 @@ export function suggestTags(conv, lead, msgs, tagList) {
 
 export function nextSteps(label) {
   const m = {
+    // ------------------------------------------- Auxilio Acidente (caixa 6)
     sdr: 'Qualificar o lead e agendar a conversa comercial.',
+    lead_potencial: 'Confirmar o interesse e passar para o comercial.',
     comercial: 'Apresentar proposta e enviar o contrato.',
     contrato_em_elaboracao:
       'Concluir a elaboracao e enviar o contrato para assinatura.',
+    contrato_enviado: 'Confirmar o recebimento e cobrar a assinatura.',
     aguardando_assinatura: 'Cobrar a assinatura do contrato.',
     contrato_assinado: 'Encaminhar para analise medica/juridica.',
     analise_medica: 'Aguardar/cobrar o parecer medico.',
@@ -357,6 +365,42 @@ export function nextSteps(label) {
     desqualificado: 'Lead desqualificado - sem acao.',
     descarte_sdr: 'Lead descartado no SDR - sem acao.',
     aguardando_tempo: 'Retomar o contato no periodo definido.',
+
+    // ------------------------------------------------------ BPC (caixa 9)
+    //
+    // cancelado e desqualificado sao coisas diferentes e o proximo passo
+    // muda por causa disso (confirmado pelo Murilo em 07/08/2026):
+    //
+    //   cancelado      o cliente desistiu. Tinha caso; escolheu nao seguir.
+    //                  Nao se reaborda por iniciativa nossa.
+    //   desqualificado nao preenche o requisito do BPC (renda familiar por
+    //                  pessoa acima de 1/4 do salario minimo, ou nao se
+    //                  enquadra em deficiencia nem em 65 anos ou mais).
+    //                  Nao vira caso por insistencia.
+    //
+    // Trocar os dois textos faz a equipe cobrar quem desistiu e ignorar quem
+    // so precisava de um documento a mais.
+    [UNSTAGED_LABEL]:
+      'Card ainda sem etapa - classificar arrastando para a coluna correta.',
+    bpc_lead_novo: 'Fazer o primeiro contato e iniciar a qualificacao.',
+    bpc_aguardando_requisito:
+      'Confirmar renda familiar por pessoa e o enquadramento (deficiencia ou 65+).',
+    bpc_qualificado: 'Apresentar a proposta e fechar os honorarios.',
+    bpc_documentos_iniciais: 'Cobrar os documentos iniciais do cliente.',
+    bpc_aguardando_assinatura: 'Cobrar a assinatura do contrato.',
+    bpc_contrato_assinado: 'Encaminhar para pegar a senha do Meu INSS.',
+    bpc_pegar_senha: 'Obter a senha do Meu INSS com o cliente.',
+    bpc_analise_medica: 'Aguardar/cobrar o parecer medico.',
+    bpc_analise_juridica: 'Aguardar/cobrar o parecer juridico.',
+    bpc_pos_juridica:
+      'Retomar quando o prazo vencer ou os documentos que faltam chegarem.',
+    bpc_efetivado: 'Caso efetivado - acompanhar o andamento.',
+    bpc_desqualificado:
+      'Nao preenche o requisito do BPC - sem acao. Reabrir so se a renda ou o quadro mudar.',
+    bpc_cancelado:
+      'Cliente desistiu - sem acao. Retomar apenas se ele procurar de novo.',
+    bpc_fechado_sem_resposta:
+      'Nunca respondeu - candidato a campanha de reativacao, nao a cobranca.',
   };
   return m[label] || '';
 }

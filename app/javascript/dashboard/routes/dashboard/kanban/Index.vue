@@ -41,7 +41,22 @@ const {
   errors,
   statusText,
   leadCache,
+  funnels,
+  activeFunnelId,
+  activeFunnel,
 } = board;
+
+const isSwitchingFunnel = ref(false);
+
+const onFunnelChange = async id => {
+  if (id === activeFunnelId.value) return;
+  isSwitchingFunnel.value = true;
+  try {
+    await board.setFunnel(id);
+  } finally {
+    isSwitchingFunnel.value = false;
+  }
+};
 
 const showFilters = ref(false);
 const showSettings = ref(false);
@@ -157,7 +172,11 @@ const exportBoard = async () => {
     }
     await exportToExcel({
       conversations: list,
-      prefix: filtersActive.value ? 'kanban-filtrado' : 'kanban-panorama',
+      // O funil vai no nome do arquivo: com dois quadros, dois "kanban-panorama"
+      // na pasta de downloads sao indistinguiveis.
+      prefix: `kanban-${activeFunnel.value.id}-${
+        filtersActive.value ? 'filtrado' : 'panorama'
+      }`,
       columns: columnDefs.value,
       tags: tagDefs.value,
     });
@@ -175,7 +194,9 @@ const exportDay = async ({ list, mode, date }) => {
   try {
     await exportToExcel({
       conversations: list,
-      prefix: `kanban-${mode === 'updated' ? 'atualizados' : 'criados'}`,
+      prefix: `kanban-${activeFunnel.value.id}-${
+        mode === 'updated' ? 'atualizados' : 'criados'
+      }`,
       columns: columnDefs.value,
       tags: tagDefs.value,
       stampOverride: date,
@@ -196,6 +217,29 @@ const BTN =
       class="flex flex-wrap gap-2 items-center px-4 py-2.5 border-b border-n-weak"
     >
       <h1 class="text-base font-bold text-n-slate-12">Kanban Comercial</h1>
+
+      <div
+        class="flex overflow-hidden rounded-lg border border-n-weak"
+        role="group"
+        aria-label="Funil"
+      >
+        <button
+          v-for="f in funnels"
+          :key="f.id"
+          type="button"
+          :disabled="isSwitchingFunnel"
+          :aria-pressed="f.id === activeFunnelId"
+          :class="[
+            'px-3 py-1.5 text-sm transition-colors disabled:opacity-50',
+            f.id === activeFunnelId
+              ? 'bg-n-brand text-white'
+              : 'text-n-slate-12 hover:bg-n-alpha-2',
+          ]"
+          @click="onFunnelChange(f.id)"
+        >
+          {{ f.title }}
+        </button>
+      </div>
 
       <span class="flex-1" />
 

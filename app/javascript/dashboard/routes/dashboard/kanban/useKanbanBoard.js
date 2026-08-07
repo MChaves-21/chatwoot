@@ -9,9 +9,12 @@ import { ref, reactive, computed } from 'vue';
 import KanbanAPI, { fetchLead } from './api';
 import {
   DEFAULT_PREFS,
+  FUNNELS,
   LS_KEY,
   MANUAL_LABEL,
   MAX_PAGES_PER_COLUMN,
+  UNSTAGED_LABEL,
+  findFunnel,
 } from './constants';
 import {
   EMPTY_FILTERS,
@@ -24,7 +27,15 @@ import {
 function loadPrefs() {
   try {
     const raw = window.localStorage.getItem(LS_KEY);
-    if (raw) return { ...DEFAULT_PREFS, ...JSON.parse(raw) };
+    if (raw) {
+      const saved = JSON.parse(raw);
+      // As colunas viviam aqui ate 06/08/2026 e agora sao preset por funil.
+      // Descartar as salvas e obrigatorio, nao higiene: um navegador com o
+      // preset antigo em cache montaria um quadro de 11 colunas de Auxilio
+      // Acidente por cima do funil BPC.
+      delete saved.columns;
+      return { ...DEFAULT_PREFS, ...saved };
+    }
   } catch (e) {
     // preferencia corrompida nao deve impedir o quadro de abrir
   }
@@ -35,6 +46,9 @@ export function useKanbanBoard() {
   const prefs = reactive(loadPrefs());
   const filters = reactive({ ...EMPTY_FILTERS });
 
+  const activeFunnelId = ref(findFunnel(prefs.funnelId).id);
+  const activeFunnel = computed(() => findFunnel(activeFunnelId.value));
+
   /** label -> { page, total, done, loaded[] } */
   const columns = reactive({});
   const leadCache = reactive({});
@@ -43,9 +57,20 @@ export function useKanbanBoard() {
   const statusText = ref('');
   const errors = reactive({});
 
-  const columnDefs = computed(() => prefs.columns || []);
+  const columnDefs = computed(() => activeFunnel.value.columns || []);
   const tagDefs = computed(() => prefs.tags || []);
-  const stageLabels = computed(() => columnDefs.value.map(c => c.label));
+
+  /**
+   * So as etapas REAIS do funil ativo. A coluna "Sem etapa" e sintetica e
+   * precisa ficar de fora: moveToStage usa esta lista para decidir o que
+   * apagar, e UNSTAGED_LABEL nao existe como etiqueta no Chatwoot.
+   *
+   * Ser derivada do funil ativo tambem e o que impede um quadro de apagar a
+   * etapa do outro.
+   */
+  const stageLabels = computed(() =>
+    columnDefs.value.map(c => c.label).filter(l => l !== UNSTAGED_LABEL)
+  );
   const filtersActive = computed(() => calcFiltersActive(filters));
 
   function savePrefs() {
@@ -88,12 +113,34 @@ export function useKanbanBoard() {
     const st = columns[label];
     if (!st || st.done) return;
 
+    // A coluna sintetica le a caixa inteira de uma vez e filtra no cliente.
+    // Nao pagina: ver o comentario de listWithoutStage em api.js.
+    if (label === UNSTAGED_LABEL) {
+      try {
+        const { payload, total } = await KanbanAPI.listWithoutStage({
+          inboxId: activeFunnel.value.inboxId,
+          status: prefs.status,
+          stageLabels: stageLabels.value,
+        });
+        st.loaded = payload;
+        st.total = total;
+        st.page = 1;
+        st.done = true;
+        delete errors[label];
+      } catch (err) {
+        errors[label] = err.message || 'Falha ao carregar';
+        throw err;
+      }
+      return;
+    }
+
     st.page += 1;
     try {
       const { payload, total } = await KanbanAPI.listByLabel({
         label,
         page: st.page,
         status: prefs.status,
+        inboxId: activeFunnel.value.inboxId,
       });
       st.total = total;
       const seen = new Set(st.loaded.map(c => c.id));
@@ -229,7 +276,11 @@ export function useKanbanBoard() {
 
     const before = convLabels(conv).slice();
     const kept = before.filter(l => !stageLabels.value.includes(l));
-    const after = kept.concat([toLabel]);
+    // Arrastar de volta para "Sem etapa" e uma operacao legitima: significa
+    // "classifiquei errado, tira daqui". Nesse caso nao ha etiqueta a aplicar,
+    // so as de etapa a remover — UNSTAGED_LABEL nunca vai para a API.
+    const after =
+      toLabel === UNSTAGED_LABEL ? kept.slice() : kept.concat([toLabel]);
     if (!after.includes(MANUAL_LABEL)) after.push(MANUAL_LABEL);
 
     const fromSt = columns[fromLabel];
@@ -280,6 +331,24 @@ export function useKanbanBoard() {
     Object.assign(filters, EMPTY_FILTERS);
   }
 
+  /**
+   * Troca de funil. Zera colunas E cache de leads antes de recarregar: as duas
+   * estruturas sao indexadas por etiqueta e por telefone, sem nocao de funil, e
+   * sobreviveriam a troca misturando os dois quadros.
+   */
+  async function setFunnel(id) {
+    const next = findFunnel(id);
+    if (next.id === activeFunnelId.value) return;
+    activeFunnelId.value = next.id;
+    prefs.funnelId = next.id;
+    savePrefs();
+    Object.keys(columns).forEach(k => delete columns[k]);
+    Object.keys(leadCache).forEach(k => delete leadCache[k]);
+    Object.keys(errors).forEach(k => delete errors[k]);
+    clearFilters();
+    await loadAll();
+  }
+
   return {
     // estado
     prefs,
@@ -289,6 +358,11 @@ export function useKanbanBoard() {
     isLoading,
     statusText,
     errors,
+    // funis
+    funnels: FUNNELS,
+    activeFunnelId,
+    activeFunnel,
+    setFunnel,
     // derivados
     columnDefs,
     tagDefs,

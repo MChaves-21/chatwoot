@@ -1,7 +1,7 @@
 <script setup>
 import { computed, onMounted, onBeforeUnmount, ref } from 'vue';
 import KanbanAPI, { fetchSummary } from '../api';
-import { LEAD_FLAGS } from '../constants';
+import { LEAD_FLAGS, UNSTAGED_LABEL } from '../constants';
 import {
   buildPrevSummary,
   convAssignee,
@@ -61,9 +61,22 @@ const phone = computed(() => convPhone(props.conversation));
 const appliedLabels = computed(() => convLabels(props.conversation));
 
 const stage = computed(() => {
-  const lbl = convStageLabel({ labels: appliedLabels.value }, stageLabels.value);
+  const found = convStageLabel(
+    { labels: appliedLabels.value },
+    stageLabels.value
+  );
+  // Card do funil BPC que ainda nao foi classificado: nenhuma etiqueta bate,
+  // mas ele nao esta "sem fase" — esta na coluna Sem etapa, e o botao dela
+  // precisa aparecer desabilitado como o da fase atual.
+  const lbl =
+    found ||
+    (stageLabels.value.includes(UNSTAGED_LABEL) ? UNSTAGED_LABEL : '');
   const col = props.columns.find(c => c.label === lbl);
-  return { label: lbl, title: col ? col.title : '-', color: col ? col.color : '#64748b' };
+  return {
+    label: lbl,
+    title: col ? col.title : '-',
+    color: col ? col.color : '#64748b',
+  };
 });
 
 /** Etiquetas que não são etapa nem tag configurada — mostradas como leitura. */

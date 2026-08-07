@@ -10,7 +10,7 @@
  *     const XLSX = await import('xlsx');
  */
 
-import { STAGE_EMOJI } from './constants';
+import { STAGE_EMOJI, UNSTAGED_LABEL } from './constants';
 import {
   convAssignee,
   convCreatedRaw,
@@ -78,11 +78,22 @@ export async function exportToExcel({
   const stageLabels = columns.map(c => c.label);
   const stageTitle = label =>
     (columns.find(c => c.label === label) || {}).title || '';
+
+  /**
+   * A coluna "Sem etapa" do funil BPC nao corresponde a etiqueta nenhuma, entao
+   * convStageLabel devolve vazio para os cartoes dela. Sem esta normalizacao os
+   * cartoes sairiam com a fase em branco e o Panorama mostraria a coluna zerada
+   * ao lado de um "(sem fase)" com o mesmo conteudo — dois nomes para a mesma
+   * pilha, na mesma planilha.
+   */
+  const hasUnstaged = stageLabels.includes(UNSTAGED_LABEL);
+  const stageOf = cv =>
+    convStageLabel(cv, stageLabels) || (hasUnstaged ? UNSTAGED_LABEL : '');
   const tagTitle = label => (tags.find(t => t.label === label) || {}).title || label;
 
   const rows = [HEAD];
   conversations.forEach((conv, idx) => {
-    const stLbl = convStageLabel(conv, stageLabels);
+    const stLbl = stageOf(conv);
     const nome = convDisplayName(conv);
     const telF = fmtPhoneBR(convPhone(conv));
     const etq = convLabels(conv)
@@ -124,7 +135,7 @@ export async function exportToExcel({
   ];
   const byStage = {};
   conversations.forEach(cv => {
-    const l = convStageLabel(cv, stageLabels) || '(sem fase)';
+    const l = stageOf(cv) || '(sem fase)';
     byStage[l] = (byStage[l] || 0) + 1;
   });
   columns.forEach(c => pano.push([c.title, byStage[c.label] || 0]));

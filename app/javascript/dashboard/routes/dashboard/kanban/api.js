@@ -15,6 +15,7 @@
  */
 
 import ApiClient from '../../../api/ApiClient';
+import { MAX_PAGES_UNSTAGED } from './constants';
 
 class KanbanAPI extends ApiClient {
   constructor() {
@@ -25,12 +26,19 @@ class KanbanAPI extends ApiClient {
    * Uma pagina de conversas de uma etiqueta. O tamanho da pagina vem de
    * CONVERSATION_RESULTS_PER_PAGE no servidor (25 por padrao), entao nao ha
    * constante equivalente aqui; o total confiavel e o meta.all_count.
+   *
+   * inboxId nao e opcional na pratica: sem ele o Chatwoot devolve as conversas
+   * de TODAS as caixas, que era o defeito corrigido em 07/08/2026 — o quadro de
+   * Auxilio Acidente mostrava conversas do BPC misturadas. O ConversationFinder
+   * ja aceita inbox_id (set_inboxes) e aplica o filtro antes de contar, entao o
+   * meta.all_count continua confiavel.
    */
-  async listByLabel({ label, page = 1, status = 'all' }) {
+  async listByLabel({ label, page = 1, status = 'all', inboxId = null }) {
     const params = new URLSearchParams();
     params.set('status', status || 'all');
     params.set('page', String(page));
     params.append('labels[]', label);
+    if (inboxId) params.set('inbox_id', String(inboxId));
 
     const res = await axios.get(`${this.url}?${params.toString()}`);
     const body = res.data || {};
@@ -45,6 +53,55 @@ class KanbanAPI extends ApiClient {
           : payload.length;
 
     return { payload, total };
+  }
+
+  /**
+   * Conversas da caixa que NAO tem nenhuma das etiquetas de etapa do funil.
+   *
+   * A API do Chatwoot nao sabe filtrar por ausencia de etiqueta, entao aqui se
+   * le a caixa inteira e filtra no cliente. Consequencias que quem mexer nisso
+   * precisa saber:
+   *
+   *   - o custo e proporcional ao tamanho da caixa, nao ao da coluna;
+   *   - por isso a coluna carrega de uma vez so (done = true no fim) em vez de
+   *     paginar com "Ver mais": paginar aqui daria contagem errada, ja que o
+   *     meta.all_count conta a caixa toda e nao o que sobrou do filtro.
+   *
+   * Se a caixa passar de alguns milhares de conversas, isto precisa virar um
+   * endpoint no servidor. MAX_PAGES_UNSTAGED e o freio ate la.
+   */
+  async listWithoutStage({ inboxId, status = 'all', stageLabels = [] }) {
+    const stage = new Set(stageLabels);
+    const out = [];
+    let fetched = 0;
+
+    for (let page = 1; page <= MAX_PAGES_UNSTAGED; page += 1) {
+      const params = new URLSearchParams();
+      params.set('status', status || 'all');
+      params.set('page', String(page));
+      if (inboxId) params.set('inbox_id', String(inboxId));
+
+      // eslint-disable-next-line no-await-in-loop
+      const res = await axios.get(`${this.url}?${params.toString()}`);
+      const body = res.data || {};
+      const data = body.data || body;
+      const payload = data.payload || [];
+      if (!payload.length) break;
+
+      payload.forEach(c => {
+        const labels = c.labels || (c.meta && c.meta.labels) || [];
+        if (!labels.some(l => stage.has(l))) out.push(c);
+      });
+
+      // Contar o acumulado, e nao page * tamanho da pagina: a ultima pagina vem
+      // curta e a multiplicacao pararia cedo, escondendo conversas.
+      fetched += payload.length;
+      const meta = data.meta || {};
+      const all = meta.all_count;
+      if (all !== undefined && all !== null && fetched >= all) break;
+    }
+
+    return { payload: out, total: out.length };
   }
 
   /** Conversa completa, com labels e assignee atualizados. */
