@@ -13,6 +13,7 @@ const props = defineProps({
   tags: { type: Array, default: () => [] },
   conversationUrl: { type: String, required: true },
   isDragging: { type: Boolean, default: false },
+  draggable: { type: Boolean, default: true },
 });
 
 const emit = defineEmits(['open', 'dragstart', 'dragend']);
@@ -53,9 +54,12 @@ const onClick = () => {
 
 <template>
   <div
-    class="p-2.5 rounded-lg border cursor-grab active:cursor-grabbing transition-colors bg-n-background border-n-weak hover:border-n-brand"
-    :class="{ 'opacity-40': isDragging }"
-    draggable="true"
+    class="p-2.5 rounded-lg border transition-colors bg-n-background border-n-weak hover:border-n-brand"
+    :class="[
+      isDragging ? 'opacity-40' : '',
+      props.draggable ? 'cursor-grab active:cursor-grabbing' : 'cursor-default',
+    ]"
+    :draggable="props.draggable"
     @dragstart="onDragStart"
     @dragend="onDragEnd"
     @click="onClick"

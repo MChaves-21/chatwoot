@@ -12,6 +12,9 @@ defineProps({
   error: { type: String, default: '' },
   draggingId: { type: [Number, String], default: null },
   conversationUrl: { type: Function, required: true },
+  // O quadro por estado e somente leitura. Padrao true: os dois funis de
+  // etiqueta nao mudam de comportamento.
+  draggable: { type: Boolean, default: true },
 });
 
 const emit = defineEmits(['drop', 'load-more', 'open-card', 'drag-start', 'drag-end']);
@@ -66,8 +69,14 @@ const onDrop = () => {
         :tags="tags"
         :conversation-url="conversationUrl(conv.id)"
         :is-dragging="draggingId === conv.id"
+        :draggable="draggable"
         @open="emit('open-card', conv)"
-        @dragstart="emit('drag-start', { conversation: conv, label: column.label })"
+        @dragstart="
+          emit('drag-start', {
+            conversation: conv,
+            label: column.label || column.key,
+          })
+        "
         @dragend="emit('drag-end')"
       />
 

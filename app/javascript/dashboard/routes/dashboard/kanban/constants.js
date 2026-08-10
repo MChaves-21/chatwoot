@@ -12,6 +12,8 @@
  * bagunca: um agente com preset antigo em cache misturaria etapas dos dois.
  */
 
+import { STATE_FUNNEL_ID, STATE_INBOX_IDS } from './stateConstants';
+
 /** Coluna sintetica: conversas da caixa que ainda nao tem etapa nenhuma. */
 export const UNSTAGED_LABEL = '__sem_etapa__';
 
@@ -126,6 +128,21 @@ export const FUNNELS = [
     inboxId: 9,
     columns: BPC_COLUMNS,
   },
+  /**
+   * Quadro por estado da conversa — 10/08/2026.
+   *
+   * Nao tem `columns` nem `inboxId`, e nao e esquecimento: as colunas saem do
+   * status da conversa e do tempo parada (ver stateConstants.js), e o quadro
+   * cruza as DUAS caixas em vez de uma. O `mode` e o que faz o Index.vue
+   * renderizar StateBoard no lugar do quadro de etiquetas.
+   */
+  {
+    id: STATE_FUNNEL_ID,
+    title: 'Por estado',
+    mode: 'state',
+    inboxIds: STATE_INBOX_IDS,
+    columns: [],
+  },
 ];
 
 export const DEFAULT_FUNNEL_ID = FUNNELS[0].id;
@@ -203,7 +220,7 @@ export const MAX_PAGES_UNSTAGED = 40;
  * ultimo, o status e os dois webhooks do n8n que continuam externos. As
  * colunas sairam de proposito: sao preset por funil, no codigo.
  */
-export const LS_KEY = 'cw_kanban_prefs_v4';
+export const LS_KEY = 'cw_kanban_prefs_v5';
 
 export const DEFAULT_PREFS = {
   funnelId: DEFAULT_FUNNEL_ID,

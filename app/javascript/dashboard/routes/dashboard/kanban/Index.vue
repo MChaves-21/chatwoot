@@ -23,8 +23,11 @@ import ContactPopup from './components/ContactPopup.vue';
 import DayViewModal from './components/DayViewModal.vue';
 import FiltersModal from './components/FiltersModal.vue';
 import SettingsModal from './components/SettingsModal.vue';
+import StateBoard from './components/StateBoard.vue';
+import DailyTableModal from './components/DailyTableModal.vue';
 
 import { useKanbanBoard } from './useKanbanBoard';
+import { useStateBoard } from './useStateBoard';
 import { exportToExcel } from './excel';
 import { activeFilterCount, passesFilter } from './helpers';
 
@@ -48,11 +51,33 @@ const {
 
 const isSwitchingFunnel = ref(false);
 
+/**
+ * Quadro por estado. Estado proprio, separado do quadro de etiquetas: os dois
+ * tem ciclos de vida opostos (um pagina por coluna e confia na contagem do
+ * servidor, o outro carrega tudo e conta no cliente).
+ */
+const stateBoard = useStateBoard();
+const showDailyTable = ref(false);
+
+const isStateMode = computed(() => activeFunnel.value.mode === 'state');
+
+/**
+ * Carrega so quando o funil fica ativo. Sao ~21 requisicoes; nao vale cobrar
+ * isso de quem nunca abre esta aba.
+ */
+const ensureStateLoaded = () => {
+  if (isStateMode.value && !stateBoard.loadedAt.value) stateBoard.load();
+};
+
 const onFunnelChange = async id => {
   if (id === activeFunnelId.value) return;
   isSwitchingFunnel.value = true;
   try {
+    // setFunnel dispara loadAll() no quadro de etiquetas. No modo estado isso
+    // nao carrega nada — o funil tem `columns: []` — e o StateBoard cuida da
+    // propria carga logo abaixo.
     await board.setFunnel(id);
+    ensureStateLoaded();
   } finally {
     isSwitchingFunnel.value = false;
   }
@@ -84,7 +109,10 @@ const leadLookupEnabled = computed(() =>
   Boolean(prefs.leadUrl && prefs.secret)
 );
 
-onMounted(() => board.loadAll());
+onMounted(() => {
+  if (isStateMode.value) ensureStateLoaded();
+  else board.loadAll();
+});
 
 // ------------------------------------------------------------- drag & drop
 
@@ -258,36 +286,54 @@ const BTN =
         {{ statusText }}
       </span>
 
-      <button :class="BTN" @click="showFilters = true">
-        Filtros<template v-if="filterCount"> ({{ filterCount }})</template>
-      </button>
-      <button
-        :class="BTN"
-        :disabled="isExporting"
-        title="Exportar para Excel"
-        @click="exportBoard"
-      >
-        {{ isExporting ? 'Gerando...' : 'Excel' }}
-      </button>
-      <button
-        :class="BTN"
-        title="Conversas criadas em um dia"
-        @click="openDayView('created')"
-      >
-        Criados
-      </button>
-      <button
-        :class="BTN"
-        title="Conversas atualizadas em um dia"
-        @click="openDayView('updated')"
-      >
-        Atualizados
-      </button>
-      <button :class="BTN" @click="board.loadAll()">Recarregar</button>
+      <!--
+        Os botoes abaixo trabalham sobre etiquetas de funil, que nao existem no
+        quadro por estado. O StateBoard traz os seus proprios.
+      -->
+      <template v-if="!isStateMode">
+        <button :class="BTN" @click="showFilters = true">
+          Filtros<template v-if="filterCount"> ({{ filterCount }})</template>
+        </button>
+        <button
+          :class="BTN"
+          :disabled="isExporting"
+          title="Exportar para Excel"
+          @click="exportBoard"
+        >
+          {{ isExporting ? 'Gerando...' : 'Excel' }}
+        </button>
+        <button
+          :class="BTN"
+          title="Conversas criadas em um dia"
+          @click="openDayView('created')"
+        >
+          Criados
+        </button>
+        <button
+          :class="BTN"
+          title="Conversas atualizadas em um dia"
+          @click="openDayView('updated')"
+        >
+          Atualizados
+        </button>
+        <button :class="BTN" @click="board.loadAll()">Recarregar</button>
+      </template>
       <button :class="BTN" @click="showSettings = true">Configurações</button>
     </header>
 
-    <div class="flex overflow-x-auto overflow-y-hidden flex-1 gap-3 items-start p-3.5">
+    <!-- Quadro por estado: somente leitura, carga propria -->
+    <StateBoard
+      v-if="isStateMode"
+      :board="stateBoard"
+      :conversation-url="conversationUrl"
+      @open-table="showDailyTable = true"
+    />
+
+    <!-- Quadro de etiquetas: comportamento original, intocado -->
+    <div
+      v-else
+      class="flex overflow-x-auto overflow-y-hidden flex-1 gap-3 items-start p-3.5"
+    >
       <KanbanColumn
         v-for="col in columnDefs"
         :key="col.label"
@@ -307,6 +353,18 @@ const BTN =
         @drag-end="onDragEnd"
       />
     </div>
+
+    <DailyTableModal
+      v-if="showDailyTable"
+      :day-table="stateBoard.dayTable.value"
+      :stock-table="stateBoard.stockTable.value"
+      :created-today="stateBoard.createdToday.value"
+      :today-count="stateBoard.todayConversations.value.length"
+      :total-count="stateBoard.total.value"
+      :is-loading-attendants="stateBoard.isLoadingAttendants.value"
+      :load-attendants="stateBoard.loadAttendants"
+      @close="showDailyTable = false"
+    />
 
     <FiltersModal
       v-if="showFilters"
