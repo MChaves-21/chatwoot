@@ -8,12 +8,14 @@
  * uma conversa para "Aberto", porque isso pediria apagar o
  * first_reply_created_at.
  *
- * Como e somente leitura, os cards NAO tem cursor de arrastar (ver a prop
- * :draggable="false"). Um quadro que parece arrastavel e nao e gera chamado.
+ * Desde 10/08/2026 o corpo e uma TABELA, nao colunas de cards (ver
+ * StateTable.vue). Consequencia importante: KanbanColumn e KanbanCard deixaram
+ * de ser usados aqui e passaram a servir so os dois funis de etiqueta — foi o
+ * que liberou a prop `draggable`, que existia so para este quadro.
  */
 
 import { computed } from 'vue';
-import KanbanColumn from './KanbanColumn.vue';
+import StateTable from './StateTable.vue';
 
 const props = defineProps({
   board: { type: Object, required: true },
@@ -25,6 +27,16 @@ const emit = defineEmits(['open-table']);
 const { board } = props;
 
 const unclassifiedCount = computed(() => board.unclassified.value.length);
+
+/**
+ * Texto do contador. Em "Tudo" nao ha recorte, entao mostrar "503 de 503" so
+ * ocuparia espaco.
+ */
+const countText = computed(() => {
+  const all = board.total.value;
+  if (board.scope.value === 'tudo') return `${all} conversas`;
+  return `${board.scopedTotal.value} de ${all} conversas`;
+});
 </script>
 
 <template>
@@ -32,6 +44,27 @@ const unclassifiedCount = computed(() => board.unclassified.value.length);
     <div
       class="flex flex-wrap gap-2 items-center px-4 py-2 border-b border-n-weak"
     >
+      <!--
+        Seletor de periodo. "Hoje" e teve atividade hoje (last_activity_at), o
+        mesmo criterio da tabela que a equipe fotografa as 12h e as 17h30 — se
+        os dois discordassem, a equipe deixaria de confiar nos dois.
+      -->
+      <div class="flex overflow-hidden rounded-lg border border-n-weak">
+        <button
+          v-for="s in board.scopes"
+          :key="s.key"
+          class="px-2.5 py-1 text-xs transition-colors border-r last:border-r-0 border-n-weak"
+          :class="
+            board.scope.value === s.key
+              ? 'bg-n-brand text-white font-semibold'
+              : 'text-n-slate-11 hover:bg-n-alpha-2'
+          "
+          @click="board.scope.value = s.key"
+        >
+          {{ s.title }}
+        </button>
+      </div>
+
       <button
         class="px-3 py-1.5 text-xs font-semibold text-white rounded-lg bg-n-brand hover:opacity-90"
         @click="emit('open-table')"
@@ -48,7 +81,7 @@ const unclassifiedCount = computed(() => board.unclassified.value.length);
       </button>
 
       <span class="text-xs text-n-slate-11">
-        {{ board.total.value }} conversas · {{ board.todayConversations.value.length }} com
+        {{ countText }} · {{ board.todayConversations.value.length }} com
         atividade hoje
       </span>
 
@@ -67,23 +100,6 @@ const unclassifiedCount = computed(() => board.unclassified.value.length);
       stateConstants.js.
     </p>
 
-    <div
-      class="flex overflow-x-auto overflow-y-hidden flex-1 gap-3 items-start p-3.5"
-    >
-      <KanbanColumn
-        v-for="col in board.columns"
-        :key="col.key"
-        :column="col"
-        :conversations="board.inColumn(col.key)"
-        :count-label="board.countFor(col.key)"
-        :tags="[]"
-        :has-more="false"
-        :is-filtered="false"
-        :error="''"
-        :dragging-id="null"
-        :draggable="false"
-        :conversation-url="conversationUrl"
-      />
-    </div>
+    <StateTable :board="board" :conversation-url="conversationUrl" />
   </div>
 </template>

@@ -204,6 +204,36 @@ export const STAGE_EMOJI = {
 /** Etiqueta que o quadro acrescenta ao mover um card na mao. */
 export const MANUAL_LABEL = 'manual';
 
+/**
+ * Etiqueta que desliga o atendimento automatico do n8n para a conversa.
+ *
+ * Em 11/08/2026 estava em 222 das 518 conversas da base — nao e exclusiva de
+ * etapa nenhuma, e o sinal de "daqui pra frente quem fala e gente".
+ */
+export const NO_AUTOMATION_LABEL = 'atendimento_humanizado';
+
+/**
+ * Etapas em que o lead deixou de ser lead: nao ha mais o que automatizar, e
+ * continuar mandando mensagem para quem ja foi descartado e pior que nao
+ * mandar nada.
+ *
+ * Cair numa destas etapas passa a aplicar NO_AUTOMATION_LABEL junto (ver
+ * moveToStage). A regra existe porque depender de alguem lembrar nao funcionou:
+ * na conferencia de 11/08/2026, 5 das 31 conversas finalizadas estavam sem a
+ * etiqueta — ou seja, 5 pessoas ja desqualificadas seguiam no fluxo do robo.
+ *
+ * `efetivado`/`bpc_efetivado` NAO entram aqui de proposito: as duas de
+ * `efetivado` ja tinham a etiqueta, mas "virou cliente" e uma decisao de
+ * processo diferente de "foi descartado", e o usuario so pediu a segunda.
+ */
+export const DISQUALIFIED_LABELS = [
+  'desqualificado',
+  'descarte_sdr',
+  'bpc_desqualificado',
+  'bpc_cancelado',
+  'bpc_fechado_sem_resposta',
+];
+
 /** Teto de paginas por coluna em "carregar tudo", para nao inundar a API. */
 export const MAX_PAGES_PER_COLUMN = 200;
 

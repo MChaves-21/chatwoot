@@ -9,10 +9,12 @@ import { ref, reactive, computed } from 'vue';
 import KanbanAPI, { fetchLead } from './api';
 import {
   DEFAULT_PREFS,
+  DISQUALIFIED_LABELS,
   FUNNELS,
   LS_KEY,
   MANUAL_LABEL,
   MAX_PAGES_PER_COLUMN,
+  NO_AUTOMATION_LABEL,
   UNSTAGED_LABEL,
   findFunnel,
 } from './constants';
@@ -269,6 +271,10 @@ export function useKanbanBoard() {
    * resto — inclusive atendimento_humanizado, de que o fluxo do n8n depende.
    * Acrescenta MANUAL_LABEL para marcar que a mudanca veio de uma pessoa.
    *
+   * Desde 11/08/2026, cair numa etapa de descarte tambem aplica
+   * NO_AUTOMATION_LABEL: quem foi desqualificado nao pode continuar recebendo
+   * mensagem do robo. Ver DISQUALIFIED_LABELS em constants.js.
+   *
    * Atualiza a tela antes da resposta da API e desfaz se ela falhar.
    */
   async function moveToStage(conv, fromLabel, toLabel) {
@@ -282,6 +288,17 @@ export function useKanbanBoard() {
     const after =
       toLabel === UNSTAGED_LABEL ? kept.slice() : kept.concat([toLabel]);
     if (!after.includes(MANUAL_LABEL)) after.push(MANUAL_LABEL);
+
+    // Desliga o atendimento automatico ao descartar. So acrescenta: sair de uma
+    // etapa de descarte NAO religa o robo, porque a etiqueta tambem e usada
+    // fora do quadro (222 conversas em 11/08) e religar por engano manda
+    // mensagem automatica para quem ja estava em atendimento humano.
+    if (
+      DISQUALIFIED_LABELS.includes(toLabel) &&
+      !after.includes(NO_AUTOMATION_LABEL)
+    ) {
+      after.push(NO_AUTOMATION_LABEL);
+    }
 
     const fromSt = columns[fromLabel];
     const toSt = columns[toLabel];

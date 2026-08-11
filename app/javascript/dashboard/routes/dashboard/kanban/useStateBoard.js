@@ -12,10 +12,12 @@ import { ref, reactive, computed } from 'vue';
 import StateAPI from './stateApi';
 import {
   ATTENDANT_WORKERS,
+  DEFAULT_STATE_SCOPE,
   MAX_ATTENDANT_LOOKUPS,
   NO_REPLY_TITLE,
   STATE_COLUMNS,
   STATE_INBOX_IDS,
+  STATE_SCOPES,
 } from './stateConstants';
 import {
   assigneeName,
@@ -24,13 +26,12 @@ import {
   classifyAll,
   isCreatedSince,
   isActiveSince,
+  scopeCutoffTs,
   startOfDayTs,
 } from './stateBoard';
 
 export function useStateBoard() {
   const conversations = ref([]);
-  const buckets = reactive({});
-  const unclassified = ref([]);
 
   const isLoading = ref(false);
   const loadError = ref('');
@@ -70,15 +71,8 @@ export function useStateBoard() {
 
       nowMs.value = Date.now();
       conversations.value = list;
-
-      const { byKey, unclassified: rest } = classifyAll(
-        list,
-        columns,
-        nowMs.value
-      );
-      Object.keys(buckets).forEach(k => delete buckets[k]);
-      Object.assign(buckets, byKey);
-      unclassified.value = rest;
+      // A classificacao nao acontece mais aqui: virou computed, para que trocar
+      // o periodo reclassifique sozinho sem uma requisicao nova (ver `scope`).
 
       loadedAt.value = new Date();
       progress.value = '';
@@ -89,17 +83,61 @@ export function useStateBoard() {
     }
   }
 
+  // ------------------------------------------------------- recorte de periodo
+
+  /**
+   * Periodo em foco: 'hoje' | '7d' | '30d' | 'tudo'.
+   *
+   * Custa zero requisicao. A base inteira ja esta em memoria desde o load(), e
+   * o que muda e so qual fatia dela vai para o classifyAll. Foi por isso que o
+   * seletor virou quatro opcoes em vez do botao unico "so hoje" que o usuario
+   * pediu: com os dados ja carregados, 7d e 30d saem de graca — e sao eles que
+   * resolvem a coluna "+7d", onde estao ~268 dos 503 cards.
+   */
+  const scope = ref(DEFAULT_STATE_SCOPE);
+  const scopes = STATE_SCOPES;
+
+  const scopeCutoff = computed(() => {
+    const def = STATE_SCOPES.find(s => s.key === scope.value);
+    return scopeCutoffTs(def && def.days, new Date(nowMs.value));
+  });
+
+  const scoped = computed(() =>
+    scopeCutoff.value
+      ? conversations.value.filter(c => isActiveSince(c, scopeCutoff.value))
+      : conversations.value
+  );
+
   // ------------------------------------------------------------ leitura
 
+  /**
+   * Classificacao derivada, nao armazenada.
+   *
+   * Antes era um `reactive` preenchido no load(). Virou computed porque agora
+   * ha duas entradas que mudam sem recarregar (a lista e o periodo), e manter
+   * as duas em sincronia na mao e exatamente o tipo de bug que faz o contador
+   * do topo discordar da lista de baixo.
+   */
+  const classified = computed(() =>
+    classifyAll(scoped.value, columns, nowMs.value)
+  );
+
+  const buckets = computed(() => classified.value.byKey);
+  const unclassified = computed(() => classified.value.unclassified);
+
   function inColumn(key) {
-    return buckets[key] || [];
+    return buckets.value[key] || [];
   }
 
   function countFor(key) {
-    return String((buckets[key] || []).length);
+    return String((buckets.value[key] || []).length);
   }
 
+  /** Total da base carregada — nao muda com o periodo, e o denominador. */
   const total = computed(() => conversations.value.length);
+
+  /** Total dentro do periodo em foco. */
+  const scopedTotal = computed(() => scoped.value.length);
 
   const statusText = computed(() => {
     if (isLoading.value) return progress.value || 'Carregando...';
@@ -175,7 +213,15 @@ export function useStateBoard() {
 
   // ------------------------------------------------------------ tabelas
 
-  /** Estoque: tudo que existe agora, por responsavel. */
+  /**
+   * Estoque: tudo que existe agora, por responsavel.
+   *
+   * De proposito sobre `conversations` e nao sobre `scoped`: esta tabela e
+   * fotografada e mandada no grupo duas vezes por dia, e "estoque" ali sempre
+   * significou a base inteira. Se ela passasse a seguir o seletor de periodo, a
+   * mesma foto teria significados diferentes conforme o botao que estivesse
+   * ativo quando alguem apertou "Copiar imagem".
+   */
   const stockTable = computed(() =>
     buildTable(conversations.value, {
       columns,
@@ -212,6 +258,12 @@ export function useStateBoard() {
     nowMs,
     columns,
     total,
+    // periodo
+    scope,
+    scopes,
+    scopeCutoff,
+    scoped,
+    scopedTotal,
     // acoes
     load,
     inColumn,

@@ -13,7 +13,7 @@
  *     terminando com "aplicado: 0". Recolocar depois de consertado.
  */
 
-import { computed, onMounted, ref } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useStore } from 'vuex';
 import { useAlert } from 'dashboard/composables';
 import { frontendURL } from 'dashboard/helper/URLHelper';
@@ -50,6 +50,50 @@ const {
 } = board;
 
 const isSwitchingFunnel = ref(false);
+
+// ------------------------------------------------- navegacao horizontal
+
+/**
+ * Setas para andar de coluna em coluna nos funis de etiqueta.
+ *
+ * Auxilio Acidente tem 13 colunas e BPC tem 15; na largura de tela normal
+ * cabem 4 ou 5. Chegar na ultima etapa exigia arrastar a barra de rolagem por
+ * baixo, que e o alvo mais dificil de acertar da tela.
+ *
+ * Um passo = largura da coluna (290) + o gap-3 (12). Numero fixo porque a
+ * largura da coluna e fixa no KanbanColumn; se ela virar variavel, isto aqui
+ * precisa medir o primeiro filho em vez de assumir.
+ */
+const COLUMN_STEP = 302;
+
+const boardScroller = ref(null);
+const canScrollLeft = ref(false);
+const canScrollRight = ref(false);
+
+const syncScrollState = () => {
+  const el = boardScroller.value;
+  if (!el) {
+    canScrollLeft.value = false;
+    canScrollRight.value = false;
+    return;
+  }
+  canScrollLeft.value = el.scrollLeft > 1;
+  // 1px de folga: com zoom do navegador as contas nao fecham exatamente e o
+  // botao ficaria habilitado no fim da rolagem.
+  canScrollRight.value = el.scrollLeft + el.clientWidth < el.scrollWidth - 1;
+};
+
+const scrollColumns = dir => {
+  const el = boardScroller.value;
+  if (!el) return;
+  el.scrollBy({ left: dir * COLUMN_STEP, behavior: 'smooth' });
+};
+
+// Trocar de funil muda a quantidade de colunas, entao o "da para ir para a
+// direita?" precisa ser recalculado depois do render.
+watch([activeFunnelId, columnDefs], () => {
+  nextTick(syncScrollState);
+});
 
 /**
  * Quadro por estado. Estado proprio, separado do quadro de etiquetas: os dois
@@ -112,6 +156,14 @@ const leadLookupEnabled = computed(() =>
 onMounted(() => {
   if (isStateMode.value) ensureStateLoaded();
   else board.loadAll();
+  // As colunas so existem depois do primeiro render; sem o nextTick as setas
+  // nasceriam escondidas mesmo com 15 colunas na tela.
+  nextTick(syncScrollState);
+  window.addEventListener('resize', syncScrollState);
+});
+
+onBeforeUnmount(() => {
+  window.removeEventListener('resize', syncScrollState);
 });
 
 // ------------------------------------------------------------- drag & drop
@@ -329,29 +381,54 @@ const BTN =
       @open-table="showDailyTable = true"
     />
 
-    <!-- Quadro de etiquetas: comportamento original, intocado -->
-    <div
-      v-else
-      class="flex overflow-x-auto overflow-y-hidden flex-1 gap-3 items-start p-3.5"
-    >
-      <KanbanColumn
-        v-for="col in columnDefs"
-        :key="col.label"
-        :column="col"
-        :conversations="board.visibleIn(col.label)"
-        :count-label="board.countLabel(col.label)"
-        :tags="tagDefs"
-        :has-more="board.hasMore(col.label)"
-        :is-filtered="filtersActive"
-        :error="errors[col.label] || ''"
-        :dragging-id="draggingId"
-        :conversation-url="conversationUrl"
-        @drop="onDrop(col.label)"
-        @load-more="board.loadColumn(col.label).catch(() => {})"
-        @open-card="openConversation = $event"
-        @drag-start="onDragStart"
-        @drag-end="onDragEnd"
-      />
+    <!-- Quadro de etiquetas: comportamento original, com navegacao horizontal -->
+    <div v-else class="flex relative flex-col flex-1 min-h-0">
+      <!--
+        As setas flutuam sobre as colunas em vez de ocupar linha propria: com
+        13-15 colunas, cada pixel de largura util conta. Ficam escondidas
+        quando nao ha para onde ir, para nao sugerir conteudo que nao existe.
+      -->
+      <button
+        v-if="canScrollLeft"
+        class="flex absolute left-1 top-1/2 z-20 justify-center items-center -translate-y-1/2 rounded-full border shadow-md size-8 bg-n-background border-n-weak text-n-slate-12 hover:bg-n-alpha-2"
+        title="Coluna anterior"
+        @click="scrollColumns(-1)"
+      >
+        ‹
+      </button>
+      <button
+        v-if="canScrollRight"
+        class="flex absolute right-1 top-1/2 z-20 justify-center items-center -translate-y-1/2 rounded-full border shadow-md size-8 bg-n-background border-n-weak text-n-slate-12 hover:bg-n-alpha-2"
+        title="Próxima coluna"
+        @click="scrollColumns(1)"
+      >
+        ›
+      </button>
+
+      <div
+        ref="boardScroller"
+        class="flex overflow-x-auto overflow-y-hidden flex-1 gap-3 items-start p-3.5"
+        @scroll.passive="syncScrollState"
+      >
+        <KanbanColumn
+          v-for="col in columnDefs"
+          :key="col.label"
+          :column="col"
+          :conversations="board.visibleIn(col.label)"
+          :count-label="board.countLabel(col.label)"
+          :tags="tagDefs"
+          :has-more="board.hasMore(col.label)"
+          :is-filtered="filtersActive"
+          :error="errors[col.label] || ''"
+          :dragging-id="draggingId"
+          :conversation-url="conversationUrl"
+          @drop="onDrop(col.label)"
+          @load-more="board.loadColumn(col.label).catch(() => {})"
+          @open-card="openConversation = $event"
+          @drag-start="onDragStart"
+          @drag-end="onDragEnd"
+        />
+      </div>
     </div>
 
     <DailyTableModal

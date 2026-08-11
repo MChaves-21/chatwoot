@@ -46,6 +46,25 @@ export function isCreatedSince(conv, sinceTs) {
   return (conv.created_at || 0) >= sinceTs;
 }
 
+/**
+ * Corte inicial de uma janela de `days` dias inteiros terminando hoje.
+ *
+ * `days = 1` devolve o inicio de hoje — a mesma conta que a tabela do dia usa.
+ * `days = 7` devolve o inicio do dia de 6 dias atras, para que a janela some
+ * hoje + 6 dias anteriores = 7 dias. `days` nulo devolve 0 (sem corte).
+ *
+ * Dias inteiros, e nao `agora - N*86400`, para que o numero nao mude sozinho a
+ * cada minuto: quem confere a tela duas vezes na mesma tarde precisa ver o
+ * mesmo valor.
+ */
+export function scopeCutoffTs(days, now = new Date()) {
+  if (!days) return 0;
+  const d = new Date(now);
+  d.setHours(0, 0, 0, 0);
+  d.setDate(d.getDate() - (days - 1));
+  return Math.floor(d.getTime() / 1000);
+}
+
 // --------------------------------------------------------- classificacao
 
 export function convLabelList(conv) {

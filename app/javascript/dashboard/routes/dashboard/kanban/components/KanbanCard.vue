@@ -8,12 +8,18 @@ import {
   fmtDate,
 } from '../helpers';
 
+/**
+ * Card do funil de etiqueta.
+ *
+ * A prop `draggable` foi removida em 10/08/2026: existia porque o quadro por
+ * estado reusava este card em modo somente leitura, e aquele quadro virou
+ * tabela. Este componente agora atende um caso so — sempre arrastavel.
+ */
 const props = defineProps({
   conversation: { type: Object, required: true },
   tags: { type: Array, default: () => [] },
   conversationUrl: { type: String, required: true },
   isDragging: { type: Boolean, default: false },
-  draggable: { type: Boolean, default: true },
 });
 
 const emit = defineEmits(['open', 'dragstart', 'dragend']);
@@ -54,12 +60,9 @@ const onClick = () => {
 
 <template>
   <div
-    class="p-2.5 rounded-lg border transition-colors bg-n-background border-n-weak hover:border-n-brand"
-    :class="[
-      isDragging ? 'opacity-40' : '',
-      props.draggable ? 'cursor-grab active:cursor-grabbing' : 'cursor-default',
-    ]"
-    :draggable="props.draggable"
+    class="p-2.5 rounded-lg border transition-colors cursor-grab active:cursor-grabbing bg-n-background border-n-weak hover:border-n-brand"
+    :class="isDragging ? 'opacity-40' : ''"
+    draggable="true"
     @dragstart="onDragStart"
     @dragend="onDragEnd"
     @click="onClick"

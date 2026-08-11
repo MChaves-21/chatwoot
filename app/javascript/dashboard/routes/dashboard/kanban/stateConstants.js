@@ -114,6 +114,47 @@ export const STATE_COLUMNS = [
 ];
 
 /**
+ * Nomes das caixas, para a coluna "Caixa" da tabela.
+ *
+ * Fixo em codigo em vez de vir da API: sao exatamente as duas caixas de
+ * STATE_INBOX_IDS, o quadro so existe por causa delas, e uma requisicao a mais
+ * so para descobrir dois nomes que nunca mudam nao se paga.
+ */
+export const INBOX_NAMES = {
+  6: 'Auxílio Acidente',
+  9: 'BPC',
+};
+
+/**
+ * Recortes de periodo do quadro por estado.
+ *
+ * `days` e a largura da janela em dias, contada em dias INTEIROS a partir do
+ * inicio do dia de hoje — nao uma janela deslizante de 24h. Duas razoes:
+ *
+ * 1. "Hoje" precisa bater exatamente com a tabela que ja esta em producao e e
+ *    fotografada as 12h e as 17h30. Se o quadro dissesse 61 e a tabela 58, a
+ *    equipe perderia a confianca nos dois.
+ * 2. Janela deslizante muda o numero a cada minuto. Alguem que confere a mesma
+ *    tela duas vezes seguidas veria valores diferentes sem nada ter acontecido.
+ *
+ * O criterio e `last_activity_at` ("teve atividade no periodo"), nao
+ * `created_at` ("foi criada no periodo") — decisao de 10/08/2026. Sao numeros
+ * bem diferentes: 58 contra 10 no recorte de hoje. Para inverter, troque
+ * isActiveSince por isCreatedSince no useStateBoard.
+ */
+export const STATE_SCOPES = [
+  { key: 'hoje', title: 'Hoje', days: 1 },
+  { key: '7d', title: '7 dias', days: 7 },
+  { key: '30d', title: '30 dias', days: 30 },
+  { key: 'tudo', title: 'Tudo', days: null },
+];
+
+export const DEFAULT_STATE_SCOPE = 'tudo';
+
+/** Linhas por pagina na tabela por estado. Ver comentario em StateTable.vue. */
+export const STATE_TABLE_PAGE_SIZE = 50;
+
+/**
  * Colunas condensadas para a tabela e para a imagem: as tres faixas de "Em
  * atendimento" viram uma so. Sete colunas nao cabem numa foto de celular.
  */
