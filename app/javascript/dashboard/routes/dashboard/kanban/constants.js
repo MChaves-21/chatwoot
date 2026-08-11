@@ -23,6 +23,22 @@ export const UNSTAGED_LABEL = '__sem_etapa__';
  * lead_potencial e contrato_enviado entraram em 07/08/2026: as etiquetas
  * existiam e tinham conversa dentro (4 e 7 na epoca), mas nao havia coluna,
  * entao essas conversas eram invisiveis para a equipe.
+ *
+ * 11/08/2026 — "Contrato enviado" SAIU, fundida em "Aguardando Assinatura".
+ * As duas ja estavam sobrepostas na pratica: das 7 conversas em
+ * `contrato_enviado`, 6 tinham TAMBEM `aguardando_assinatura`, e apareciam
+ * numa coluna ou na outra conforme a ordem em que a etiqueta foi gravada —
+ * convStageLabel devolve a primeira que casa. Duas colunas para o mesmo
+ * momento do processo so geravam card em lugar imprevisivel.
+ *
+ * A etiqueta `contrato_enviado` foi zerada na base junto com esta mudanca (as
+ * 7 conversas passaram para `aguardando_assinatura`). Ela continua existindo
+ * no Chatwoot, mas sem conversa e sem coluna.
+ *
+ * ATENCAO se algum fluxo do n8n voltar a aplicar `contrato_enviado`: este
+ * funil NAO tem a coluna sintetica "Sem etapa" (so o BPC tem), entao a
+ * conversa ficaria INVISIVEL no quadro — nao cairia em lugar nenhum. Se isso
+ * acontecer, o conserto e o n8n passar a aplicar `aguardando_assinatura`.
  */
 export const AUXILIO_COLUMNS = [
   { title: 'SDR', label: 'sdr', color: '#3b82f6' },
@@ -33,7 +49,6 @@ export const AUXILIO_COLUMNS = [
     label: 'contrato_em_elaboracao',
     color: '#0ea5e9',
   },
-  { title: 'Contrato enviado', label: 'contrato_enviado', color: '#38bdf8' },
   {
     title: 'Aguardando Assinatura',
     label: 'aguardando_assinatura',

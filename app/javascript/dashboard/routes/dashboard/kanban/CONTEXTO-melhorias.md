@@ -366,9 +366,55 @@ Duas escolhas deliberadas:
   "foi descartado", e só a segunda foi pedida. Se a regra valer para os dois, é
   acrescentar duas linhas em `DISQUALIFIED_LABELS`.
 
-**Pendente:** as 5 conversas que já estão descartadas sem a etiqueta. A regra
-nova só vale para movimentos futuros — essas 5 continuam como estão até alguém
-corrigir.
+**Resolvido em 11/08:** as 5 conversas antigas (#465, #309, #581, #479 em
+`desqualificado`; #545 em `descarte_sdr`) receberam a etiqueta pela API.
+Conferido depois: **29 conversas nas cinco etapas de descarte, 0 sem
+`atendimento_humanizado`.**
+
+## 4.6.2 "Contrato enviado" fundida em "Aguardando Assinatura" (11/08/2026)
+
+Pedido do usuário: tirar a fase "Contrato enviado" do funil de Auxílio
+Acidente, deixando só "Aguardando Assinatura".
+
+**O que a consulta mostrou antes de mexer** — e que mudou o serviço:
+
+| | |
+|---|---:|
+| Conversas em `contrato_enviado` | 7 |
+| Dessas, que já tinham **também** `aguardando_assinatura` | **6** |
+| Só com `contrato_enviado` | 1 (#49) |
+
+As duas colunas já estavam sobrepostas. Como `convStageLabel` devolve a
+**primeira** etiqueta de etapa que casa, esses 6 cards apareciam numa coluna ou
+na outra conforme a ordem em que a etiqueta foi gravada — resultado
+imprevisível. Unificar não foi só simplificar: consertou isso.
+
+Apagar a coluna sem migrar teria deixado a #49 **invisível**, porque o funil de
+Auxílio não tem a coluna sintética "Sem etapa" (só o BPC tem). É o mesmo erro
+de 07/08 com `lead_potencial`.
+
+**Executado, nesta ordem:**
+
+1. Dados: as 7 conversas perderam `contrato_enviado` e ficaram com
+   `aguardando_assinatura`; o resto das etiquetas foi preservado.
+   Conferido: `contrato_enviado` = **0**, `aguardando_assinatura` = **7**.
+2. Código: a coluna saiu de `AUXILIO_COLUMNS` (13 → 12 colunas).
+
+**Risco registrado:** se algum fluxo do n8n voltar a aplicar
+`contrato_enviado`, a conversa fica invisível no quadro — não cai em coluna
+nenhuma. O conserto seria o n8n passar a aplicar `aguardando_assinatura`.
+
+## 4.6.3 As 10 tags passaram a existir (11/08/2026)
+
+As `DEFAULT_TAGS` nunca existiram como etiqueta na conta, então os chips nunca
+apareciam e o filtro por tag não achava nada. As 10 foram criadas via API
+(`recebendo_beneficio`, `ja_tem_advogado`, `sem_advogado`, `acidente_trabalho`,
+`tem_laudo_medico`, `auxilio_negado`, `pericia_agendada`, `contribuinte_inss`,
+`documentos_pendentes`, `urgente`), com `show_on_sidebar: true`. Conferido:
+10/10 presentes.
+
+Começam vazias — quem der valor a elas é a equipe aplicando, e `suggestTags`
+agora sugere etiqueta que existe de verdade.
 
 ## 4.7 Mensagens agendadas — por que não sai de graça
 
