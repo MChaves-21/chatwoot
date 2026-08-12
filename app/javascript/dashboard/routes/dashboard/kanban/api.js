@@ -126,6 +126,17 @@ class KanbanAPI extends ApiClient {
   updateLabels(id, labels) {
     return axios.post(`${this.url}/${id}/labels`, { labels });
   }
+
+  /**
+   * Muda o status da conversa (open / pending / resolved / snoozed).
+   *
+   * Usado desde 12/08/2026 para resolver a conversa ao descartar o lead (ver
+   * moveToStage). E o mesmo endpoint que o botao Resolver da tela de conversa
+   * chama; nao ha como mudar status pela chamada de etiquetas.
+   */
+  toggleStatus(id, status) {
+    return axios.post(`${this.url}/${id}/toggle_status`, { status });
+  }
 }
 
 export default new KanbanAPI();

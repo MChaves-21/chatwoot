@@ -12,10 +12,22 @@
  * bagunca: um agente com preset antigo em cache misturaria etapas dos dois.
  */
 
-import { STATE_FUNNEL_ID, STATE_INBOX_IDS } from './stateConstants';
+import {
+  CLOSED_LABELS,
+  STATE_FUNNEL_ID,
+  STATE_INBOX_IDS,
+} from './stateConstants';
 
 /** Coluna sintetica: conversas da caixa que ainda nao tem etapa nenhuma. */
 export const UNSTAGED_LABEL = '__sem_etapa__';
+
+/**
+ * Id do funil BPC. Constante em vez da string solta porque desde 12/08/2026
+ * ha regra de tela que depende dele (a aba Resumo do card nao aparece no BPC),
+ * e uma string digitada errado falharia em silencio — o resumo simplesmente
+ * continuaria aparecendo.
+ */
+export const BPC_FUNNEL_ID = 'bpc';
 
 /**
  * Funil de Auxilio Acidente — caixa 6.
@@ -39,10 +51,21 @@ export const UNSTAGED_LABEL = '__sem_etapa__';
  * funil NAO tem a coluna sintetica "Sem etapa" (so o BPC tem), entao a
  * conversa ficaria INVISIVEL no quadro — nao cairia em lugar nenhum. Se isso
  * acontecer, o conserto e o n8n passar a aplicar `aguardando_assinatura`.
+ *
+ * 12/08/2026 — "Lead potencial" SAIU pelo mesmo motivo, fundida em
+ * "Comercial". As duas descrevem o mesmo momento do processo ("o SDR passou
+ * adiante") e a separacao nunca foi usada de fato: em 11/08 eram 3 conversas
+ * em `lead_potencial` contra 36 em `comercial`. Duas colunas para o mesmo
+ * estagio so davam ao agente uma decisao a mais para tomar, sem consequencia.
+ *
+ * A etiqueta `lead_potencial` foi migrada para `comercial` na base junto com
+ * esta mudanca. Vale aqui o MESMO aviso do paragrafo acima: sem coluna e sem
+ * "Sem etapa" neste funil, uma conversa que volte a receber `lead_potencial`
+ * some do quadro. Se algum fluxo do n8n aplicar essa etiqueta, o conserto e
+ * no n8n — trocar por `comercial`.
  */
 export const AUXILIO_COLUMNS = [
   { title: 'SDR', label: 'sdr', color: '#3b82f6' },
-  { title: 'Lead potencial', label: 'lead_potencial', color: '#60a5fa' },
   { title: 'Comercial', label: 'comercial', color: '#8b5cf6' },
   {
     title: 'Contrato em Elaboracao',
@@ -138,7 +161,7 @@ export const FUNNELS = [
     columns: AUXILIO_COLUMNS,
   },
   {
-    id: 'bpc',
+    id: BPC_FUNNEL_ID,
     title: 'BPC',
     inboxId: 9,
     columns: BPC_COLUMNS,
@@ -240,14 +263,15 @@ export const NO_AUTOMATION_LABEL = 'atendimento_humanizado';
  * `efetivado`/`bpc_efetivado` NAO entram aqui de proposito: as duas de
  * `efetivado` ja tinham a etiqueta, mas "virou cliente" e uma decisao de
  * processo diferente de "foi descartado", e o usuario so pediu a segunda.
+ *
+ * 12/08/2026 — deixou de ser uma lista propria e passou a ser o mesmo conjunto
+ * de CLOSED_LABELS (stateConstants.js). Eram duas listas com o mesmo sentido e
+ * conteudos diferentes: esta tinha as tres etiquetas do BPC, a de la nao — e
+ * por isso o quadro por estado nao contava os descartes do BPC como Fechado.
+ * Com uma fonte so, acrescentar uma etapa de descarte nova conserta as duas
+ * telas de uma vez.
  */
-export const DISQUALIFIED_LABELS = [
-  'desqualificado',
-  'descarte_sdr',
-  'bpc_desqualificado',
-  'bpc_cancelado',
-  'bpc_fechado_sem_resposta',
-];
+export const DISQUALIFIED_LABELS = CLOSED_LABELS;
 
 /** Teto de paginas por coluna em "carregar tudo", para nao inundar a API. */
 export const MAX_PAGES_PER_COLUMN = 200;

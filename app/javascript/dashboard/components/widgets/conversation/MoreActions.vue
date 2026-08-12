@@ -6,7 +6,12 @@ import { useAlert } from 'dashboard/composables';
 import { useI18n } from 'vue-i18n';
 import { emitter } from 'shared/helpers/mitt';
 import EmailTranscriptModal from './EmailTranscriptModal.vue';
-import ResolveAction from '../../buttons/ResolveAction.vue';
+// Fork Goncalves & Silva (12/08/2026): no lugar do botao Resolver entra o
+// seletor de 4 estados + "Marcar como nao lida". O componente do upstream
+// (buttons/ResolveAction.vue) continua no repositorio e INTACTO — reverter
+// esta unica linha devolve o comportamento original. Ver o cabecalho de
+// ConversationStatePicker.vue para o porque de 4 estados e nao 5.
+import ResolveAction from 'dashboard/routes/dashboard/kanban/components/ConversationStatePicker.vue';
 import ButtonV4 from 'dashboard/components-next/button/Button.vue';
 import DropdownMenu from 'dashboard/components-next/dropdown-menu/DropdownMenu.vue';
 

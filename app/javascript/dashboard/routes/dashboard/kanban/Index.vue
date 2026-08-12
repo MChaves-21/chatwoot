@@ -29,6 +29,7 @@ import DailyTableModal from './components/DailyTableModal.vue';
 import { useKanbanBoard } from './useKanbanBoard';
 import { useStateBoard } from './useStateBoard';
 import { exportToExcel } from './excel';
+import { BPC_FUNNEL_ID } from './constants';
 import { activeFilterCount, passesFilter } from './helpers';
 
 const store = useStore();
@@ -104,6 +105,14 @@ const stateBoard = useStateBoard();
 const showDailyTable = ref(false);
 
 const isStateMode = computed(() => activeFunnel.value.mode === 'state');
+
+/**
+ * O painel do card mostra a aba Resumo? No BPC, nao — 12/08/2026.
+ *
+ * A decisao mora aqui, e nao dentro do ContactPopup, porque quem sabe qual
+ * funil esta aberto e esta tela. O popup so recebe um booleano.
+ */
+const showCardSummary = computed(() => activeFunnelId.value !== BPC_FUNNEL_ID);
 
 /**
  * Carrega so quando o funil fica ativo. Sao ~21 requisicoes; nao vale cobrar
@@ -190,8 +199,11 @@ const onDrop = async toLabel => {
 
   const res = await board.moveToStage(conv, fromLabel, toLabel);
   const title = (columnDefs.value.find(c => c.label === toLabel) || {}).title;
-  if (res.ok) useAlert(`Movido para "${title}"`);
-  else useAlert(`Falha ao mover: ${res.error}`);
+  if (!res.ok) useAlert(`Falha ao mover: ${res.error}`);
+  // O aviso vem quando a etapa gravou mas o encerramento automatico falhou.
+  // Ver moveToStage: e sucesso parcial, nao erro.
+  else if (res.warning) useAlert(`Movido para "${title}". ${res.warning}`);
+  else useAlert(`Movido para "${title}"`);
 };
 
 // ------------------------------------------------------------------ acoes
@@ -199,7 +211,9 @@ const onDrop = async toLabel => {
 const moveFromPopup = async (conv, fromLabel, toLabel) => {
   const res = await board.moveToStage(conv, fromLabel, toLabel);
   const title = (columnDefs.value.find(c => c.label === toLabel) || {}).title;
-  useAlert(res.ok ? `Movido para "${title}"` : `Falha ao mover: ${res.error}`);
+  if (!res.ok) useAlert(`Falha ao mover: ${res.error}`);
+  else if (res.warning) useAlert(`Movido para "${title}". ${res.warning}`);
+  else useAlert(`Movido para "${title}"`);
   return res;
 };
 
@@ -467,6 +481,7 @@ const BTN =
       v-if="showDayView"
       :conversations="board.allConversations()"
       :columns="columnDefs"
+      :tags="tagDefs"
       :initial-mode="dayMode"
       :is-loading="dayLoading"
       :conversation-url="conversationUrl"
@@ -484,6 +499,7 @@ const BTN =
       :conversation-url="conversationUrl(openConversation.id)"
       :toggle-tag="toggleTagFromPopup"
       :move-to-stage="moveFromPopup"
+      :show-summary="showCardSummary"
       @close="openConversation = null"
     />
   </div>

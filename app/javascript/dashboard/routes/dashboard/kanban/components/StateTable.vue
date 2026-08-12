@@ -7,19 +7,22 @@
  * de tabela mostra 30-40 registros na altura em que cabiam 5 cards, e ainda
  * permite ordenar — que era o que faltava para trabalhar a fila.
  *
- * As 7 colunas viram chips de contagem no topo. O pedido original era "ver
- * quantos tem em cada estado"; os chips cumprem isso, e a tabela cumpre o
- * trabalhar. Clicar num chip filtra; clicar de novo tira o filtro.
+ * 12/08/2026 — os chips de contagem que ficavam no topo SAIRAM. Quem faz esse
+ * papel agora e a matriz por departamento e agente (StateMatrix.vue): ela da
+ * os mesmos totais por estado e ainda diz de quem e cada pedaco. O filtro
+ * passou a viver no composable, compartilhado pelos dois componentes — duas
+ * copias do recorte seriam exatamente como a contagem de cima passa a
+ * discordar da lista de baixo.
  *
  * A classificacao NAO e refeita aqui: as linhas saem de `board.inColumn()`, o
- * mesmo lugar que alimenta os chips. Reclassificar por conta propria seria a
+ * mesmo lugar que alimenta a matriz. Reclassificar por conta propria seria a
  * forma mais facil de a tabela discordar do contador logo acima dela.
  */
 
 import { computed, ref, watch } from 'vue';
 
 import { INBOX_NAMES, STATE_TABLE_PAGE_SIZE } from '../stateConstants';
-import { idleDays, lastActivityTs } from '../stateBoard';
+import { condensedKeyOf, idleDays, lastActivityTs } from '../stateBoard';
 import { convAssignee, convDisplayName, convPhone, fmtDate, fmtPhoneBR } from '../helpers';
 
 const props = defineProps({
@@ -51,6 +54,9 @@ const rows = computed(() => {
         phone: fmtPhoneBR(convPhone(conv)),
         rawPhone: convPhone(conv),
         stateKey: col.key,
+        // A coluna condensada a que esta linha pertence — e por ela que a
+        // matriz filtra. Derivada uma vez aqui em vez de a cada comparacao.
+        groupKey: condensedKeyOf(col.key),
         stateTitle: col.short || col.title,
         stateColor: col.color,
         // A ordem de EXIBICAO das colunas, para "ordenar por estado" seguir a
@@ -70,28 +76,14 @@ const rows = computed(() => {
 
 // ------------------------------------------------------------------ filtros
 
-/** null = todos os estados. */
-const stateFilter = ref(null);
 const query = ref('');
-
-const chips = computed(() =>
-  board.columns.map(col => ({
-    key: col.key,
-    title: col.short || col.title,
-    hint: col.hint,
-    color: col.color,
-    count: board.inColumn(col.key).length,
-  }))
-);
-
-function toggleChip(key) {
-  stateFilter.value = stateFilter.value === key ? null : key;
-}
 
 const filtered = computed(() => {
   const q = query.value.trim().toLowerCase();
+  const state = board.stateFilter.value;
   return rows.value.filter(r => {
-    if (stateFilter.value && r.stateKey !== stateFilter.value) return false;
+    if (state && r.groupKey !== state) return false;
+    if (!board.matchesRowFilter(r.conv)) return false;
     if (!q) return true;
     // Telefone entra cru e formatado: quem digita "11987" nao acha nada se so
     // o formatado for comparado, e quem copia "(11) 98765-4321" tambem nao.
@@ -170,9 +162,19 @@ const paged = computed(() =>
 
 // Filtrar, buscar, reordenar ou trocar o periodo com a pagina 7 aberta deixaria
 // a tela vazia sem explicacao.
-watch([stateFilter, query, sortKey, sortDesc, () => board.scope.value], () => {
-  page.value = 1;
-});
+watch(
+  [
+    query,
+    sortKey,
+    sortDesc,
+    () => board.scope.value,
+    () => board.stateFilter.value,
+    () => board.rowFilter.value,
+  ],
+  () => {
+    page.value = 1;
+  }
+);
 watch(pageCount, n => {
   if (page.value > n) page.value = n;
 });
@@ -201,41 +203,15 @@ const TH =
 
 <template>
   <div class="flex flex-col flex-1 min-h-0">
-    <!-- Chips de estado: cumprem o "ver quantos tem em cada um" que as colunas
-         faziam, e servem de filtro. -->
-    <div class="flex flex-wrap gap-1.5 items-center px-4 py-2 border-b border-n-weak">
-      <button
-        class="px-2.5 py-1 text-xs font-semibold rounded-full border transition-colors"
-        :class="
-          stateFilter === null
-            ? 'border-n-brand text-n-brand bg-n-alpha-2'
-            : 'border-n-weak text-n-slate-11 hover:bg-n-alpha-1'
-        "
-        @click="stateFilter = null"
-      >
-        Todos
-        <span class="ml-1 font-bold">{{ rows.length }}</span>
-      </button>
-
-      <button
-        v-for="chip in chips"
-        :key="chip.key"
-        class="flex gap-1.5 items-center px-2.5 py-1 text-xs rounded-full border transition-colors"
-        :class="
-          stateFilter === chip.key
-            ? 'border-n-brand text-n-slate-12 bg-n-alpha-2 font-semibold'
-            : 'border-n-weak text-n-slate-11 hover:bg-n-alpha-1'
-        "
-        :title="chip.hint"
-        @click="toggleChip(chip.key)"
-      >
-        <span
-          class="flex-shrink-0 rounded-full size-2"
-          :style="{ backgroundColor: chip.color }"
-        />
-        {{ chip.title }}
-        <span class="font-bold text-n-slate-12">{{ chip.count }}</span>
-      </button>
+    <!--
+      Os chips sairam em 12/08/2026: quem filtra por estado agora e a matriz
+      logo acima. O que ficou aqui e a busca e o resumo do recorte em foco, que
+      a matriz nao mostra.
+    -->
+    <div class="flex flex-wrap gap-2 items-center px-4 py-2 border-b border-n-weak">
+      <span class="text-xs text-n-slate-11">
+        {{ filtered.length }} de {{ rows.length }} conversas
+      </span>
 
       <span class="flex-1" />
 
@@ -318,7 +294,11 @@ const TH =
           <tr v-if="!paged.length">
             <td colspan="8" class="px-4 py-10 text-center text-n-slate-11">
               <span v-if="board.isLoading.value">Carregando…</span>
-              <span v-else-if="query || stateFilter">
+              <span
+                v-else-if="
+                  query || board.stateFilter.value || board.rowFilter.value
+                "
+              >
                 Nenhuma conversa com esse filtro.
               </span>
               <span v-else>Nenhuma conversa neste período.</span>

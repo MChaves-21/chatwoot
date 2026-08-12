@@ -1,9 +1,19 @@
-# Contexto — melhorias no kanban
+# Contexto — melhorias no kanban  ·  **CONCLUÍDO**
+
+> **⚠️ Documento histórico. Não use como ponto de partida.**
+>
+> As rodadas 1 e 2 descritas aqui foram **entregues e implantadas** em
+> 11/08/2026 (commit `aa4b4ac28`). Para trabalho novo, use:
+>
+> - **`CONTEXTO-fork.md`** — estado atual do projeto, build, deploy, pendências
+> - **`PROMPT-fork.md`** — prompt para abrir a próxima conversa
+>
+> Este arquivo continua valendo como registro do **porquê** de cada decisão da
+> rodada 2 — a lógica das seções 3, 4 e 4.1 não envelheceu, só o estado.
 
 **Data:** 11/08/2026 (v1 em 10/08)
-**Estado:** v1 em produção (`976c64c`). Rodada 2 **escrita no clone, não
-implantada** — falta commit, build e troca de tag no Easypanel.
-**Para:** próxima rodada de trabalho
+**Estado final:** rodada 2 no ar em `aa4b4ac28`, sem regressão conhecida.
+**Para:** consulta histórica
 
 > Documento auto-suficiente. Quem abrir conversa nova trabalha sem o histórico.
 
@@ -500,7 +510,7 @@ Tudo em `app/javascript/dashboard/routes/dashboard/kanban/`.
 
 ## 6.1 Plano das próximas rodadas
 
-### Rodada 2 (escrita em 11/08/2026 — falta commit, build e deploy)
+### Rodada 2 — **ENTREGUE E IMPLANTADA em 11/08/2026** (`aa4b4ac28`)
 
 1. **Seletor de período** no quadro por estado — Hoje · 7d · 30d · Tudo.
    `useStateBoard.js` ganha um `ref` de escopo que escolhe a lista antes do
@@ -516,11 +526,12 @@ Ao fim da rodada 2, `KanbanColumn`/`KanbanCard` só servem Auxílio Acidente e
 BPC — e a prop `draggable` pode ser removida. **Feito: a prop saiu dos dois
 componentes.**
 
-### Rodada 3
+### Rodada 3 — **pendente. A lista atualizada está na seção 8 do `CONTEXTO-fork.md`**
 
 4. Redesenho do layout interno do card, agora livre para ser opinativo.
 5. Pendências antigas, se entrarem no escopo: data do último sync do n8n no
-   quadro (ver seção 6) e o que fazer com as 268 conversas paradas há +7 dias.
+   quadro (ver seção 6) e o que fazer com as conversas paradas há +7 dias —
+   que em 11/08 já eram **273**, não 268.
 
 ---
 

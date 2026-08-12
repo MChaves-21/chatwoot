@@ -16,8 +16,31 @@ export const STATE_FUNNEL_ID = 'por_estado';
 /** As duas caixas juntas. Este quadro cruza os dois funis de proposito. */
 export const STATE_INBOX_IDS = [6, 9];
 
-/** Etiquetas que significam "nao deu certo". Mantidas pelo sync do n8n. */
-export const CLOSED_LABELS = ['desqualificado', 'descarte_sdr'];
+/**
+ * Etiquetas que significam "nao deu certo". Mantidas pelo sync do n8n.
+ *
+ * FONTE UNICA DA VERDADE do descarte. `constants.js` importa daqui e reexporta
+ * como DISQUALIFIED_LABELS — a direcao e esta e nao a inversa porque
+ * constants.js JA importa este arquivo (STATE_FUNNEL_ID, STATE_INBOX_IDS);
+ * inverter criaria import circular e a lista chegaria `undefined` na
+ * inicializacao do modulo.
+ *
+ * 12/08/2026 — as tres etiquetas do BPC entraram aqui depois de um erro que
+ * ficou meses em producao: a lista tinha so as duas do Auxilio, entao as 14
+ * conversas com `bpc_desqualificado` nao contavam como Fechado. Elas caiam em
+ * Resolvido (8), Em atendimento ate 2d (3) e Aberto (1) — ou seja, lead
+ * descartado aparecia como trabalho em andamento e a conta de perdas do BPC
+ * ficava zerada. As duas listas nasceram separadas e so uma foi atualizada
+ * quando o funil BPC foi criado em 07/08; manter uma lista so e o que impede a
+ * divergencia de voltar.
+ */
+export const CLOSED_LABELS = [
+  'desqualificado',
+  'descarte_sdr',
+  'bpc_desqualificado',
+  'bpc_cancelado',
+  'bpc_fechado_sem_resposta',
+];
 
 /**
  * Colunas, em ordem de EXIBICAO.
@@ -192,6 +215,36 @@ export const TABLE_COLUMNS = [
 export const SHARED_ACCOUNT_NAME = 'Gonçalves & Silva Advogados Associados';
 
 export const UNASSIGNED_TITLE = 'Não atribuídas';
+
+/**
+ * Linha das conversas que nao estao em nenhuma equipe.
+ *
+ * Em 12/08/2026 sao TODAS as 533 — a conta nao tem equipe cadastrada. O nome e
+ * explicito ("Sem departamento", nao "Outros") porque a linha inteira e um
+ * recado: enquanto ela concentrar tudo, a tabela por departamento nao diz
+ * nada. Ver o aviso que StateMatrix.vue mostra nesse caso.
+ */
+export const NO_TEAM_TITLE = 'Sem departamento';
+
+/**
+ * Cores das celulas da matriz por estado, por coluna condensada.
+ *
+ * Em hex fixo e nao em token do Chatwoot, igual ao que STATE_COLUMNS ja faz:
+ * sao cor de DADO, nao de interface — o mesmo vermelho precisa significar
+ * "Aberto" no tema claro e no escuro. O fundo entra com opacidade baixa
+ * justamente para nao brigar com nenhum dos dois.
+ *
+ * As cores seguem a imagem de referencia do ChatGuru (Aberto vermelho,
+ * Em atendimento azul, Aguardando amarelo) para que a equipe reconheca a
+ * tabela; nao sao as mesmas de STATE_COLUMNS, onde Aberto e azul.
+ */
+export const MATRIX_CELL_COLORS = {
+  aberto: '#ef4444',
+  em_atendimento: '#3b82f6',
+  aguardando: '#eab308',
+  resolvido: '#16a34a',
+  fechado: '#64748b',
+};
 
 /**
  * Linha da tabela do dia para conversas que tiveram atividade mas nenhuma

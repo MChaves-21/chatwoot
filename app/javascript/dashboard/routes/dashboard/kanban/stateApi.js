@@ -93,6 +93,37 @@ class StateBoardAPI extends ApiClient {
     const data = body.data || body;
     return data.payload || data || [];
   }
+
+  /**
+   * Equipes e agentes cadastrados na conta — 12/08/2026.
+   *
+   * Servem para SEMEAR as linhas da matriz: uma equipe sem conversa nenhuma
+   * precisa aparecer com zero, porque o zero e a informacao (ninguem esta
+   * usando aquela fila). Sem isto, a linha nao existiria e o buraco passaria
+   * despercebido.
+   *
+   * Duas requisicoes baratas, sem paginacao — a conta tem 4 agentes e, hoje,
+   * nenhuma equipe. Falhar nao derruba o quadro: sem as listas a matriz ainda
+   * monta, so perde as linhas zeradas.
+   *
+   * `this.url` aponta para conversations, entao o caminho e montado a partir
+   * do mesmo prefixo de conta em vez de instanciar dois ApiClient a mais.
+   */
+  async directory() {
+    const base = this.url.replace(/\/conversations$/, '');
+    const safe = async path => {
+      try {
+        const res = await axios.get(`${base}/${path}`);
+        const body = res.data || {};
+        const data = body.data || body;
+        return data.payload || data || [];
+      } catch (e) {
+        return [];
+      }
+    };
+    const [teams, agents] = await Promise.all([safe('teams'), safe('agents')]);
+    return { teams, agents };
+  }
 }
 
 export default new StateBoardAPI();

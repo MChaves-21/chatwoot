@@ -22,16 +22,25 @@ import {
 import {
   assigneeName,
   attendantsFromMessages,
+  buildStateMatrix,
   buildTable,
   classifyAll,
   isCreatedSince,
   isActiveSince,
   scopeCutoffTs,
   startOfDayTs,
+  teamName,
 } from './stateBoard';
 
 export function useStateBoard() {
   const conversations = ref([]);
+
+  /**
+   * Equipes e agentes cadastrados. Lidos uma vez no load(), so para semear as
+   * linhas da matriz — nao entram em nenhuma classificacao.
+   */
+  const teams = ref([]);
+  const agents = ref([]);
 
   const isLoading = ref(false);
   const loadError = ref('');
@@ -68,6 +77,12 @@ export function useStateBoard() {
             : `Caixa ${inboxId}: ${fetched}`;
         },
       });
+
+      // Equipes e agentes vem junto para semear as linhas zeradas da matriz.
+      // Depois da lista: se as duas falharem, a matriz ainda monta.
+      const dir = await StateAPI.directory();
+      teams.value = dir.teams || [];
+      agents.value = dir.agents || [];
 
       nowMs.value = Date.now();
       conversations.value = list;
@@ -131,6 +146,55 @@ export function useStateBoard() {
 
   function countFor(key) {
     return String((buckets.value[key] || []).length);
+  }
+
+  // ------------------------------------------------- matriz e filtros
+
+  /**
+   * A matriz "departamento ou usuario x estado" — a tela pedida em 12/08/2026.
+   *
+   * Sobre `scoped` e nao sobre `conversations`: ela e a manchete da tela e
+   * precisa responder ao seletor de periodo, ao contrario da tabela de estoque
+   * do modal, que e sempre a base inteira de proposito.
+   */
+  const matrix = computed(() =>
+    buildStateMatrix(scoped.value, {
+      columns,
+      nowMs: nowMs.value,
+      teams: teams.value,
+      agents: agents.value,
+    })
+  );
+
+  /**
+   * Filtros da tabela de baixo, vivendo aqui e nao dentro do StateTable.
+   *
+   * Subiram para o composable quando a matriz virou o controle de filtro: os
+   * dois componentes precisam do MESMO recorte, e duas copias do estado sao
+   * exatamente como a contagem do topo passa a discordar da lista de baixo.
+   *
+   *   stateFilter — chave de coluna condensada ('aberto', 'em_atendimento'…)
+   *                 ou null para todos.
+   *   rowFilter   — { group, key } vindo do clique numa linha da matriz, ou
+   *                 null. `group` e 'equipes' ou 'agentes'; `key` e o nome, ou
+   *                 a chave sintetica de "sem equipe"/"nao atribuidas".
+   */
+  const stateFilter = ref(null);
+  const rowFilter = ref(null);
+
+  function clearMatrixFilter() {
+    stateFilter.value = null;
+    rowFilter.value = null;
+  }
+
+  /** A conversa pertence a linha em foco? Sem filtro de linha, sempre sim. */
+  function matchesRowFilter(conv) {
+    const f = rowFilter.value;
+    if (!f) return true;
+    const name = f.group === 'equipes' ? teamName(conv) : assigneeName(conv);
+    // Chave sintetica (comeca e termina com __) significa "sem ninguem".
+    if (/^__.*__$/.test(f.key)) return !name;
+    return name === f.key;
   }
 
   /** Total da base carregada — nao muda com o periodo, e o denominador. */
@@ -249,6 +313,8 @@ export function useStateBoard() {
   return {
     // estado
     conversations,
+    teams,
+    agents,
     buckets,
     unclassified,
     isLoading,
@@ -258,6 +324,12 @@ export function useStateBoard() {
     nowMs,
     columns,
     total,
+    // matriz e filtros
+    matrix,
+    stateFilter,
+    rowFilter,
+    clearMatrixFilter,
+    matchesRowFilter,
     // periodo
     scope,
     scopes,

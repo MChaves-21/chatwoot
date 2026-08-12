@@ -15,6 +15,7 @@
  */
 
 import { computed } from 'vue';
+import StateMatrix from './StateMatrix.vue';
 import StateTable from './StateTable.vue';
 
 const props = defineProps({
@@ -99,6 +100,13 @@ const countText = computed(() => {
       Provavelmente o Chatwoot ganhou um status novo — vale conferir
       stateConstants.js.
     </p>
+
+    <!--
+      A matriz vem ANTES da lista e e o controle de filtro dela. Era aqui que
+      ficava a fila de chips por estado; a matriz da os mesmos totais na linha
+      TOTAL e ainda mostra de quem e cada pedaco.
+    -->
+    <StateMatrix :board="board" />
 
     <StateTable :board="board" :conversation-url="conversationUrl" />
   </div>

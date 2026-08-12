@@ -5,6 +5,7 @@ import {
   convAssignee,
   convCreatedRaw,
   convDisplayName,
+  convLabels,
   convPhone,
   convStageLabel,
   convUpdatedRaw,
@@ -21,6 +22,16 @@ import { UNSTAGED_LABEL } from '../constants';
 const props = defineProps({
   conversations: { type: Array, default: () => [] },
   columns: { type: Array, default: () => [] },
+  /**
+   * As tags configuradas do quadro (prefs.tags) — 12/08/2026.
+   *
+   * So elas viram chip, de proposito, e nao "toda etiqueta que nao e etapa":
+   * as conversas carregam `atendimento_humanizado` (222 em 11/08) e `manual`
+   * (138), que sao sinais de automacao e nao qualificacao do lead. Mostrar as
+   * duas encheria quase toda linha com os mesmos dois chips e esconderia
+   * justamente as tags que dizem algo sobre o caso.
+   */
+  tags: { type: Array, default: () => [] },
   initialMode: { type: String, default: 'created' },
   isLoading: { type: Boolean, default: false },
   conversationUrl: { type: Function, required: true },
@@ -65,6 +76,19 @@ const stageOf = conv => {
     title: col ? col.title : '-',
     color: col ? col.color : '#64748b',
   };
+};
+
+/**
+ * As tags do quadro aplicadas nesta conversa, na ordem em que estao
+ * configuradas — nao na ordem em que foram gravadas no Chatwoot.
+ *
+ * A ordem fixa importa: percorrendo uma coluna inteira, a mesma tag cai sempre
+ * na mesma posicao e da para bater o olho. Pela ordem de gravacao, "Urgente"
+ * apareceria ora primeiro ora por ultimo em linhas vizinhas.
+ */
+const tagsOf = conv => {
+  const applied = convLabels(conv);
+  return props.tags.filter(t => applied.includes(t.label));
 };
 
 const TAB = 'px-3 py-1.5 text-xs rounded-lg border border-n-weak text-n-slate-12';
@@ -156,6 +180,7 @@ const TD = 'px-2.5 py-1.5 text-left border-b border-n-weak whitespace-nowrap';
             <th :class="TH">Título</th>
             <th :class="TH">Telefone</th>
             <th :class="TH">Etapa</th>
+            <th :class="TH">Tags</th>
             <th :class="TH">Situação</th>
             <th :class="TH">Responsável</th>
             <th :class="TH">
@@ -178,6 +203,23 @@ const TD = 'px-2.5 py-1.5 text-left border-b border-n-weak whitespace-nowrap';
               >
                 {{ stageOf(conv).title }}
               </span>
+            </td>
+            <!--
+              whitespace-normal e max-w: uma conversa pode ter varias tags e,
+              com nowrap, tres chips empurrariam Situacao e Responsavel para
+              fora da largura util do modal.
+            -->
+            <td :class="[TD, 'max-w-[220px] whitespace-normal']">
+              <span
+                v-for="t in tagsOf(conv)"
+                :key="t.label"
+                class="inline-block mr-1 mb-0.5 px-1.5 text-[10.5px] font-semibold text-white rounded-full"
+                :style="{ backgroundColor: t.color }"
+                :title="t.title"
+              >
+                {{ t.title }}
+              </span>
+              <span v-if="!tagsOf(conv).length" class="text-n-slate-11">—</span>
             </td>
             <td :class="TD">{{ situacaoBR(conv.status) }}</td>
             <td :class="TD">{{ convAssignee(conv) || 'Não definido' }}</td>

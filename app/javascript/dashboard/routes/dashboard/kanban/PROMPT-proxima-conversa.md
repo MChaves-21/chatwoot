@@ -1,4 +1,13 @@
-# Prompt para iniciar a próxima conversa
+# Prompt para iniciar a próxima conversa  ·  **SUBSTITUÍDO**
+
+> **⚠️ Não use este prompt. Ele descreve a rodada 2, que já foi entregue e
+> implantada em 11/08/2026 (`aa4b4ac28`).**
+>
+> Use **`PROMPT-fork.md`**, que aponta para o estado atual do projeto.
+>
+> Arquivo mantido só como registro do que foi pedido naquela rodada.
+
+---
 
 Copie o bloco abaixo inteiro e cole como primeira mensagem.
 

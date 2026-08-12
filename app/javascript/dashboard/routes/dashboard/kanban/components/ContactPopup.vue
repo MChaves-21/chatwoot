@@ -28,6 +28,19 @@ const props = defineProps({
   // o popup precisa saber quando terminaram para liberar o botao.
   toggleTag: { type: Function, required: true },
   moveToStage: { type: Function, required: true },
+  /**
+   * O resumo aparece? 12/08/2026 — o funil BPC pediu para nao ver.
+   *
+   * O motivo nao e estetico: no BPC o resumo local repete o que a aba
+   * Historico ja mostra logo ao lado, e quando o webhook de IA esta ligado ele
+   * dispara uma chamada por card aberto. Quem trabalha o BPC quer a conversa,
+   * nao o resumo dela.
+   *
+   * Prop em vez de ler o funil aqui dentro: o popup nunca soube em que quadro
+   * esta, e ensina-lo isso o acoplaria ao useKanbanBoard so por causa de uma
+   * aba. Quem sabe o funil e o Index.
+   */
+  showSummary: { type: Boolean, default: true },
 });
 
 const emit = defineEmits(['close']);
@@ -37,7 +50,8 @@ const messages = ref([]);
 const lead = ref(null);
 const isLoading = ref(true);
 const loadError = ref('');
-const tab = ref('resumo');
+// Sem resumo, a unica aba e o historico — e e nela que o painel abre.
+const tab = ref(props.showSummary ? 'resumo' : 'historico');
 const busyTag = ref(null);
 const busyStage = ref(null);
 
@@ -121,6 +135,9 @@ const tagTitle = label =>
 // ------------------------------------------------------------------ resumo
 
 async function renderSummary({ forceLocal = false } = {}) {
+  // Sair cedo e o que de fato economiza: sem isto, o BPC continuaria pagando a
+  // chamada de IA no onMounted para montar um texto que ninguem ve.
+  if (!props.showSummary) return;
   isSummarizing.value = true;
   summaryText.value = '';
 
@@ -370,10 +387,12 @@ const SEC =
         <div class="flex flex-col flex-1 min-w-0">
           <div class="flex gap-1 px-3.5 pt-2.5">
             <button
-              v-for="t in [
-                { id: 'resumo', label: 'Resumo' },
-                { id: 'historico', label: 'Histórico' },
-              ]"
+              v-for="t in showSummary
+                ? [
+                    { id: 'resumo', label: 'Resumo' },
+                    { id: 'historico', label: 'Histórico' },
+                  ]
+                : [{ id: 'historico', label: 'Histórico' }]"
               :key="t.id"
               class="px-3 py-1.5 text-xs rounded-t-lg border border-b-0 border-n-weak"
               :class="tab === t.id ? 'font-semibold bg-n-alpha-2 text-n-slate-12' : 'text-n-slate-11'"

@@ -275,6 +275,18 @@ export function useKanbanBoard() {
    * NO_AUTOMATION_LABEL: quem foi desqualificado nao pode continuar recebendo
    * mensagem do robo. Ver DISQUALIFIED_LABELS em constants.js.
    *
+   * Desde 12/08/2026 tambem RESOLVE a conversa. O pedido foi "lead
+   * desqualificado sai da lista de conversas e fica so no kanban", e resolver
+   * e o unico jeito de conseguir isso sem tocar na lista de conversas do
+   * Chatwoot original: a lista abre filtrada por Abertas, entao a conversa
+   * some de la sozinha e continua no quadro, que le com status=all.
+   *
+   * Duas consequencias que quem mexer nisso precisa saber:
+   *   - a conversa NAO some de vez; quem filtrar por "Todas" continua vendo;
+   *   - se o cliente responder, o Chatwoot reabre a conversa sozinho e ela
+   *     volta para a lista. E o comportamento certo (quem foi descartado e
+   *     voltou a falar merece ser visto), mas nao e "sumir para sempre".
+   *
    * Atualiza a tela antes da resposta da API e desfaz se ela falhar.
    */
   async function moveToStage(conv, fromLabel, toLabel) {
@@ -300,6 +312,12 @@ export function useKanbanBoard() {
       after.push(NO_AUTOMATION_LABEL);
     }
 
+    // Descartar tambem encerra a conversa. Guardado antes do try porque o
+    // desfazer precisa saber o status anterior.
+    const isDiscard = DISQUALIFIED_LABELS.includes(toLabel);
+    const beforeStatus = conv.status;
+    const shouldResolve = isDiscard && beforeStatus !== 'resolved';
+
     const fromSt = columns[fromLabel];
     const toSt = columns[toLabel];
 
@@ -308,6 +326,7 @@ export function useKanbanBoard() {
       if (fromSt.total !== null) fromSt.total = Math.max(0, fromSt.total - 1);
     }
     conv.labels = after;
+    if (shouldResolve) conv.status = 'resolved';
     if (toSt) {
       toSt.loaded.unshift(conv);
       if (toSt.total !== null) toSt.total += 1;
@@ -315,6 +334,28 @@ export function useKanbanBoard() {
 
     try {
       await KanbanAPI.updateLabels(conv.id, after);
+      if (shouldResolve) {
+        try {
+          await KanbanAPI.toggleStatus(conv.id, 'resolved');
+        } catch (statusErr) {
+          /*
+           * A etiqueta ja gravou; so o encerramento falhou. Desfazer o
+           * movimento inteiro aqui seria pior que o problema — o card voltaria
+           * para a coluna antiga enquanto a etiqueta de descarte continuaria
+           * gravada no Chatwoot, e as duas telas passariam a discordar.
+           *
+           * Entao o card fica onde esta, o status local volta ao que era, e
+           * quem chamou recebe um aviso especifico: o descarte valeu, so a
+           * conversa continua aberta na lista.
+           */
+          conv.status = beforeStatus;
+          return {
+            ok: true,
+            warning:
+              'Etapa gravada, mas nao consegui encerrar a conversa — ela continua na lista de abertas.',
+          };
+        }
+      }
       return { ok: true };
     } catch (err) {
       if (toSt) {
@@ -322,6 +363,7 @@ export function useKanbanBoard() {
         if (toSt.total !== null) toSt.total = Math.max(0, toSt.total - 1);
       }
       conv.labels = before;
+      conv.status = beforeStatus;
       if (fromSt) {
         fromSt.loaded.unshift(conv);
         if (fromSt.total !== null) fromSt.total += 1;

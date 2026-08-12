@@ -8,6 +8,7 @@
 
 import {
   CLOSED_LABELS,
+  NO_TEAM_TITLE,
   SHARED_ACCOUNT_NAME,
   STATE_COLUMNS,
   TABLE_COLUMNS,
@@ -159,6 +160,24 @@ export function assigneeName(conv) {
 }
 
 /**
+ * Equipe (Team) da conversa, quando ha uma.
+ *
+ * Vem de `meta.team`, que o serializador do Chatwoot ja manda no mesmo payload
+ * da listagem — a tabela por departamento custa ZERO requisicao a mais.
+ *
+ * ATENCAO ao interpretar hoje (12/08/2026): a conta nao tem NENHUMA equipe
+ * cadastrada (`GET /teams` devolveu lista vazia) e as 533 conversas estao sem
+ * equipe. A tabela so ganha linha de departamento depois que alguem criar os
+ * times em Configuracoes e passar a atribuir. Ate la esta funcao devolve null
+ * para tudo e a tabela cai sozinha para as linhas de agente.
+ */
+export function teamName(conv) {
+  const t = conv.meta && conv.meta.team;
+  const name = t && t.name;
+  return name || null;
+}
+
+/**
  * Quem enviou mensagem de saida na conversa, opcionalmente so depois de
  * `sinceTs`. `message_type === 1` e mensagem de saida no Chatwoot.
  *
@@ -181,6 +200,19 @@ export function attendantsFromMessages(messages = [], sinceTs = 0) {
 }
 
 // ---------------------------------------------------------------- tabela
+
+/**
+ * A coluna condensada a que uma coluna detalhada pertence.
+ *
+ * Existe porque a matriz filtra por coluna CONDENSADA ('em_atendimento') e as
+ * linhas da lista carregam a coluna DETALHADA ('atendimento_morno'). Sem esta
+ * traducao, clicar em "Em atend." na matriz nao casaria com linha nenhuma e a
+ * lista abriria vazia — que e o tipo de erro que parece "os dados sumiram".
+ */
+export function condensedKeyOf(detailKey) {
+  const hit = TABLE_COLUMNS.find(tc => tc.from.includes(detailKey));
+  return hit ? hit.key : null;
+}
 
 /** Soma as colunas detalhadas nas colunas condensadas da tabela. */
 export function condense(countsByKey) {
@@ -271,4 +303,139 @@ export function buildTable(
   const rowSum = list.reduce((s, r) => s + r.total, 0);
 
   return { rows: list, total, sharedRows: rowSum - distinctTotal };
+}
+
+// ------------------------------------------------------- matriz por estado
+
+/**
+ * Matriz "departamento ou usuario x estado" — 12/08/2026.
+ *
+ * E a tela que o usuario pediu, no formato que ele ja lia no ChatGuru: uma
+ * linha por departamento e por pessoa, uma coluna por estado, contagem no
+ * cruzamento.
+ *
+ * Duas diferencas em relacao a buildTable, e as duas sao o motivo de esta
+ * funcao existir em vez de reusar aquela:
+ *
+ * 1. Aqui cada conversa cai em UMA linha por grupo. Nao ha o problema de "duas
+ *    pessoas atenderam a mesma conversa" que obriga buildTable a distinguir
+ *    soma das linhas de total de conversas distintas: equipe e responsavel sao
+ *    campos unicos. Entao a soma das linhas de cada grupo bate exatamente com
+ *    o TOTAL, e nao ha nota de rodape para escrever.
+ *
+ * 2. As linhas sao semeadas com as equipes e agentes CADASTRADOS, e nao apenas
+ *    com quem tem conversa. Uma equipe zerada precisa aparecer com zero — e
+ *    justamente a informacao de que ninguem esta usando aquela fila. Foi assim
+ *    na imagem de referencia ("ATENDIMENTO ESPECIALIZADO" com quatro zeros).
+ *
+ * Devolve { total, groups: [{ key, title, rows }] }, com row =
+ * { key, name, kind, counts, total }. `kind` diz ao componente qual icone usar
+ * e o que filtrar ao clicar.
+ */
+export function buildStateMatrix(
+  conversations,
+  { columns = STATE_COLUMNS, nowMs = Date.now(), teams = [], agents = [] } = {}
+) {
+  // Cada grupo e uma particao completa do mesmo conjunto de conversas: toda
+  // conversa tem exatamente uma equipe (ou nenhuma) e um responsavel (ou
+  // nenhum). Por isso os dois somam o mesmo TOTAL.
+  const specs = [
+    {
+      key: 'equipes',
+      title: 'Departamentos',
+      kind: 'team',
+      pick: teamName,
+      seed: teams,
+      emptyKey: '__sem_equipe__',
+      emptyTitle: NO_TEAM_TITLE,
+    },
+    {
+      key: 'agentes',
+      title: 'Agentes',
+      kind: 'agent',
+      pick: assigneeName,
+      seed: agents,
+      emptyKey: '__sem_responsavel__',
+      emptyTitle: UNASSIGNED_TITLE,
+    },
+  ];
+
+  const distinct = {};
+  let distinctTotal = 0;
+
+  const groups = specs.map(spec => {
+    const rows = new Map();
+    // A linha "sem" vem semeada sempre: com 311 conversas sem responsavel em
+    // 12/08 ela nunca fica vazia, mas semear garante que ela exista mesmo no
+    // dia em que zerar — e um zero ali e uma boa noticia que vale mostrar.
+    rows.set(spec.emptyKey, {
+      key: spec.emptyKey,
+      name: spec.emptyTitle,
+      kind: 'none',
+      counts: {},
+      total: 0,
+    });
+    spec.seed.forEach(s => {
+      const name = s && (s.name || s.title);
+      if (!name) return;
+      rows.set(name, {
+        key: name,
+        name,
+        kind: spec.kind,
+        subtitle: (s && s.email) || '',
+        counts: {},
+        total: 0,
+      });
+    });
+    return { spec, rows };
+  });
+
+  conversations.forEach(conv => {
+    const key = classify(conv, columns, nowMs);
+    if (!key) return;
+
+    distinct[key] = (distinct[key] || 0) + 1;
+    distinctTotal += 1;
+
+    groups.forEach(({ spec, rows }) => {
+      const name = spec.pick(conv);
+      const rowKey = name || spec.emptyKey;
+      if (!rows.has(rowKey)) {
+        // Responsavel que atendeu e depois saiu da conta nao aparece na lista
+        // de agentes, mas as conversas dele continuam existindo. Sem este ramo
+        // elas sumiriam da tabela e o TOTAL nao fecharia.
+        rows.set(rowKey, {
+          key: rowKey,
+          name,
+          kind: spec.kind,
+          counts: {},
+          total: 0,
+        });
+      }
+      const row = rows.get(rowKey);
+      row.counts[key] = (row.counts[key] || 0) + 1;
+      row.total += 1;
+    });
+  });
+
+  return {
+    total: {
+      name: 'TOTAL',
+      counts: condense(distinct),
+      total: distinctTotal,
+    },
+    groups: groups.map(({ spec, rows }) => ({
+      key: spec.key,
+      title: spec.title,
+      rows: [...rows.values()]
+        .map(r => ({ ...r, counts: condense(r.counts) }))
+        // "Sem equipe"/"Nao atribuidas" no topo, como na imagem de referencia;
+        // o resto por volume, que poe quem trabalha mais logo abaixo.
+        .sort((a, b) => {
+          if (a.kind === 'none') return -1;
+          if (b.kind === 'none') return 1;
+          return b.total - a.total || a.name.localeCompare(b.name);
+        }),
+    })),
+  };
 }
