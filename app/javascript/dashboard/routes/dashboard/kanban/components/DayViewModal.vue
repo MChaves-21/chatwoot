@@ -1,5 +1,6 @@
 <script setup>
 import { computed, ref, watch } from 'vue';
+import { onClickOutside } from '@vueuse/core';
 import BaseModal from './BaseModal.vue';
 import {
   convAssignee,
@@ -47,6 +48,9 @@ watch(
   v => {
     mode.value = v;
     date.value = todaySP();
+    // Cada abertura comeca com todas as etapas marcadas, por decisao de 13/08.
+    // Filtro que sobrevive fechado esconde dado sem ninguem lembrar por que.
+    selectAllStages();
   }
 );
 
@@ -64,18 +68,99 @@ const list = computed(() => {
 
 const isToday = computed(() => date.value === todaySP());
 
-const stageOf = conv => {
+/** Chave da opcao sintetica: conversa que nao cai em coluna nenhuma. */
+const NO_STAGE_KEY = '__fora_do_funil__';
+
+/**
+ * Chave de etapa da conversa — sempre uma das opcoes do filtro.
+ *
+ * Separada de stageOf porque o filtro compara CHAVE, nao titulo: os dois funis
+ * tem colunas de titulo identico ("Analise medica", "Desqualificado"), e o
+ * titulo sozinho nao identifica coluna.
+ */
+const stageKeyOf = conv => {
   const found = convStageLabel(conv, stageLabels.value);
   // Ver ContactPopup: cartao sem etiqueta de etapa num funil que tem a coluna
   // Sem etapa pertence a ela, e nao a um traco.
   const lbl =
     found ||
     (stageLabels.value.includes(UNSTAGED_LABEL) ? UNSTAGED_LABEL : '');
-  const col = props.columns.find(c => c.label === lbl);
+  return props.columns.some(c => c.label === lbl) ? lbl : NO_STAGE_KEY;
+};
+
+const stageOf = conv => {
+  const col = props.columns.find(c => c.label === stageKeyOf(conv));
   return {
     title: col ? col.title : '-',
     color: col ? col.color : '#64748b',
   };
+};
+
+/**
+ * Filtro de etapas — 13/08/2026.
+ *
+ * Nasceu de um problema concreto: a migracao do ChatGuru criou 428 conversas
+ * num dia so, todas nas colunas Closer/SDR ChatGuru. Sem filtro, a tela de
+ * Criados daquele dia vira uma lista de leads importados e some com os leads
+ * que a equipe realmente atendeu.
+ *
+ * As opcoes sao as colunas do funil aberto, mais uma sintetica para quem nao
+ * cai em coluna nenhuma. Essa ultima so aparece nos funis SEM a coluna "Sem
+ * etapa" (hoje, so o de Auxilio): la a conversa com etiqueta de etapa
+ * desconhecida some do quadro, e esta tela e o unico lugar onde ela aparece —
+ * deixa-la fora do filtro a esconderia tambem aqui.
+ *
+ * A lista e estavel por funil, e NAO derivada das conversas do dia. Se ela
+ * mudasse conforme o dia, a selecao se perderia a cada clique na seta de
+ * navegacao.
+ */
+const stageOptions = computed(() => {
+  const opts = props.columns.map(c => ({
+    key: c.label,
+    title: c.title,
+    color: c.color,
+  }));
+  if (!stageLabels.value.includes(UNSTAGED_LABEL)) {
+    opts.push({ key: NO_STAGE_KEY, title: 'Sem etapa', color: '#64748b' });
+  }
+  return opts;
+});
+
+const selectedStages = ref([]);
+const selectAllStages = () => {
+  selectedStages.value = stageOptions.value.map(o => o.key);
+};
+
+/*
+ * Observa a ASSINATURA das opcoes, nao o array em si: o computed devolve um
+ * array novo a cada leitura, e observa-lo direto reiniciaria a selecao em
+ * loop. A troca de funil muda a assinatura e reinicia — que e o certo, porque
+ * as chaves de um funil nao existem no outro.
+ */
+watch(() => stageOptions.value.map(o => o.key).join('|'), selectAllStages, {
+  immediate: true,
+});
+
+const allStagesSelected = computed(
+  () => selectedStages.value.length === stageOptions.value.length
+);
+
+const listaFiltrada = computed(() => {
+  if (allStagesSelected.value) return list.value;
+  const sel = new Set(selectedStages.value);
+  return list.value.filter(c => sel.has(stageKeyOf(c)));
+});
+
+const isFilterOpen = ref(false);
+const filterRoot = ref(null);
+onClickOutside(filterRoot, () => {
+  isFilterOpen.value = false;
+});
+
+const toggleStage = key => {
+  const i = selectedStages.value.indexOf(key);
+  if (i >= 0) selectedStages.value.splice(i, 1);
+  else selectedStages.value.push(key);
 };
 
 /**
@@ -140,17 +225,77 @@ const TD = 'px-2.5 py-1.5 text-left border-b border-n-weak whitespace-nowrap';
         </button>
       </div>
 
+      <div ref="filterRoot" class="flex relative items-center">
+        <button
+          :class="[NAV, allStagesSelected ? '' : 'border-n-brand text-n-brand']"
+          :title="
+            allStagesSelected
+              ? 'Escolher quais etapas aparecem na lista'
+              : 'A lista esta filtrada por etapa'
+          "
+          @click="isFilterOpen = !isFilterOpen"
+        >
+          Etapas:
+          {{
+            allStagesSelected
+              ? 'todas'
+              : `${selectedStages.length} de ${stageOptions.length}`
+          }}
+          <span class="text-n-slate-11">▾</span>
+        </button>
+
+        <div
+          v-if="isFilterOpen"
+          class="absolute top-full z-20 p-1 mt-1 rounded-lg border shadow-lg ltr:left-0 rtl:right-0 w-[264px] max-h-[320px] overflow-auto border-n-strong bg-n-solid-1"
+        >
+          <div class="flex gap-1 px-1 pb-1 mb-1 border-b border-n-weak">
+            <button
+              class="px-2 py-1 text-[11px] rounded-md text-n-brand hover:bg-n-alpha-2"
+              @click="selectAllStages"
+            >
+              Marcar todas
+            </button>
+            <button
+              class="px-2 py-1 text-[11px] rounded-md text-n-slate-11 hover:bg-n-alpha-2"
+              @click="selectedStages = []"
+            >
+              Desmarcar todas
+            </button>
+          </div>
+
+          <label
+            v-for="opt in stageOptions"
+            :key="opt.key"
+            class="flex gap-2 items-center px-2 py-1 rounded-md cursor-pointer hover:bg-n-alpha-2"
+          >
+            <input
+              type="checkbox"
+              :checked="selectedStages.includes(opt.key)"
+              @change="toggleStage(opt.key)"
+            />
+            <span
+              class="flex-shrink-0 rounded-full size-2"
+              :style="{ backgroundColor: opt.color }"
+            />
+            <span class="text-xs text-n-slate-12">{{ opt.title }}</span>
+          </label>
+        </div>
+      </div>
+
       <span class="text-xs text-n-slate-11">
-        {{ list.length }} conversa(s) - {{ ymdToBR(date) }}
+        {{ listaFiltrada.length }} conversa(s) - {{ ymdToBR(date) }}
         <template v-if="isToday">(hoje)</template>
+        <template v-if="!allStagesSelected">
+          · de {{ list.length }} no dia
+        </template>
       </span>
 
       <span class="flex-1" />
 
       <button
         class="px-3 py-1.5 text-sm text-white rounded-lg bg-n-brand"
-        :disabled="!list.length"
-        @click="emit('export', { list, mode, date })"
+        :disabled="!listaFiltrada.length"
+        @click="emit('export', { list: listaFiltrada, mode, date })"
       >
         Exportar Excel
       </button>
@@ -167,7 +312,7 @@ const TD = 'px-2.5 py-1.5 text-left border-b border-n-weak whitespace-nowrap';
         Carregando conversas...
       </p>
 
-      <p v-else-if="!list.length" class="p-6 text-sm text-center text-n-slate-11">
+      <p v-else-if="!listaFiltrada.length" class="p-6 text-sm text-center text-n-slate-11">
         Nenhuma conversa
         {{ mode === 'updated' ? 'atualizada' : 'criada' }} em
         {{ ymdToBR(date) }}.
@@ -190,7 +335,7 @@ const TD = 'px-2.5 py-1.5 text-left border-b border-n-weak whitespace-nowrap';
           </tr>
         </thead>
         <tbody>
-          <tr v-for="conv in list" :key="conv.id" class="hover:bg-n-alpha-2">
+          <tr v-for="conv in listaFiltrada" :key="conv.id" class="hover:bg-n-alpha-2">
             <td :class="TD">#{{ conv.id }}</td>
             <td :class="[TD, 'max-w-[260px] whitespace-normal']">
               {{ convDisplayName(conv) }}
