@@ -8,6 +8,7 @@
 import { ref, reactive, computed } from 'vue';
 import KanbanAPI, { fetchLead } from './api';
 import {
+  COLUMN_CONCURRENCY,
   DEFAULT_PREFS,
   DISQUALIFIED_LABELS,
   FUNNELS,
@@ -165,20 +166,72 @@ export function useKanbanBoard() {
     }
   }
 
+  /**
+   * A ordem em que as colunas sao CARREGADAS, que nao e a ordem em que elas
+   * aparecem na tela — 14/08/2026.
+   *
+   * A coluna sintetica "Sem etapa" vai por ultimo. Ela nao da para pedir por
+   * etiqueta (a API do Chatwoot nao sabe filtrar por ausencia), entao le a
+   * CAIXA INTEIRA e filtra no cliente: na caixa 9 sao 593 conversas = 24
+   * requisicoes, contra 1 de cada coluna de etiqueta.
+   *
+   * Ela e a PRIMEIRA coluna do funil BPC. Carregar na ordem da tela significava
+   * segurar as outras 16 colunas ate ela terminar — o quadro passava a maior
+   * parte do tempo de carga sem mostrar card nenhum, gastando esse tempo na
+   * coluna que menos card tem. Trocar a ordem nao economiza uma requisicao
+   * sequer; muda so QUANDO a tela comeca a ficar util, que era a reclamacao.
+   */
+  function loadOrder() {
+    const defs = columnDefs.value;
+    return [
+      ...defs.filter(c => c.label !== UNSTAGED_LABEL),
+      ...defs.filter(c => c.label === UNSTAGED_LABEL),
+    ];
+  }
+
+  /**
+   * Executa `job` sobre a fila com no maximo COLUMN_CONCURRENCY em voo.
+   *
+   * Um erro em uma coluna nao derruba as outras: ja fica registrado em
+   * errors[label] e a coluna aparece marcada na tela.
+   */
+  async function runPool(queue, job, onDone = null) {
+    let next = 0;
+    let finished = 0;
+    const worker = async () => {
+      while (next < queue.length) {
+        const item = queue[next];
+        next += 1;
+        try {
+          // eslint-disable-next-line no-await-in-loop
+          await job(item);
+        } catch (e) {
+          // erro por coluna ja fica registrado em errors[label]
+        }
+        finished += 1;
+        if (onDone) onDone(finished, queue.length);
+      }
+    };
+    const width = Math.min(COLUMN_CONCURRENCY, queue.length) || 1;
+    await Promise.all(Array.from({ length: width }, () => worker()));
+  }
+
   async function loadAll() {
     isLoading.value = true;
-    statusText.value = 'Carregando...';
     resetColumns();
-    // Sequencial de proposito: em paralelo, 11 colunas disparam 11 chamadas
-    // simultaneas e esbarram no rate limit do Chatwoot.
-    for (const col of columnDefs.value) {
-      try {
-        // eslint-disable-next-line no-await-in-loop
-        await loadColumn(col.label);
-      } catch (e) {
-        // erro por coluna ja fica registrado em errors[label]
+
+    const queue = loadOrder();
+    // Contador em vez de "Carregando...": com 17 colunas, saber que faltam 3 e
+    // a diferenca entre esperar e achar que travou.
+    statusText.value = `Carregando 0/${queue.length}...`;
+    await runPool(
+      queue,
+      col => loadColumn(col.label),
+      (done, total) => {
+        statusText.value = `Carregando ${done}/${total}...`;
       }
-    }
+    );
+
     isLoading.value = false;
     statusText.value = `Atualizado ${new Date().toLocaleTimeString('pt-BR')}`;
   }
@@ -188,23 +241,35 @@ export function useKanbanBoard() {
    * E caro: ate MAX_PAGES_PER_COLUMN requisicoes por coluna.
    */
   async function loadEverything() {
-    statusText.value = 'Carregando todas as conversas...';
-    for (const col of columnDefs.value) {
-      const st = columns[col.label];
-      if (!st) continue;
-      let guard = 0;
-      while (!st.done && guard < MAX_PAGES_PER_COLUMN) {
-        try {
-          // eslint-disable-next-line no-await-in-loop
-          await loadColumn(col.label);
-        } catch (e) {
-          // Igual ao loadAll: uma coluna que falha nao derruba as outras. O
-          // erro ja esta em errors[label] e a coluna aparece marcada na tela.
-          break;
+    const queue = loadOrder();
+    statusText.value = `Carregando todas as conversas 0/${queue.length}...`;
+
+    // Colunas em paralelo (ate COLUMN_CONCURRENCY), paginas de cada coluna em
+    // sequencia. E a operacao mais cara do quadro — ate MAX_PAGES_PER_COLUMN
+    // requisicoes por coluna — e e a que a equipe espera as 12h e as 17h30.
+    await runPool(
+      queue,
+      async col => {
+        const st = columns[col.label];
+        if (!st) return;
+        let guard = 0;
+        while (!st.done && guard < MAX_PAGES_PER_COLUMN) {
+          try {
+            // eslint-disable-next-line no-await-in-loop
+            await loadColumn(col.label);
+          } catch (e) {
+            // Igual ao loadAll: uma coluna que falha nao derruba as outras. O
+            // erro ja esta em errors[label] e a coluna aparece marcada na tela.
+            break;
+          }
+          guard += 1;
         }
-        guard += 1;
+      },
+      (done, total) => {
+        statusText.value = `Carregando todas as conversas ${done}/${total}...`;
       }
-    }
+    );
+
     statusText.value = '';
   }
 

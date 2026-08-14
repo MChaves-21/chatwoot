@@ -1,7 +1,7 @@
 # Contexto — o fork do Chatwoot da Gonçalves & Silva
 
-**Data:** 12/08/2026 (revisto às 16h35, depois do deploy da rodada 4)
-**Estado:** `7f0bad2fe` no ar e conferido em tela. Nada pendente de deploy.
+**Data:** 13/08/2026 (revisto depois da rodada 7, na tarde do mesmo dia)
+**Estado:** `722786ac2` no ar, bundle `dashboard-BvLEXRDE.js`. Nada pendente de deploy.
 **Para:** qualquer rodada futura de desenvolvimento neste fork.
 
 > Documento auto-suficiente e de propósito geral. Quem abrir conversa nova
@@ -12,34 +12,64 @@
 
 ## 0. Onde as coisas pararam (leia primeiro)
 
-**Nada pendente de deploy.** A rodada 4 foi commitada, construída e implantada
-em 12/08/2026 às 16h27, e conferida em tela logo depois. `7f0bad2fe` é o que
-está rodando.
+**Nada pendente de deploy.** `722786ac2` está no ar (bundle
+`dashboard-BvLEXRDE.js`), conferido em tela.
 
-O que entrou: matriz departamento/agente × estado na aba "Por estado", seletor
-de 4 estados + "Marcar como não lida" no cabeçalho da conversa, coluna Tags em
-Criados/Atualizados, resumo escondido no BPC, fusão de "Lead potencial" em
-"Comercial", desqualificar passa a resolver a conversa, e **a correção do
-descarte do BPC** (ver seção 6 — foi o achado que justificou a rodada).
+Três deploys em 12/08, nesta ordem:
 
-O que foi conferido em tela, e não só deduzido:
+| sha | O que entrou |
+|---|---|
+| `7f0bad2fe` | rodada 4: matriz departamento/agente × estado, seletor de 4 estados no cabeçalho da conversa, coluna Tags em Criados/Atualizados, fusão de "Lead potencial" em "Comercial", **correção do descarte do BPC** |
+| `bd5c203fc` | as duas colunas ChatGuru no funil BPC (`chatguru_closer`, `chatguru_sdr`) |
+| `722786ac2` | **atual** — filtro de etapas nas telas Criados/Atualizados |
 
-- a matriz somando 534 conversas, com linhas e colunas fechando com o TOTAL;
-- o aviso de "nenhuma equipe cadastrada" no lugar do grupo Departamentos;
-- "Murilo (teste)" aparecendo com cinco zeros — a semeadura de agente sem
-  conversa funciona;
-- o seletor no cabeçalho da conversa #699 (caixa 9, `open`, com
-  `bpc_desqualificado`) mostrando **"Fechado (desqualificado)"** — o caso exato
-  que estava errado antes;
-- a coluna Fechado em **31**, contra 19 na versão anterior.
+Depois da rodada 4 aconteceram, na ordem:
 
-**Ainda em 12/08, depois do deploy, a migração do ChatGuru foi executada:** 428
-leads processados, 389 criados, zero erros. A base foi de 534 para 848 conversas
-e de 687 para 1.102 contatos. Detalhes e a receita da API na seção 8.
+1. **Migração do ChatGuru executada** — 428 leads, 389 conversas criadas, zero
+   erros (seção 8).
+2. **Um incidente:** criar 214 conversas na caixa 9 disparou um workflow do n8n
+   e **14 pessoas receberam um vídeo de atendimento sem pedir**. Causa e lição na
+   seção 6 — é o item mais importante deste documento.
+3. **Reorganização pedida pelo usuário:** as duas bases eram de autismo, então
+   tudo foi para o funil BPC, em duas colunas de origem, **todas atribuídas à
+   Juliana** (seção 8).
+4. **Filtro de etapas** nas telas Criados/Atualizados, para poder esconder as
+   colunas do ChatGuru (seção 5).
+5. **Workflow do vídeo religado**, com a etiqueta-guarda `video-bpc-enviado`
+   criada na conta — ela não existia, e por isso a trava de "não repetir" nunca
+   funcionou.
+6. **Trabalho no n8n:** coluna ETAPA da planilha de processos preenchida, e um
+   freio de 10 minutos no workflow de alerta de erro (seção 11).
 
-**As pendências que sobraram são de processo, não de código:** atribuir
-conversas (58% sem responsável, e agora sobre uma base bem maior) e,
-opcionalmente, criar as Equipes. Ver seção 8.
+### Rodada 7 (13/08, manhã) — só n8n, nada de código no fork
+
+1. **A sessão da uazapi voltou.** O usuário repareou por volta das 10h50; as três
+   instâncias aparecem `connected` no painel (`558587734178` "Goncalves",
+   `558589127035` "segundo telefone", `558586156440` "BPC").
+2. **Os 8 avisos perdidos foram reenviados**, todos com sucesso entre 11h06 e
+   11h12 (seção 12). Isso também é a prova de que a sessão entrega de novo —
+   painel dizendo `connected` não é prova.
+3. **Guarda nova no workflow do vídeo**, publicada. Fecha a pendência 9.
+4. **Guarda nova no `Kanban Sync`**, publicada, contra falha silenciosa.
+5. **O `Kanban Sync` está saudável**: 20 de 20 execuções com sucesso, de hora em
+   hora. Na execução das 10h: `total 372, aplicado 13, ja_ok 335, pulado_manual
+   23, sem_contato 1, erros 0`. **O `aplicado: 0` do comentário do `Index.vue`
+   não vale mais** — dá para recolocar o botão "Atualizar do Supabase" se
+   quiser, o webhook `Botao Atualizar` continua no workflow com a checagem de
+   segredo intacta.
+
+**O que está pendente hoje** (seção 8):
+
+- **Confirmar a execução do `Kanban Sync` das 12h00** — é a primeira depois da
+  guarda nova. Se a guarda tiver erro de runtime, ela transforma um sync
+  saudável em falha de hora em hora, com e-mail junto.
+- **Rodar o `Planilha Processos - Suporte ao Cliente` uma vez** para confirmar a
+  coluna ETAPA. É gatilho manual, de propósito.
+- **Não existe monitor de sessão caída da uazapi.** Hoje resolveu porque o
+  usuário percebeu. Continua sendo o risco operacional mais caro em aberto.
+- **387 execuções de produção falharam na conta, taxa de 4,2% e subindo 3,3
+  pontos.** Não é o kanban — é algum outro dos 66 workflows. Não investigado.
+- Atribuição de conversas continua sendo o gargalo de processo.
 
 **Não implante às 12h nem às 17h30** — é quando a equipe fotografa a tabela.
 
@@ -102,10 +132,10 @@ Serviços no mesmo projeto do Easypanel: `chatwoot`, `chatwoot-db`,
 
 ### As duas caixas de entrada
 
-| id | Nome | Tipo | Conversas (12/08) |
+| id | Nome | Tipo | Conversas (13/08) |
 |---:|---|---|---:|
-| 6 | Auxílio acidente | `Channel::Api` | 370 |
-| 9 | BPC | `Channel::Api` | 163 |
+| 6 | Auxílio acidente | `Channel::Api` | 487 |
+| 9 | BPC | `Channel::Api` | 593 |
 
 **São `Channel::Api`, não WhatsApp nativo.** Isso importa mais do que parece:
 
@@ -116,29 +146,36 @@ Serviços no mesmo projeto do Easypanel: `chatwoot`, `chatwoot-db`,
 - **Não dá para criar conversa por importação de contato.** Contato importado
   por CSV entra sem `contact_inbox`; a conversa precisa de uma chamada à API.
   Ver seção 8, item da migração do ChatGuru.
-- O envio de mensagem para fora passa por Evolution API + n8n.
+- O envio de mensagem para fora passa por Evolution API / uazapi + n8n.
 - Do lado do Chatwoot, mandar mensagem é
   `POST /api/v1/accounts/1/conversations/{id}/messages`.
+- **Conversa NÃO muda de caixa.** O `permitted_update_params` do
+  `conversations_controller.rb` permite só `:priority`. Para "mover" um lead de
+  caixa, o caminho é resolver a conversa antiga e criar uma nova na caixa certa
+  — foi o que a reorganização de 12/08 fez com 114 conversas.
+- **`lock_to_single_conversation`:** caixa 6 = `true`, caixa 9 = `false`. Só que
+  na prática dá no mesmo: são 593 conversas para 593 contatos distintos na caixa
+  9, ou seja, a integração sempre reaproveita a conversa existente. Não conte com
+  a flag para prever comportamento — conte com a medição.
 
-### Equipes e agentes (12/08/2026)
+### Equipes e agentes (13/08/2026)
 
 **`GET /api/v1/accounts/1/teams` devolve lista vazia. Não existe nenhuma equipe
-cadastrada, e as 534 conversas estão todas sem equipe.** Reconferido em 12/08
-às 16h35, depois do deploy.
+cadastrada, e as 1.080 conversas estão todas sem equipe.**
 
-Agentes: 4.
+O usuário decidiu em 12/08 **não criar as Equipes agora** — cria se achar
+necessário. Isso não bloqueia nada; só mantém metade da matriz escondida (o
+grupo "Departamentos" some e no lugar vai um aviso).
 
-| id | Nome | Papel | Conversas atribuídas |
-|---:|---|---|---:|
-| 1 | Gonçalves & Silva Advogados Associados | administrator | 76 |
-| 2 | Juliana Fernandes | agent | 146 |
-| 3 | Gabriel | agent | 1 |
-| 4 | Murilo (teste) | agent | 0 |
-| — | *sem responsável* | — | **311** |
+Agentes: 4. Juliana (id 2) recebeu **as 428 conversas da migração do ChatGuru**,
+então é de longe a maior carga hoje.
 
-Isso é o que limita a tabela nova por departamento: ela está pronta, mas só
-ganha linha de departamento depois que alguém criar os times em Configurações →
-Equipes e passar a atribuir. É processo, não código.
+| id | Nome | Papel |
+|---:|---|---|
+| 1 | Gonçalves & Silva Advogados Associados | administrator |
+| 2 | Juliana Fernandes | agent |
+| 3 | Gabriel | agent |
+| 4 | Murilo (teste) | agent |
 
 ---
 
@@ -335,7 +372,9 @@ Apontar a imagem para um sha anterior e Implantar:
 
 | sha | O que é |
 |---|---|
-| `7f0bad2fe48195821e8075d35588075a8dd6a5b9` | **atual no ar** — matriz por estado, seletor na conversa, correção do descarte BPC |
+| `722786ac2` | **atual no ar** — filtro de etapas em Criados/Atualizados |
+| `bd5c203fc` | colunas ChatGuru no funil BPC |
+| `7f0bad2fe48195821e8075d35588075a8dd6a5b9` | matriz por estado, seletor na conversa, correção do descarte BPC |
 | `aa4b4ac289dbf354c94c9097525c26c32a9a41b8` | tabela por estado + funil de 12 colunas |
 | `2b5a78b3008a3be2260a52d7c1abdf729a6152bb` | tabela por estado, ainda com "Contrato enviado" |
 | `976c64ccde5a76fe22c3683d78ddccd33aec7113` | v1: quadro por estado em cards |
@@ -356,7 +395,7 @@ Tudo em `app/javascript/dashboard/routes/dashboard/kanban/`, exceto onde dito.
 | Quadro | Fonte das colunas | Caixa | Arrasta? |
 |---|---|---|---|
 | Auxílio Acidente | etiquetas de etapa (**11 colunas** desde 12/08) | 6 | sim |
-| BPC | etiquetas de etapa (15 colunas) | 9 | sim |
+| BPC | etiquetas de etapa (**17 colunas** desde 12/08 — ganhou "Closer ChatGuru" e "SDR ChatGuru") | 9 | sim |
 | Por estado | `status` + tempo parada (7 estados, condensados em 5) | 6 e 9 juntas | não — é tabela |
 
 ### Arquivos
@@ -364,7 +403,7 @@ Tudo em `app/javascript/dashboard/routes/dashboard/kanban/`, exceto onde dito.
 | Arquivo | Papel |
 |---|---|
 | `Index.vue` | Cabeçalho, seletor de funil, navegação horizontal, roteia entre os modos |
-| `constants.js` | Funis de etiqueta, tags, etapas de descarte, `BPC_FUNNEL_ID`, prefs locais |
+| `constants.js` | Funis de etiqueta, tags, `BPC_FUNNEL_ID`, prefs locais. **Não define mais o descarte** — importa `CLOSED_LABELS` de `stateConstants.js` e reexporta como `DISQUALIFIED_LABELS` |
 | `helpers.js` | Funções puras: datas, telefone, filtros, ficha do lead |
 | `api.js` | Chamadas do quadro de etiquetas + `toggleStatus` |
 | `useKanbanBoard.js` | Estado dos dois funis de etiqueta; `moveToStage` e `toggleTag` |
@@ -382,16 +421,115 @@ Tudo em `app/javascript/dashboard/routes/dashboard/kanban/`, exceto onde dito.
 | `tableImage.js` | Gera o PNG da tabela no canvas, para o WhatsApp |
 | `excel.js` | Exportação |
 | `components/ContactPopup.vue` | Ficha do contato, resumo (escondido no BPC), sugestão de tags |
-| `components/DayViewModal.vue` | Criados / Atualizados do dia, **com coluna Tags desde 12/08** |
+| `components/DayViewModal.vue` | Criados / Atualizados do dia, com coluna Tags e **filtro de etapas desde 12/08** (ver abaixo) |
 | `components/FiltersModal.vue`, `SettingsModal.vue`, `BaseModal.vue` | Modais |
 | `routes.js` | Registro da rota |
 
 `KanbanColumn` e `KanbanCard` servem só aos dois funis de etiqueta. O quadro por
 estado é tabela e não usa nenhum dos dois.
 
+### O filtro de etapas do DayViewModal (12/08)
+
+Pedido concreto: *"para eu não exibir as informações das colunas do ChatGuru"*.
+As duas colunas de origem têm 426 cards somados e afogavam as telas do dia.
+
+Como funciona, e por que assim:
+
+- Um botão no cabeçalho abre um painel com uma linha por coluna do funil atual,
+  com caixa de seleção. **Tudo vem marcado.** Filtro que começa vazio parece
+  tela quebrada.
+- **O filtro reseta a cada abertura do modal** (o `watch` do `initialMode` chama
+  `selectAllStages()`). Filtro que persiste entre aberturas faz o usuário ver
+  número errado amanhã sem lembrar por quê.
+- A linha extra `__fora_do_funil__` ("Sem etapa") só aparece **quando o funil não
+  tem coluna de "Sem etapa" própria** — no BPC ela existe, no Auxílio não. Sem
+  essa linha, as conversas sem etiqueta de etapa sumiriam do filtro e o total não
+  fecharia.
+- Quando **tudo** está marcado, o filtro devolve a lista original sem copiar —
+  atalho que evita percorrer 1.000 itens à toa no caso mais comum.
+- `listaFiltrada` substitui `list` em **quatro** lugares: a contagem do
+  cabeçalho, o payload da exportação, o estado vazio e o `v-for`. Trocar só o
+  `v-for` deixaria o contador mentindo.
+
 ---
 
 ## 6. Coisas que já custaram caro — não reaprender
+
+### O incidente do vídeo (12/08) — leia antes de criar conversa em lote
+
+**O que aconteceu:** a migração criou 214 conversas na caixa 9. O evento
+`conversation_created` dispara um webhook para o n8n, e havia um workflow ativo
+que manda um vídeo de apresentação para todo lead novo do BPC. **14 pessoas
+receberam esse vídeo no WhatsApp às 8h da manhã, sem nunca ter falado com o
+escritório.**
+
+**A causa não foi o Chatwoot nem o n8n. Foi não ter perguntado.** A pergunta
+certa antes de qualquer criação em lote é: **"o que dispara quando nasce uma
+conversa nesta caixa?"** Listar os workflows ativos com trigger em
+`conversation_created` custa uma consulta. Não fazer isso custou mensagem
+indesejada para 14 clientes.
+
+**Regra que fica:** criar registro em produção não é operação de leitura
+disfarçada. **Antes de qualquer inserção em lote, liste o que escuta o evento
+que a inserção dispara e desligue o que não deve rodar.** Vale para conversa,
+mensagem e etiqueta.
+
+**Como medir o estrago depois, se acontecer:** varra as mensagens das conversas
+criadas procurando `message_type === 1` (saída) com anexo de vídeo. Foi assim
+que o número saiu de "uns 40, chutando" para **14, contados**. Chute alto assusta
+o cliente à toa; chute baixo esconde o problema. Meça.
+
+**E um detalhe que agravou tudo:** o workflow tinha uma trava de "não repetir",
+baseada na etiqueta `video-bpc-enviado` — **só que essa etiqueta não existia na
+conta.** Aplicar etiqueta inexistente não dá erro visível, e a trava nunca
+funcionou. **Toda etiqueta que um workflow aplica ou consulta precisa existir em
+`GET /labels`.** Confira a lista antes de confiar em qualquer guarda de
+idempotência.
+
+### Etiqueta de CONVERSA não é etiqueta de CONTATO (13/08)
+
+A guarda do vídeo lia `GET /contacts/{id}/labels`. As etiquetas `chatguru_closer`
+e `chatguru_sdr` foram aplicadas nas **conversas** (passo 3 da receita de
+importação). **Medido: 0 de 40 contatos amostrados têm qualquer `chatguru_*`;
+31 dos 40 não têm etiqueta nenhuma.** Acrescentar `contains chatguru_closer`
+naquele nó não faria absolutamente nada — uma proteção que passa na revisão,
+entra no ar e não protege. **Antes de escrever uma condição sobre etiqueta,
+confira em qual dos dois objetos ela mora.**
+
+### A medição escolheu o filtro, e a diferença era 60% da base (13/08)
+
+O desenho inicial da guarda nova era "o contato já tem conversa anterior?".
+Medido contra a base: **15 de 25 leads da caixa 9 seriam bloqueados** — a maioria
+tem uma conversa espelho na caixa 6, herança da reorganização do ChatGuru. Isso
+não é guarda, é desligar o vídeo. Com o filtro `inbox_id === 9`: **0 de 50**.
+**Um filtro de uma linha separou a guarda útil do desligamento geral, e só a
+medição mostrou qual era qual.**
+
+### try-catch troca falha barulhenta por falha silenciosa (13/08)
+
+O `Kanban Sync` recebeu um try-catch no laço SCAN e parou de quebrar. Só que o
+erro passou a ser engolido: a execução termina **verde** mesmo falhando. **O
+status da execução deixou de ser sinal confiável** — quem diz a verdade é o
+`_resumo` (`erros`, `total`, `aplicado`). Foi por isso que o alerta novo lê o
+resumo e não o status. Vale para qualquer try-catch: ele não conserta o
+problema, muda o lugar onde ele aparece.
+
+### Armadilhas do n8n descobertas em 13/08
+
+- **Não leia a API `/rest` do n8n por script.** O n8n invalida a sessão quando a
+  requisição não bate com o `browser-id` do navegador. Resultado: o usuário é
+  deslogado no meio do trabalho. Trabalhe pela tela.
+- **O botão "Publish" não se aplica a workflow de gatilho manual.** Ele fica
+  cinza com o aviso *"This workflow has no trigger nodes that require
+  publishing"*. Ler "Publish" em vez de "Published" **não** significa rascunho
+  parado — em gatilho manual, o que está salvo no editor é o que roda. Foi um
+  alarme falso caro de meia hora.
+- **O retry de execução do n8n é "from node with error"**, não do começo. Ele
+  retoma do nó que falhou com os dados originais, então nós a montante não rodam
+  de novo e nada a montante é duplicado. Isso torna reenvio de aviso seguro.
+- **`update_workflow` continua criando só rascunho** — `publish_workflow` depois.
+
+### O resto
 
 - **"Aberto" e "Em atendimento" são o MESMO status no Chatwoot.** Só existem 4
   status: `open`, `pending`, `snoozed`, `resolved`. A diferença entre Aberto e
@@ -497,79 +635,103 @@ estado é tabela e não usa nenhum dos dois.
   varredura de 12/08 apareceram 11 — dez pré-existentes ou orgânicas, e uma que
   tinha entrado sozinha durante a própria migração e por isso foi pulada pelo
   guard. Vale rodar essa checagem sempre que criar conversa em lote.
+- **Conversa não muda de caixa** (`permitted_update_params` só permite
+  `:priority`). Quem errou a caixa na criação paga resolvendo a antiga e criando
+  outra — 114 conversas passaram por isso na reorganização de 12/08. **Decidir a
+  caixa antes de criar é mais barato que qualquer correção depois.**
+- **Um tratador de erro sem freio destrói o próprio canal de aviso.** O workflow
+  de alerta por e-mail mandava um e-mail por execução falha. Quando um workflow
+  entrou em laço de erro, o Gmail respondeu **403 de cota** e aí nenhum aviso
+  saiu — nem daquele problema, nem de outro qualquer. Hoje há um freio de 10
+  minutos por workflow em `$getWorkflowStaticData('global')`, e o e-mail que sai
+  depois da janela informa quantas foram agrupadas. **Alerta sem
+  agrupamento/limite é alerta que some exatamente quando é necessário.**
+- **`update_workflow` no n8n só cria rascunho.** O `activeVersionId` continua
+  apontando para a versão antiga e a execução segue usando o código velho — sem
+  nenhum aviso. **Chame `publish_workflow` depois de toda alteração** e confira o
+  `activeVersionId`.
+- **Vale a pena desconfiar do próprio teste antes de desconfiar do código.** O
+  filtro de etapas "não funcionou" numa verificação de 12/08: na verdade o painel
+  rolou entre a captura de tela e o clique, então eu clicava numa linha e media
+  outra. O código estava certo. **Quando o resultado não bate, refaça a medição
+  antes de mexer no código.**
 
 ---
 
-## 7. Números da base (12/08/2026)
+## 7. Números da base (13/08/2026)
 
-> **Estes números são de ANTES da migração do ChatGuru**, medidos às 16h35 de
-> 12/08, logo depois do deploy. Ficam aqui porque é contra eles que a correção
-> do descarte BPC foi verificada. Depois da migração (17h15): **848 conversas ·
-> 1.102 contatos · caixa 6 com 483 · caixa 9 com 365**, e a coluna BPC "Lead
-> novo" saltou de 136 para 335. As contagens por estado abaixo não foram
-> remedidas — a migração entrou toda como conversa aberta e sem responsável,
-> então "Em atendimento" e "Não atribuídas" cresceram na mesma proporção.
+**1.080 conversas · 1.109 contatos.** Eram 534 e 687 antes da migração do
+ChatGuru; 518 em 11/08. Caixa 6: **487**. Caixa 9: **593**.
 
-**534 conversas · 687 contatos.** Eram 518 em 11/08. Caixa 6: 371. Caixa 9: 163.
+Equipes: **0**. Etiquetas: **61**.
 
 | Por status | |
 |---|---:|
-| open | 488 |
-| resolved | 44 |
+| open | 918 |
+| resolved | 160 |
 | pending | 2 |
 | snoozed | 0 |
 
-| Pelo quadro "Por estado" | |
-|---|---:|
-| Aberto | 3 |
-| Em atendimento (3 faixas somadas) | 473 |
-| Aguardando | 2 |
-| Resolvido | 25 |
-| **Fechado** | **31** |
-
-A coluna Fechado era 19 antes da correção de 12/08 (ver seção 6).
-
 | Etiqueta | Conversas |
 |---|---:|
-| sdr | 299 |
-| comercial | 36 |
-| bpc_desqualificado | **14** |
-| desqualificado | 12 |
-| aguardando_assinatura | 7 |
-| descarte_sdr | 7 |
-| lead_potencial | **3** (as 3 já têm outra etapa) |
-| bpc_cancelado | 0 |
-| bpc_fechado_sem_resposta | 0 |
-| contrato_enviado | **0** |
-| autismo | 0 |
+| sdr | 304 |
+| **chatguru_closer** | **262** |
+| **atendimento_humanizado** | 276 |
+| **chatguru_sdr** | 164 |
+| **bpc_lead_novo** | 133 |
+| video-bpc-enviado | 0 |
 
-Etiquetas fora dos funis que valem conhecer: `atendimento_humanizado` (240,
-desliga o robô) e `manual` (177, marca movimento feito por pessoa). As duas
-cresceram ~18 e ~39 em um dia — é o sinal de que a equipe está mexendo à mão.
+`chatguru_closer` caiu de 264 para 262 entre a reorganização e a medição do dia
+seguinte: dois cards foram trabalhados e arrastados para outra coluna. **É o
+comportamento esperado** — as duas colunas de origem são ponto de partida, não
+etiqueta permanente. Espere esses números caírem com o tempo.
+
+`video-bpc-enviado` em **0** é normal: a etiqueta foi criada em 12/08 e o
+workflow do vídeo só a aplica em lead novo que chegar daqui para frente.
 
 **A maior parte da base ainda está na primeira coluna do seu funil.** O funil
 existe, mas não está sendo percorrido — isso é processo, não código.
+
+### Como remedir
+
+Cole no console do Chatwoot (ver seção 3 para os cabeçalhos):
+
+```js
+const n = async q => (await get(
+  `/api/v1/accounts/1/conversations?status=all&page=1&${q}`)).meta.all_count;
+({ caixa6: await n('inbox_id=6'), caixa9: await n('inbox_id=9'),
+   closer: await n('labels[]=chatguru_closer'),
+   sdrCg:  await n('labels[]=chatguru_sdr') });
+```
 
 ---
 
 ## 8. O que está pendente
 
-Nada de código. Tudo o que segue depende de decisão de processo ou de dado.
+Nada de código. Tudo o que segue depende de decisão de processo, de dado, ou de
+uma ação que só o usuário pode fazer.
 
-### Decisões de processo que travam telas prontas
+### O que trava tudo hoje
 
-1. **Criar as Equipes no Chatwoot.** A matriz por departamento está pronta e
-   escondida: com `GET /teams` vazio, o grupo "Departamentos" não aparece e no
-   lugar vai um aviso. Criar Comercial, SDR, Closer e Suporte em Configurações →
-   Equipes e passar a atribuir faz as linhas surgirem **sem novo deploy**.
-   *(12/08: o Murilo optou por não criar agora — cria se achar necessário. Não
-   é bloqueio para nada, só mantém metade da matriz escondida.)*
-2. **Atribuir conversas.** Era 311 de 534 (58%) antes da migração, com essa
-   linha sozinha carregando 272 das 473 "Em atendimento". **A migração do
-   ChatGuru piorou muito isso**: os 325 leads novos entraram sem responsável,
-   então a proporção passou de ~58% para ~75%. A matriz por agente continua
-   correta, só que quase toda concentrada em "Não atribuídas". Enquanto não
-   houver rotina de atribuição, a tela mostra um número só.
+0. **RESOLVIDO em 13/08.** A sessão da uazapi tinha caído
+   (`503 — WhatsApp disconnected: session is not reconnectable`) e **8 avisos se
+   perderam** entre 10h10 e 10h43. O usuário repareou por volta das 10h50 e os 8
+   foram reenviados com sucesso (seção 12). **Só o usuário pode reparear** — não
+   mexa em credencial de sessão do WhatsApp.
+
+   **O que continua aberto é o aviso de que ela caiu.** Não existe monitor: hoje
+   funcionou porque alguém percebeu. O workflow `CHATWOOT` aponta a uazapi para
+   `inbox_id: 6`, então a caixa 6 também é afetada quando cai.
+
+### Decisões de processo
+
+1. **Criar as Equipes no Chatwoot** — *o usuário optou por não criar agora*.
+   Cria se achar necessário. Não bloqueia nada, só mantém o grupo
+   "Departamentos" da matriz escondido. Se um dia criar, as linhas surgem **sem
+   novo deploy**.
+2. **Atribuir conversas.** As 428 da migração foram todas para a Juliana, então
+   a matriz por agente hoje é basicamente duas linhas. Continua sem rotina de
+   atribuição para o que chega organicamente.
 3. **As conversas paradas há +7 dias.** A tela escancara; falta decidir o que a
    equipe faz com elas.
 
@@ -583,15 +745,34 @@ Resultado: **428 processados** (3 telefones inválidos ficaram de fora), **389
 criados, 0 erros, 7min52s**. Base foi de 534 para 848 conversas e de 687 para
 1.102 contatos, **sem nenhum `identifier` duplicado**.
 
-| Destino | Leads |
-|---|---:|
-| Funil BPC, caixa 9, em `bpc_lead_novo` | 214 |
-| Funil Auxílio, caixa 6, em `sdr` | 111 |
-| Só contato, sem conversa | 101 |
-| Pulados (19 já existiam + 20 do piloto) | 39 |
-
 **Não há histórico de mensagens nos arquivos.** Entrou: nome, telefone, tags,
 e nada mais. Se o histórico for necessário, precisa sair de outro export.
+
+#### E depois REORGANIZADA, no mesmo dia
+
+O roteamento original mandou 111 leads para a caixa 6 e 214 para a caixa 9,
+usando as tags de demanda do CSV. **O usuário corrigiu o pressuposto:** *"as 2
+bases eram do autismo"* — ou seja, tudo é BPC, e o roteamento por tag estava
+errado na origem. O pedido foi: duas colunas identificando a origem (Closer e
+SDR do ChatGuru) e **todas atribuídas à Juliana**.
+
+Como ficou:
+
+| Onde | Leads |
+|---|---:|
+| Caixa 9 (BPC), coluna **Closer ChatGuru** (`chatguru_closer`) | 203 |
+| Caixa 9 (BPC), coluna **SDR ChatGuru** (`chatguru_sdr`) | 124 |
+| Caixa 9, já existentes / demais | 101 |
+| **Total, todos atribuídos à Juliana (id 2)** | **428** |
+
+Como conversa não muda de caixa (seção 6), as **114 conversas que estavam na
+caixa 6** foram resolvidas e recriadas na caixa 9. As duas colunas novas entram
+no `BPC_COLUMNS` de `constants.js` logo depois de "Sem etapa", antes de "Lead
+novo", com emoji 📇 — são ponto de partida, não etapa de funil.
+
+**Lição de método:** o roteamento por tag foi tecnicamente correto e
+factualmente errado, porque partiu do CSV em vez de perguntar de onde a base
+veio. Uma pergunta ao usuário antes teria evitado 114 conversas recriadas.
 
 #### Como importar aqui (a receita que funcionou)
 
@@ -657,6 +838,13 @@ A conta foi de 51 para 58 etiquetas.
    virar código.
 8. **Auditoria da IA.** Documento próprio: `CONTEXTO-auditoria-ia.md`. **É
    trabalho no n8n, não neste repositório.**
+9. **Guarda `chatguru_*` no workflow do vídeo — RESOLVIDA em 13/08, por outro
+   caminho.** A ideia original (testar `chatguru_*` no nó de guarda) **não
+   funcionaria**: aquele nó lê etiquetas do CONTATO e as `chatguru_*` estão nas
+   CONVERSAS (seção 6). O que entrou no lugar foi uma guarda que pergunta a
+   coisa certa — *"este contato já tem outra conversa na caixa 9?"* —, o que
+   cobre lead do ChatGuru com conversa recriada, qualquer importação futura e
+   qualquer recriação, sem escrever nada em produção. Detalhes na seção 10.
 
 ---
 
@@ -672,29 +860,112 @@ A conta foi de 51 para 58 etiquetas.
   aparece em outros pontos (as cores de STATE_COLUMNS × MATRIX_CELL_COLORS, os
   rótulos das colunas × os do seletor). Divergir não quebra nada — só faz duas
   telas contarem histórias diferentes, que é pior porque ninguém percebe.
-- **A coluna Fechado depende do n8n.** Falha silenciosa.
-- **Atribuição não é rotina** — depois da migração do ChatGuru, ~75% das
-  conversas estão sem responsável. A tabela por agente virou quase uma linha só.
-- **O funil agora tem 325 leads que ninguém trabalhou ainda.** A migração
-  encheu a primeira coluna dos dois funis (BPC "Lead novo" foi de 136 para 335).
-  Isso é dado real, não erro — mas se ninguém percorrer o funil, o efeito
-  prático é que o quadro fica menos legível do que antes, não mais.
+- **A coluna Fechado depende do n8n.** Falha silenciosa — **mitigado em 13/08**
+  pela guarda `Guarda: sync falhou em silencio` (seção 10), que agora grita por
+  e-mail quando o `_resumo` reporta erro ou vem vazio.
+- **Ninguém é avisado quando a sessão da uazapi cai.** Continua sendo o risco
+  operacional mais caro em aberto: o escritório acha que avisou o cliente e não
+  avisou. Em 13/08 custou 8 avisos perdidos, entre eles três indeferimentos e um
+  processo extinto. Só foi resolvido porque o usuário percebeu. Um monitor de
+  "última mensagem enviada com sucesso" no n8n resolveria — **não existe.**
+- **A taxa de erro da conta está em 4,2% e subindo 3,3 pontos** (387 falhas em
+  9.243 execuções). Não é o kanban nem o sync. Não se sabe de onde vem, e o
+  freio de 10 min do alerta agrupa — some do e-mail sem sumir do sistema.
+- **Criar dado em produção dispara automação.** Provado em 12/08 com 14 vídeos
+  indesejados. Vale para qualquer inserção futura em lote.
+- **O funil tem ~430 leads que ninguém trabalhou ainda.** A migração encheu as
+  colunas de origem do BPC. Isso é dado real, não erro — mas se ninguém percorrer
+  o funil, o efeito prático é que o quadro fica menos legível do que antes.
 - **~107 commits atrás do upstream.** Agora com um arquivo do upstream a mais
   (`MoreActions.vue`), embora de uma linha só.
 
 ---
 
-## 10. Resumo de uma linha
+## 10. O que foi mexido no n8n (12–13/08)
+
+Isto não é o repositório do fork, mas mexe no mesmo sistema e vale registrar.
+
+| Workflow | id | O que mudou |
+|---|---|---|
+| Vídeo de atendimento BPC | — | **Religado** em 12/08 depois do incidente. A etiqueta-guarda `video-bpc-enviado` foi criada na conta (não existia). Comportamento confirmado com o usuário: **só age em lead novo que chegar daqui para frente**, não reprocessa a base |
+| `Planilha Processos - Suporte ao Cliente` | `Lbm8azkbVIDZGCv5` | A coluna **ETAPA** da planilha vinha vazia. Seis nós Set (um por etapa: `RECURSAL`, `ADMINISTRATIVO`, `JUDICIAL`, `EXECUCAO_COBRANCA`, `RH_FINANCEIRO`, `CONSULTORIA`) entre cada `Split Out` e o `Merge`, todos com `includeOtherFields: true`. `Edit Fields1` propaga do `Loop Over Items`; o nó do Sheets grava `"ETAPA": "={{ $json.ETAPA }}"`. **Corrigido e salvo; ainda não executado.** Atenção: este workflow tem **gatilho manual**, então não existe "publicar" — o botão fica cinza de propósito. O que está salvo é o que roda. A primeira execução é que confirma. Conferido em 13/08: `Etapa Recursal` com `ETAPA=RECURSAL` e **Include Other Input Fields ligado, "All"** |
+| `0. WORKFLOW DE ERRO (Alerta E-mail)` | `M2PKz0jMs0FjXQnH` | Nó Code "Freio de alertas" entre o `Error Trigger` e o Gmail: janela de 10 min por workflow em `$getWorkflowStaticData('global')`, retorna `[]` para cortar o ramo, e conta as suprimidas para informar no próximo e-mail. Gmail com `onError: continueRegularOutput`, `retryOnFail`, `maxTries: 3`. **Em produção** |
+
+| `BPC - Video de primeira mensagem` | `fgjnI5PRzCI5zQZz` | **13/08 — guarda nova, publicada.** Nó `Buscar Conversas do Contato` (`GET /contacts/{id}/conversations`, credencial Chatwoot API) entre `Buscar Labels do Contato` e o IF. O IF virou **OR**: (1) `{{ ($('Buscar Labels do Contato').item.json.payload \|\| []).join(",") }}` contém `video-bpc-enviado`; (2) `{{ ($json.payload \|\| []).filter(c => c.inbox_id === 9).length }}` **> 1**. A condição 1 **teve que ser reescrita** para referenciar o nó de labels explicitamente, porque `$json` passou a ser a resposta de conversas — deixá-la como estava quebraria a guarda antiga em silêncio |
+| `Kanban Sync - Supabase → Labels Chatwoot` | `yzmFpTjkUiJXWNrl` | **13/08 — guarda nova, publicada.** Nó Code `Guarda: sync falhou em silencio` depois de `Sync estagios (via proxy)`: lança erro se `erros > 0`, se `total === 0`, ou se o `_resumo` não vier. **Não precisou de workflow novo** — o `Error Workflow` deste workflow já apontava para `0. WORKFLOW DE ERRO (Alerta E-mail)`, então o aviso sai por e-mail com o freio de 10 min |
+
+Pontos levantados e não resolvidos: o nó órfão `Processos consultoria1`
+(ARQUIVAMENTO) não está conectado, e as etapas `MARKETING` e `NEGOCIACAO` nunca
+são consultadas.
+
+**Ao mexer em workflow pelo MCP: `update_workflow` só cria rascunho.** Chame
+`publish_workflow` e confira o `activeVersionId`.
+
+---
+
+## 11. Resumo de uma linha
+
+> **Atualização de 13/08 (tarde):** a sessão da uazapi voltou e os 8 avisos
+> perdidos foram reenviados (seção 12). Duas guardas novas no n8n, publicadas:
+> o vídeo do BPC não vai mais para contato que já tem outra conversa na caixa 9,
+> e o `Kanban Sync` agora grita por e-mail quando o `_resumo` acusa erro — porque
+> o try-catch dele faz a execução terminar verde mesmo quebrando. **Nenhuma linha
+> de código do fork mudou nesta rodada; nenhum deploy no Easypanel é necessário.**
+> O que ficou aberto: confirmar a execução do sync das 12h com a guarda nova,
+> rodar a planilha de processos uma vez, e o fato de que **ninguém é avisado
+> quando a uazapi cai.**
 
 > Fork do Chatwoot 4.16.2 com um Kanban Comercial numa pasta própria, tocando
 > ~10 linhas de três arquivos do upstream — merge barato de propósito.
-> **`7f0bad2fe` no ar, nada pendente de deploy.** Build automático no push
+> **`722786ac2` no ar, nada pendente de deploy.** Build automático no push
 > (~4 min), deploy manual no Easypanel com ~1 min de queda, e **confira a tag
 > antes de implantar** — o campo Imagem já ficou preso num sha antigo duas
 > vezes. Sem `node_modules` no clone, mas dá para verificar quase tudo num
-> clone Linux paralelo: parser, resolução de imports e as funções puras de
-> `stateBoard.js`. **Não conte com o build para pegar lint — ele só constrói a
-> imagem.** A **migração do ChatGuru foi feita** em 12/08 (389 leads criados,
-> zero erros) — a chave é o `identifier`/JID, não o telefone (seção 6). O que
-> sobra é processo: **atribuir conversas**, agora ~75% sem responsável, e
-> opcionalmente **criar Equipes**.
+> clone Linux paralelo. **Não conte com o build para pegar lint.** A migração do
+> ChatGuru foi feita e depois reorganizada: **428 leads, todos na caixa 9, em
+> duas colunas de origem, todos da Juliana** — a chave de identidade é o
+> `identifier`/JID, não o telefone. **A lição mais cara do projeto:** criar
+> conversa em lote dispara os webhooks do n8n, e isso mandou vídeo para 14
+> pessoas sem querer — **liste o que escuta o evento antes de inserir qualquer
+> coisa em lote.** O que trava hoje é fora do código: **a sessão da uazapi está
+> caída** e nenhum aviso de processo sai enquanto isso durar.
+
+---
+
+## 12. Os 8 avisos perdidos na queda da uazapi (13/08)
+
+Ficam registrados porque são o melhor exemplo do custo de uma sessão caída sem
+monitor, e porque a receita de reenvio funciona.
+
+Todos falharam em `HTTP Request` → `POST goncalves.uazapi.com/send/text`, com
+`Service unavailable` / `WhatsApp disconnected: session is not reconnectable`.
+**Cada execução processou 1 item = 1 pessoa; nenhuma duplicata entre elas.**
+
+| Execução | Fluxo | Pessoa | Reenvio |
+|---|---|---|---|
+| 136336 | Aviso de resultado **extinto** | THAISA COSTA GOMES | 11h10m02s ✓ |
+| 136337 | Resultado **positivo** judicial | GECILENE SILVA DOS SANTOS | 11h06m38s ✓ |
+| 136338 | Resultado **positivo** judicial | ELIZABETH VENANCIO DE OLIVEIRA | 11h09m22s ✓ |
+| 136345 | Resultado **indeferido** ADM | NATANAEL DIAS SOUSA | 11h10m41s ✓ |
+| 136347 | Resultado **indeferido** ADM | ROGERIO LUIS NUNES MAZOCHI | 11h11m05s ✓ |
+| 136349 | Resultado **indeferido** ADM | FRANCISCO JORGE FEITOSA | 11h11m44s ✓ |
+| 136366 | **Contrato** (Comercial 2 Digital) | DAVI MESSIAS ALVES DE SOUZA | 11h12m09s ✓ |
+| 136367 | **Contrato** (Cascavel) | FRANCISCA MARIA FERREIRA DE MORAIS | 11h12m32s ✓ |
+
+**A receita:** na execução com erro, botão de retry →
+**"Retry with original workflow (from node with error)"**. Ele retoma do nó que
+falhou, com os dados originais e a versão do workflow que estava no ar na hora.
+Nós a montante **não** rodam de novo: nenhuma consulta ao AdvBox refeita, nenhuma
+linha de planilha duplicada. Conferido antes de apertar: nas 8, o
+`Append row in sheet` fica **depois** do envio e não tinha executado.
+
+**Antes de reexecutar aviso em lote, liste quem recebe.** Foram 8 pessoas, três
+delas recebendo notícia ruim. A lista muda a conversa com o usuário — e é a
+mesma disciplina da seção 6 aplicada a reenvio em vez de inserção.
+
+**Onde ler os workflows de aviso:** projeto `AUTOMAÇÃO RESULTADOS` no n8n.
+`Aviso de resultado extinto` (`x8YdE9SaQ2yeGRcK`), `Aviso de resultado positivo
+judicial` (`7GQWSyDBSN3uDjW6`), `Aviso de resultado indeferido ADM`
+(`xk1gfLVUNo5ZunAv`), `AVISO DE CONTRATOS` (`sOoTd7RbqGKqLB7J`). Todos seguem o
+mesmo desenho: Webhook → Edit Fields → `Get lawsuit by ID` → `Get customer by
+ID` → Edit Fields → HTTP Request para a uazapi → planilha.

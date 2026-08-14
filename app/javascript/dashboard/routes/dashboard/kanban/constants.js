@@ -115,8 +115,14 @@ export const BPC_COLUMNS = [
    * "o que herdei" -> "o que chegou agora" -> o resto do funil. Quando a
    * equipe trabalhar um lead do ChatGuru, ela arrasta para a coluna certa e
    * ele sai daqui para nunca mais voltar.
+   *
+   * 14/08/2026 — "Closer ChatGuru" era #8b5cf6, a MESMA cor de "Lead
+   * qualificado / Negociacao", duas colunas do mesmo quadro. Passou para
+   * #d946ef, que nao aparece em nenhum outro lugar do arquivo e fica vizinha do
+   * rosa do "SDR ChatGuru": as duas colunas de origem continuam se lendo como
+   * par, e nenhuma delas se confunde mais com etapa de funil.
    */
-  { title: 'Closer ChatGuru', label: 'chatguru_closer', color: '#8b5cf6' },
+  { title: 'Closer ChatGuru', label: 'chatguru_closer', color: '#d946ef' },
   { title: 'SDR ChatGuru', label: 'chatguru_sdr', color: '#ec4899' },
   { title: 'Lead novo', label: 'bpc_lead_novo', color: '#3b82f6' },
   {
@@ -153,6 +159,28 @@ export const BPC_COLUMNS = [
     color: '#eab308',
   },
   { title: 'Clientes efetivados', label: 'bpc_efetivado', color: '#16a34a' },
+  /*
+   * Finalizado — 14/08/2026. Coluna INTERMEDIARIA, nao de encerramento.
+   *
+   * E onde para o lead que nao deu para qualificar e tambem nao da para
+   * desqualificar: acabou o assunto sem desfecho. Fica entre Efetivado e
+   * Desqualificado de proposito — a leitura da ponta do funil passa a ser
+   * "ganhou / ficou no meio / perdeu".
+   *
+   * NAO entra em CLOSED_LABELS (stateConstants.js), e isso e a decisao toda:
+   *
+   *   - arrastar para ca NAO resolve a conversa e NAO aplica
+   *     atendimento_humanizado (ver moveToStage em useKanbanBoard.js);
+   *   - o quadro "Por estado" NAO conta estes cards como Fechado, entao eles
+   *     nao entram na conta de perdas do BPC.
+   *
+   * Consequencia que quem mexer nisso precisa saber: o card continua `open` e
+   * continua envelhecendo no quadro por estado, entao daqui a uma semana ele
+   * aparece em "parada ha +7 dias". E o comportamento certo para uma coluna de
+   * espera — se um dia a decisao virar "sai do radar", o lugar de mudar e
+   * CLOSED_LABELS, e ai as duas telas mudam juntas.
+   */
+  { title: 'Finalizado', label: 'bpc_finalizado', color: '#f97316' },
   { title: 'Desqualificado', label: 'bpc_desqualificado', color: '#ef4444' },
   { title: 'Cancelado', label: 'bpc_cancelado', color: '#dc2626' },
   {
@@ -252,6 +280,8 @@ export const STAGE_EMOJI = {
   bpc_analise_juridica: '⚖️',
   bpc_pos_juridica: '⏳',
   bpc_efetivado: '🎉',
+  // Pausa, e nao bandeira quadriculada: a coluna e de espera, nao de desfecho.
+  bpc_finalizado: '⏸️',
   bpc_desqualificado: '❌',
   bpc_cancelado: '🚫',
   bpc_fechado_sem_resposta: '🔇',
@@ -295,10 +325,40 @@ export const DISQUALIFIED_LABELS = CLOSED_LABELS;
 export const MAX_PAGES_PER_COLUMN = 200;
 
 /**
+ * Quantas COLUNAS carregam ao mesmo tempo — 14/08/2026.
+ *
+ * Ate esta data a carga era estritamente sequencial, com o comentario de que
+ * paralelo esbarrava no rate limit do Chatwoot. O rate limit nao e o problema:
+ * `config/initializers/rack_attack.rb` permite 3.000 requisicoes por minuto por
+ * IP. O limite real e o Puma — `config/puma.rb` roda com RAILS_MAX_THREADS=5 e
+ * WEB_CONCURRENCY=0, ou seja **cinco slots de requisicao para o servidor
+ * inteiro**, compartilhados com o chat de todos os agentes.
+ *
+ * Por isso 3, e nao "todas de uma vez": deixa dois slots livres para quem esta
+ * conversando. Subir este numero nao acelera o quadro na mesma proporcao e
+ * comeca a travar o atendimento — o gargalo passa a ser o servidor, nao a fila.
+ *
+ * Paginas DENTRO de uma coluna continuam sequenciais: a pagina 2 so faz sentido
+ * depois de saber o total da pagina 1.
+ */
+export const COLUMN_CONCURRENCY = 3;
+
+/**
  * Teto de paginas da coluna "Sem etapa". Ela nao da para pedir por etiqueta —
  * a API do Chatwoot nao tem "NOT label" — entao le a caixa inteira e filtra
- * aqui. Com 121 conversas na caixa BPC sao 5 requisicoes; o teto existe para o
- * dia em que a caixa crescer e alguem esquecer deste detalhe.
+ * aqui.
+ *
+ * O numero desatualiza sozinho, entao vale escrever a CONTA e nao o resultado:
+ * o custo e ceil(conversas da caixa / CONVERSATION_RESULTS_PER_PAGE), e o teto
+ * de 40 paginas aguenta 40 x 25 = 1.000 conversas na caixa.
+ *
+ * 14/08/2026 — a caixa 9 tem 593 conversas, ou seja 24 requisicoes. O
+ * comentario anterior dizia 121 conversas = 5 requisicoes, de quando o quadro
+ * nasceu: a migracao do ChatGuru quintuplicou a caixa e a folga caiu de 8x para
+ * 1,7x. Quem encostar em 1.000 conversas na caixa 9 vai ver a coluna "Sem
+ * etapa" truncar EM SILENCIO — o laco de api.js simplesmente para no teto. Se
+ * chegar perto, o conserto nao e subir este numero (sao 40 requisicoes ja
+ * hoje): e um endpoint no servidor que saiba filtrar por ausencia de etiqueta.
  */
 export const MAX_PAGES_UNSTAGED = 40;
 
