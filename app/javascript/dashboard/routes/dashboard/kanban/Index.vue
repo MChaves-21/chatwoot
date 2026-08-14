@@ -433,6 +433,7 @@ const BTN =
           :tags="tagDefs"
           :has-more="board.hasMore(col.label)"
           :is-filtered="filtersActive"
+          :is-pending="board.isPending(col.label)"
           :error="errors[col.label] || ''"
           :dragging-id="draggingId"
           :conversation-url="conversationUrl"

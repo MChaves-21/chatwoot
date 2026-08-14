@@ -12,6 +12,10 @@ import EmailTranscriptModal from './EmailTranscriptModal.vue';
 // esta unica linha devolve o comportamento original. Ver o cabecalho de
 // ConversationStatePicker.vue para o porque de 4 estados e nao 5.
 import ResolveAction from 'dashboard/routes/dashboard/kanban/components/ConversationStatePicker.vue';
+// Fork (14/08/2026): botao "Agendar mensagem". Tambem vive na pasta do kanban
+// pelo mesmo motivo — apagar estas duas linhas devolve o cabecalho original.
+// Ele se esconde sozinho enquanto o webhook nao estiver configurado.
+import ScheduleMessageButton from 'dashboard/routes/dashboard/kanban/components/ScheduleMessageButton.vue';
 import ButtonV4 from 'dashboard/components-next/button/Button.vue';
 import DropdownMenu from 'dashboard/components-next/dropdown-menu/DropdownMenu.vue';
 
@@ -97,6 +101,7 @@ onUnmounted(() => {
 
 <template>
   <div class="relative flex items-center gap-2 actions--container">
+    <ScheduleMessageButton :conversation-id="currentChat.id" />
     <ResolveAction
       :conversation-id="currentChat.id"
       :status="currentChat.status"

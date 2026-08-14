@@ -98,9 +98,37 @@ export function useKanbanBoard() {
     return st.loaded.filter(c => passesFilter(c, filters, leadCache));
   }
 
+  /**
+   * A coluna ainda nao recebeu resposta da API — 14/08/2026.
+   *
+   * Existe por causa da propria mudanca de ordem de carga: como "Sem etapa"
+   * passou a carregar por ULTIMO, ela fica varios segundos com a lista vazia
+   * enquanto as outras 17 enchem. Sem isto ela exibe "Nenhuma conversa", que e
+   * uma afirmacao FALSA sobre a caixa — e a mais confusa possivel, porque e
+   * justamente a coluna que costuma ter mais card.
+   *
+   * E DERIVADO, nao armazenado: `total` comeca em null e vira numero na
+   * primeira resposta (listByLabel sempre devolve numero — cai em
+   * payload.length se o meta nao vier), e `done` fecha a coluna sintetica.
+   * Guardar um `loading` proprio seria um segundo lugar para a mesma verdade,
+   * que e como as duas listas de descarte divergiram em 12/08.
+   *
+   * O erro sai na frente de proposito: coluna que falhou nao esta carregando, e
+   * quem conta essa historia e a mensagem de erro da propria coluna.
+   */
+  function isPending(label) {
+    const st = columns[label];
+    if (!st) return true;
+    if (errors[label]) return false;
+    return st.total === null && !st.done;
+  }
+
   function countLabel(label) {
     const st = columns[label];
     if (!st) return '...';
+    // Sem resposta ainda, o contador diria "0" — a mesma mentira do "Nenhuma
+    // conversa", so que em numero.
+    if (isPending(label)) return '...';
     const total = st.total === null ? st.loaded.length : st.total;
     if (!filtersActive.value) return String(total);
     return `${visibleIn(label).length}/${total}`;
@@ -495,6 +523,7 @@ export function useKanbanBoard() {
     // leitura
     visibleIn,
     countLabel,
+    isPending,
     hasMore,
     loadColumn,
     loadAll,

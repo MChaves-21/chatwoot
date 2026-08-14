@@ -18,6 +18,8 @@ defineProps({
   tags: { type: Array, default: () => [] },
   hasMore: { type: Boolean, default: false },
   isFiltered: { type: Boolean, default: false },
+  // Coluna ainda sem resposta da API. Ver isPending em useKanbanBoard.js.
+  isPending: { type: Boolean, default: false },
   error: { type: String, default: '' },
   draggingId: { type: [Number, String], default: null },
   conversationUrl: { type: Function, required: true },
@@ -88,6 +90,20 @@ const onDrop = () => {
       <p v-if="error" class="py-3.5 text-xs text-center" style="color: #ef4444">
         Erro: {{ error }}
       </p>
+
+      <!--
+        Coluna que ainda nao respondeu — 14/08/2026.
+        Vem ANTES do vazio porque "Nenhuma conversa" numa coluna que so nao
+        carregou ainda e informacao errada. Aparece principalmente em "Sem
+        etapa", que desde a mesma data carrega por ULTIMO de proposito. Mantem a
+        moldura tracejada: da para largar card aqui mesmo antes de terminar.
+      -->
+      <div
+        v-else-if="isPending && !conversations.length"
+        class="flex justify-center items-center py-6 text-xs text-center rounded-lg border border-dashed animate-pulse border-n-weak text-n-slate-10"
+      >
+        Carregando...
+      </div>
 
       <!--
         Coluna vazia com moldura tracejada: le-se como "cabe card aqui", que e

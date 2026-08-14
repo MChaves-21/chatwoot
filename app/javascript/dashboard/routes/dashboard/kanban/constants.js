@@ -376,6 +376,10 @@ export const DEFAULT_PREFS = {
   // Webhooks n8n que NAO passam pela API do Chatwoot.
   leadUrl: '',
   summaryUrl: '',
+  // Agendar mensagem — 14/08/2026. Enquanto vazio, o botao "Agendar" NAO
+  // aparece no cabecalho da conversa: botao que abre painel e falha ao salvar
+  // e pior que botao ausente. Ver ScheduleMessageButton.vue.
+  scheduleUrl: '',
   secret: '',
 };
 

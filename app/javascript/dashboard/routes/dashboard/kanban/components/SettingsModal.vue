@@ -17,6 +17,7 @@ const LABEL = 'block mt-3 mb-1 text-xs font-semibold text-n-slate-11';
 const status = ref(props.prefs.status || 'all');
 const leadUrl = ref(props.prefs.leadUrl || '');
 const summaryUrl = ref(props.prefs.summaryUrl || '');
+const scheduleUrl = ref(props.prefs.scheduleUrl || '');
 const secret = ref(props.prefs.secret || '');
 const tagsText = ref(JSON.stringify(props.prefs.tags || [], null, 2));
 const error = ref('');
@@ -35,6 +36,7 @@ const save = () => {
     status: status.value.trim() || 'all',
     leadUrl: leadUrl.value.trim(),
     summaryUrl: summaryUrl.value.trim(),
+    scheduleUrl: scheduleUrl.value.trim(),
     secret: secret.value.trim(),
     tags,
   });
@@ -46,7 +48,7 @@ const save = () => {
     <h2 class="mb-1 text-lg font-semibold text-n-slate-12">Configurações</h2>
     <p class="mb-4 text-xs leading-relaxed text-n-slate-11">
       Não há mais campos de URL, account, token ou proxy: dentro do Chatwoot o
-      quadro usa a sessão do agente que está logado. Restam as tags e os dois
+      quadro usa a sessão do agente que está logado. Restam as tags e os
       webhooks do n8n que continuam externos.
     </p>
 
@@ -75,7 +77,7 @@ const save = () => {
         Webhooks n8n (opcionais)
       </p>
       <p class="text-[11px] leading-relaxed text-n-slate-11">
-        Estes dois não passam pela API do Chatwoot. O segredo abaixo fica
+        Estes não passam pela API do Chatwoot. O segredo abaixo fica
         guardado neste navegador e alcança apenas eles — use um valor
         diferente do antigo segredo do proxy, que deve ser rotacionado.
       </p>
@@ -94,7 +96,19 @@ const save = () => {
         placeholder="https://n8n.goncalvesesilva.cloud/webhook/kanban-resumo"
       />
 
-      <label :class="LABEL">Segredo destes dois webhooks</label>
+      <!--
+        Enquanto vazio, o botao "Agendar" nao aparece no cabecalho da conversa.
+        E de proposito: sem webhook nao ha onde gravar, e um botao que falha ao
+        salvar faz o atendente achar que agendou.
+      -->
+      <label :class="LABEL">Agendar mensagem (esconde o botão se vazio)</label>
+      <input
+        v-model="scheduleUrl"
+        :class="INPUT"
+        placeholder="https://n8n.goncalvesesilva.cloud/webhook/kanban-agendar"
+      />
+
+      <label :class="LABEL">Segredo destes webhooks</label>
       <input v-model="secret" :class="INPUT" type="password" autocomplete="off" />
     </div>
 

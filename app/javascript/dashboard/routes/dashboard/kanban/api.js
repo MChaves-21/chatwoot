@@ -137,6 +137,24 @@ class KanbanAPI extends ApiClient {
   toggleStatus(id, status) {
     return axios.post(`${this.url}/${id}/toggle_status`, { status });
   }
+
+  /**
+   * Nota interna na conversa (nao vai para o cliente pelo Chatwoot).
+   *
+   * ATENCAO antes de usar: `private: true` NAO impede o despacho para o
+   * webhook da caixa. `webhook_sendable?` (message_filter_helpers.rb) e
+   * `incoming? || outgoing? || template?` e nao testa `private?`, ao contrario
+   * da `notifiable?` logo abaixo. O payload leva `private: true`, entao quem
+   * decide se aquilo vira mensagem no WhatsApp e a uazapi, nao o Chatwoot.
+   * Ver ScheduleMessageButton.vue.
+   */
+  createPrivateNote(id, content) {
+    return axios.post(`${this.url}/${id}/messages`, {
+      content,
+      private: true,
+      message_type: 'outgoing',
+    });
+  }
 }
 
 export default new KanbanAPI();
@@ -189,5 +207,63 @@ export async function fetchSummary({ url, secret, conversationId, phone, message
     );
   } catch (e) {
     return null;
+  }
+}
+
+/**
+ * Grava um agendamento de mensagem — 14/08/2026.
+ *
+ * Ao contrario de fetchLead e fetchSummary, esta funcao ESCREVE, e por isso
+ * devolve {ok, error} em vez de null: quem chama precisa poder dizer ao
+ * atendente que NAO agendou. Um null silencioso aqui viraria um botao que
+ * parece funcionar — o pior desfecho possivel para um agendador.
+ *
+ * `scheduledAt` chega em ISO UTC (o componente converte). Nao mande horario
+ * local sem fuso: o cron compararia 15:00 de Fortaleza com 15:00 UTC e
+ * dispararia tres horas cedo.
+ */
+export async function scheduleMessage({
+  url,
+  secret,
+  conversationId,
+  inboxId,
+  phone,
+  contactName,
+  scheduledAt,
+  content,
+}) {
+  if (!url || !secret) return { ok: false, error: 'Webhook de agendamento não configurado.' };
+  try {
+    const r = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        secret,
+        conversation_id: conversationId,
+        inbox_id: inboxId,
+        phone,
+        contact_name: contactName,
+        scheduled_at: scheduledAt,
+        content,
+      }),
+    });
+    if (!r.ok) return { ok: false, error: `O n8n respondeu ${r.status}.` };
+    // Resposta vazia conta como sucesso: um webhook do n8n com "Respond
+    // Immediately" devolve 200 sem corpo, e exigir JSON aqui reprovaria um
+    // agendamento que de fato gravou.
+    const txt = await r.text();
+    if (!txt) return { ok: true };
+    try {
+      const d = JSON.parse(txt);
+      const item = Array.isArray(d) ? d[0] || {} : d;
+      if (item.ok === false || item.error) {
+        return { ok: false, error: item.error || 'O n8n recusou o agendamento.' };
+      }
+    } catch (e) {
+      // corpo que nao e JSON, mas o status foi 2xx
+    }
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e.message || 'Falha de rede ao agendar.' };
   }
 }
