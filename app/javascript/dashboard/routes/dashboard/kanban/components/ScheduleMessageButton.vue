@@ -32,10 +32,10 @@
  * nascer NAO aciona a IA. Foi a checagem da secao 6 do CONTEXTOfork ("liste o
  * que escuta o evento") aplicada antes de escrever, e nao depois.
  *
- * ─── A nota privada esta DESLIGADA de proposito ───
+ * ─── A nota privada foi LIGADA em 14/08/2026, depois de medida ───
  *
- * O desenho original previa deixar uma nota privada na conversa ao agendar,
- * para qualquer atendente ver na linha do tempo. So que:
+ * O desenho previa deixar uma nota privada na conversa ao agendar, para
+ * qualquer atendente ver na linha do tempo. O que travava:
  *
  *   `app/models/concerns/message_filter_helpers.rb`
  *   def webhook_sendable? = incoming? || outgoing? || template?
@@ -44,12 +44,18 @@
  * o Chatwoot despacha a nota privada para o webhook da caixa igual a qualquer
  * mensagem de saida; quem precisa ignora-la e a uazapi. O payload leva
  * `private: true` (Message#webhook_data), entao ela TEM como filtrar — mas
- * "tem como" nao e "filtra".
+ * "tem como" nao era "filtra", e ninguem tinha medido.
  *
- * Ligar isso sem medir seria repetir a armadilha do `video-bpc-enviado`: uma
- * guarda que passa na revisao, entra no ar e nao protege. Para ligar, confirme
- * antes que nota interna nao chega no WhatsApp do cliente hoje e troque para
- * true — o resto do codigo ja esta pronto.
+ * MEDIDO EM 14/08/2026: nota privada criada na conversa 466 (caixa 6, contato
+ * +5585998552131, o proprio usuario) — mensagem 19545, `private: true`,
+ * `message_type: outgoing`, `status: sent` no Chatwoot. NAO chegou no WhatsApp.
+ * A uazapi filtra pelo `private` do payload.
+ *
+ * Ressalva registrada: o teste foi na caixa 6. A caixa 9 tem outro
+ * `webhook_url`, mas aponta para a MESMA instancia da uazapi (mesmo host,
+ * mesmo token), entao e o mesmo codigo filtrando. Se alguem apontar uma caixa
+ * para outra instancia ou trocar de gateway, MECA DE NOVO antes de confiar —
+ * esta constante deixa de estar coberta pela medicao.
  */
 
 import { computed, ref, nextTick } from 'vue';
@@ -60,7 +66,7 @@ import { onClickOutside } from '@vueuse/core';
 import KanbanAPI, { scheduleMessage } from '../api';
 import { LS_KEY } from '../constants';
 
-const NOTA_PRIVADA_AO_AGENDAR = false;
+const NOTA_PRIVADA_AO_AGENDAR = true;
 
 /**
  * Declaradas e ignoradas pelo mesmo motivo do ConversationStatePicker: sem
