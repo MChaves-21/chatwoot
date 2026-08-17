@@ -445,13 +445,19 @@ const BTN =
       <!--
         Busca fixa: antes vivia dentro do modal de Filtros e so enxergava o que
         ja estava carregado. Aqui ela consulta o servidor e varre os dois funis.
+
+        Largura: 176px em repouso e 248px com foco. Fixar em 230px empurrava
+        "Recarregar" e "Configuracoes" para uma segunda linha — o mesmo aperto
+        de largura que ja tinha obrigado a encurtar os rotulos dos botoes.
+        Encolhida ela cabe na fila; o espaco extra so aparece quando alguem
+        esta de fato digitando.
       -->
       <div class="relative shrink-0">
         <input
           v-model="searchText"
           type="search"
-          class="w-[230px] px-2.5 py-1.5 text-xs rounded-lg border bg-n-background border-n-weak text-n-slate-12 placeholder:text-n-slate-10"
-          placeholder="Buscar nome, telefone ou estado"
+          class="w-[176px] focus:w-[248px] transition-[width] duration-150 px-2.5 py-1.5 text-xs rounded-lg border bg-n-background border-n-weak text-n-slate-12 placeholder:text-n-slate-10"
+          placeholder="Buscar ou estado…"
           title="Nome, telefone, #id — ou um estado: aguardando, atendimento, fechado, desqualificado"
           @focus="searchText.trim().length >= 3 && (searchOpen = true)"
           @keydown.esc="clearSearch"
