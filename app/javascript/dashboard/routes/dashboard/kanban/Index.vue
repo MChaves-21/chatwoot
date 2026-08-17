@@ -31,6 +31,7 @@ import { useStateBoard } from './useStateBoard';
 import { exportToExcel } from './excel';
 import { BPC_FUNNEL_ID } from './constants';
 import { activeFilterCount, passesFilter } from './helpers';
+import { searchEverywhere, stateTermFor, locate } from './search';
 
 const store = useStore();
 const accountId = computed(() => store.getters.getCurrentAccountId);
@@ -161,6 +162,104 @@ const filteredTotal = computed(() =>
 const leadLookupEnabled = computed(() =>
   Boolean(prefs.leadUrl && prefs.secret)
 );
+
+// ------------------------------------------------------------------ busca
+/**
+ * Busca da barra do topo (17/08/2026).
+ *
+ * Faz duas coisas ao mesmo tempo, de proposito:
+ *
+ *  1. escreve em `filters.q`, que continua estreitando as colunas ja
+ *     carregadas — resposta instantanea enquanto se digita;
+ *  2. dispara `searchEverywhere()` com debounce, que vai ao servidor e acha
+ *     tambem quem ainda nao foi paginado, nos DOIS funis.
+ *
+ * Sem o item 1 a tela pareceria travada durante o debounce; sem o item 2
+ * voltariamos ao defeito antigo, de nao achar quem existe.
+ *
+ * Termo de estado ("aguardando", "fechado"...) nao vai ao servidor: estado e
+ * propriedade da conversa, nao criterio de busca de contato. Nesse caso o
+ * painel classifica o que ja esta em memoria e `filters.q` fica vazio, para o
+ * texto do estado nao zerar as colunas por nao casar com nenhum nome.
+ */
+const searchText = ref('');
+const searchOpen = ref(false);
+const searchBusy = ref(false);
+const searchHits = ref([]);
+const searchKind = ref('idle');
+const searchTermTitle = ref('');
+const searchError = ref('');
+
+let searchTimer = null;
+let searchRun = 0;
+
+const clearSearch = () => {
+  searchText.value = '';
+  filters.q = '';
+  searchHits.value = [];
+  searchKind.value = 'idle';
+  searchOpen.value = false;
+  searchError.value = '';
+};
+
+const runSearch = async () => {
+  const q = searchText.value.trim();
+  const term = stateTermFor(q);
+
+  // Ver o comentario do bloco: termo de estado nao filtra coluna por texto.
+  filters.q = term ? '' : q;
+
+  if (q.length < 3) {
+    searchHits.value = [];
+    searchKind.value = 'idle';
+    searchOpen.value = false;
+    return;
+  }
+
+  searchOpen.value = true;
+  searchError.value = '';
+  const mine = ++searchRun;
+
+  if (term) {
+    searchKind.value = 'state';
+    searchTermTitle.value = term.title;
+    searchHits.value = board
+      .allConversations()
+      .filter(c => term.match(c))
+      .slice(0, 60)
+      .map(c => {
+        const where = locate(c);
+        return {
+          id: c.id,
+          name: (c.meta && c.meta.sender && c.meta.sender.name) || `#${c.id}`,
+          phone: (c.meta && c.meta.sender && c.meta.sender.phone_number) || '',
+          funnel: where.funnel,
+          stage: where.stage,
+          state: term.title,
+        };
+      });
+    return;
+  }
+
+  searchBusy.value = true;
+  try {
+    const out = await searchEverywhere(q);
+    if (mine !== searchRun) return; // chegou tarde, ja tem busca mais nova
+    searchKind.value = out.kind;
+    searchHits.value = out.results;
+  } catch (e) {
+    if (mine !== searchRun) return;
+    searchError.value = e.message || 'Falha ao buscar no servidor.';
+    searchHits.value = [];
+  } finally {
+    if (mine === searchRun) searchBusy.value = false;
+  }
+};
+
+watch(searchText, () => {
+  if (searchTimer) clearTimeout(searchTimer);
+  searchTimer = setTimeout(runSearch, 350);
+});
 
 onMounted(() => {
   if (isStateMode.value) ensureStateLoaded();
@@ -343,6 +442,28 @@ const BTN =
         </button>
       </div>
 
+      <!--
+        Busca fixa: antes vivia dentro do modal de Filtros e so enxergava o que
+        ja estava carregado. Aqui ela consulta o servidor e varre os dois funis.
+      -->
+      <div class="relative shrink-0">
+        <input
+          v-model="searchText"
+          type="search"
+          class="w-[230px] px-2.5 py-1.5 text-xs rounded-lg border bg-n-background border-n-weak text-n-slate-12 placeholder:text-n-slate-10"
+          placeholder="Buscar nome, telefone ou estado"
+          title="Nome, telefone, #id — ou um estado: aguardando, atendimento, fechado, desqualificado"
+          @focus="searchText.trim().length >= 3 && (searchOpen = true)"
+          @keydown.esc="clearSearch"
+        />
+        <span
+          v-if="searchBusy"
+          class="absolute right-2 top-1/2 text-xs -translate-y-1/2 text-n-slate-10"
+        >
+          ...
+        </span>
+      </div>
+
       <span class="flex-1 min-w-0" />
 
       <span
@@ -386,6 +507,64 @@ const BTN =
       </template>
       <button :class="BTN" @click="showSettings = true">Configurações</button>
     </header>
+
+    <!-- Resultados da busca. Some ao limpar o campo ou apertar Esc. -->
+    <div
+      v-if="searchOpen"
+      class="px-4 py-2 border-b bg-n-alpha-1 border-n-weak max-h-[260px] overflow-y-auto"
+    >
+      <div class="flex gap-2 items-center mb-1.5">
+        <span class="text-xs font-semibold text-n-slate-12">
+          <template v-if="searchKind === 'state'">
+            {{ searchTermTitle }} — {{ searchHits.length }} no quadro carregado
+          </template>
+          <template v-else-if="searchBusy">Buscando no servidor...</template>
+          <template v-else>
+            {{ searchHits.length }} resultado(s) nos dois funis
+          </template>
+        </span>
+        <button
+          class="text-xs underline text-n-slate-11 hover:text-n-slate-12"
+          @click="clearSearch"
+        >
+          limpar
+        </button>
+      </div>
+
+      <p v-if="searchError" class="text-xs text-red-500">{{ searchError }}</p>
+
+      <p
+        v-else-if="!searchBusy && !searchHits.length"
+        class="text-xs text-n-slate-11"
+      >
+        Nada encontrado.
+        <template v-if="searchKind === 'state'">
+          Estados só valem para o que já foi carregado — use "Ver mais" nas
+          colunas.
+        </template>
+      </p>
+
+      <ul v-else class="flex flex-col gap-1">
+        <li
+          v-for="hit in searchHits"
+          :key="hit.id"
+          class="flex gap-2 items-center text-xs text-n-slate-12"
+        >
+          <a
+            :href="conversationUrl(hit.id)"
+            class="font-medium underline truncate max-w-[220px] hover:text-n-brand"
+          >
+            {{ hit.name }}
+          </a>
+          <span class="text-n-slate-11">{{ hit.phone }}</span>
+          <span class="px-1.5 py-0.5 rounded bg-n-alpha-2 text-n-slate-11">
+            {{ hit.funnel }}
+          </span>
+          <span class="text-n-slate-11">{{ hit.stage }}</span>
+          <span v-if="hit.state" class="text-n-slate-10">· {{ hit.state }}</span>
+        </li>
+      </ul>
+    </div>
 
     <!-- Quadro por estado: somente leitura, carga propria -->
     <StateBoard

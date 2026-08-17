@@ -237,9 +237,13 @@ export function filtersActive(f) {
   );
 }
 
+/**
+ * Conta o que esta ativo DENTRO do modal, para o badge "Filtros (n)".
+ * `f.q` nao entra mais: desde 17/08/2026 a busca mora na barra do topo, e
+ * contar no badge algo que o usuario nao encontra ao abrir o modal desorienta.
+ */
 export function activeFilterCount(f) {
   let n = 0;
-  if (f.q) n += 1;
   if (f.tag) n += 1;
   if (f.flag) n += 1;
   if (f.cDe || f.cAte) n += 1;
@@ -254,9 +258,21 @@ export function activeFilterCount(f) {
  */
 export function passesFilter(conv, f, leadCache = {}) {
   if (f.q) {
-    const q = f.q.toLowerCase();
-    const hay = `${convName(conv)} ${convPhone(conv)} #${conv.id}`.toLowerCase();
-    if (!hay.includes(q)) return false;
+    // Casa acento e mascara de telefone. Antes so comparava o texto cru, entao
+    // "Ercilia" nao achava "Ercília" e "(85) 99527" nao achava "5585995270000".
+    const q = String(f.q)
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '');
+    const phoneRaw = String(convPhone(conv) || '').replace(/\D/g, '');
+    const qDigits = q.replace(/\D/g, '');
+    const hay = `${convName(conv)} ${convPhone(conv)} ${phoneRaw} #${conv.id}`
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '');
+    const hitText = hay.includes(q);
+    const hitPhone = qDigits.length >= 4 && phoneRaw.includes(qDigits);
+    if (!hitText && !hitPhone) return false;
   }
   if (f.tag && !convLabels(conv).includes(f.tag)) return false;
 

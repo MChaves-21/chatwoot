@@ -46,18 +46,11 @@ const atualAte = dateModel('atualAte', 'aAte', 'end');
   <BaseModal @close="emit('close')">
     <h2 class="mb-1 text-lg font-semibold text-n-slate-12">Filtros</h2>
     <p class="mb-4 text-xs leading-relaxed text-n-slate-11">
-      Os filtros atuam sobre as conversas já carregadas em cada coluna. Use
-      "Ver mais" para trazer mais antes de filtrar.
+      Estes filtros atuam sobre as conversas já carregadas em cada coluna. Use
+      "Ver mais" para trazer mais antes de filtrar. Para achar alguém que ainda
+      não apareceu no quadro, use a busca da barra do topo — ela consulta o
+      servidor e varre os dois funis.
     </p>
-
-    <label :class="LABEL">Buscar (nome ou telefone)</label>
-    <input
-      v-model="filters.q"
-      type="text"
-      placeholder="Ex.: Ercilia ou 99527"
-      :class="INPUT"
-      @input="emit('change')"
-    />
 
     <div class="flex gap-2.5">
       <div class="flex-1">
