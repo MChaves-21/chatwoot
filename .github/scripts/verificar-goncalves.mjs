@@ -20,7 +20,19 @@
 
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { parse } from '@vue/compiler-sfc';
+
+// O compilador de SFC e opcional de proposito. O package.json do Chatwoot tem
+// conflito de peer deps, entao instalar qualquer coisa dentro do repositorio
+// quebra com ERESOLVE — por isso o workflow instala numa pasta separada. Se
+// mesmo assim ele nao estiver disponivel, a checagem 3 e PULADA com aviso em
+// vez de derrubar a esteira: o build Docker tambem compila os .vue, so que
+// mais tarde. Falha de infraestrutura nao deve barrar deploy; defeito deve.
+let parseSFC = null;
+try {
+  ({ parse: parseSFC } = await import('@vue/compiler-sfc'));
+} catch {
+  parseSFC = null;
+}
 
 const LOCALE_DIR = 'app/javascript/dashboard/i18n/locale';
 const KANBAN_DIR = 'app/javascript/dashboard/routes/dashboard/kanban';
@@ -99,11 +111,21 @@ if (!vues.length) {
   );
 }
 
-for (const caminho of vues) {
-  const { errors } = parse(readFileSync(caminho, 'utf8'), { filename: caminho });
-  for (const e of errors) erros.push(`${caminho}: ${e.message}`);
+if (!parseSFC) {
+  avisos.push(
+    '@vue/compiler-sfc indisponivel — checagem 3 pulada. Os .vue nao foram ' +
+      'compilados aqui; quem vai pegar erro de sintaxe e o build Docker.'
+  );
+  console.log('[3/4] PULADA (compilador ausente).');
+} else {
+  for (const caminho of vues) {
+    const { errors } = parseSFC(readFileSync(caminho, 'utf8'), {
+      filename: caminho,
+    });
+    for (const e of errors) erros.push(`${caminho}: ${e.message}`);
+  }
+  console.log(`[3/4] ${vues.length} componentes .vue do kanban compilados.`);
 }
-console.log(`[3/4] ${vues.length} componentes .vue do kanban compilados.`);
 
 // --- 4. Etiquetas de fechamento presentes nos funis ----------------------
 // Le por regex de proposito: importar os modulos exigiria resolver os imports

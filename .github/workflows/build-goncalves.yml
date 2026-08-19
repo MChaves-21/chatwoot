@@ -45,11 +45,22 @@ jobs:
 
       # Instala so o compilador de SFC. Um `pnpm install` completo levaria
       # minutos e traria 2 mil pacotes que nenhuma destas checagens usa.
-      - name: Instalar o compilador de .vue
-        run: npm install --no-save --no-audit --no-fund @vue/compiler-sfc@3.5.13
+      #
+      # A instalacao acontece FORA do repositorio: o package.json do Chatwoot
+      # tem conflito de peer deps, e `npm install` dentro dele quebra com
+      # ERESOLVE mesmo com --no-save. Depois o node_modules e ligado por
+      # symlink na raiz, porque import de ESM ignora NODE_PATH.
+      - name: Instalar o compilador de .vue (fora do repo)
+        run: |
+          mkdir -p "$RUNNER_TEMP/sfc"
+          cd "$RUNNER_TEMP/sfc"
+          npm init -y > /dev/null
+          npm install --no-audit --no-fund @vue/compiler-sfc@3.5.13
 
       - name: Verificacoes do fork
-        run: node .github/scripts/verificar-goncalves.mjs
+        run: |
+          ln -sfn "$RUNNER_TEMP/sfc/node_modules" node_modules
+          node .github/scripts/verificar-goncalves.mjs
 
   build:
     name: Build e publicacao
