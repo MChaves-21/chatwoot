@@ -23,6 +23,16 @@ on:
       - goncalves-main
   workflow_dispatch:
 
+# Dois pushes seguidos na goncalves-main disparavam duas esteiras que corriam
+# juntas: as duas empurravam a tag :goncalves e as duas chamavam o webhook de
+# deploy, sem ordem garantida — dava para o Easypanel subir a imagem do commit
+# ANTERIOR. Agora so uma esteira por branch corre por vez. Em pull request a
+# anterior e cancelada (ninguem espera build de commit ja substituido); no push
+# a anterior termina, porque cancelar no meio do deploy e pior que esperar.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 env:
   IMAGE: ghcr.io/${{ github.repository_owner }}/chatwoot
 
@@ -146,9 +156,25 @@ jobs:
             exit 0
           fi
 
-          CODIGO=$(curl -sS -o /tmp/resposta.txt -w '%{http_code}' -X POST "$HOOK")
+          # Sem --max-time o curl fica pendurado ate o teto de 6h do runner se o
+          # Easypanel parar de responder no meio da conexao. O --retry cobre o
+          # caso comum de o painel estar reiniciando na hora do disparo; POST de
+          # deploy hook e idempotente, repetir so encurta a fila.
+          CODIGO=$(curl -sS -X POST "$HOOK" \
+            --connect-timeout 15 \
+            --max-time 60 \
+            --retry 2 \
+            --retry-delay 5 \
+            --retry-connrefused \
+            -o /tmp/resposta.txt -w '%{http_code}') || CODIGO=000
           echo "HTTP $CODIGO"
           cat /tmp/resposta.txt || true
+
+          if [ "$CODIGO" = "000" ]; then
+            echo "Nao foi possivel falar com o Easypanel (timeout ou conexao recusada)."
+            echo "A imagem esta publicada; implante na mao."
+            exit 1
+          fi
 
           if [ "$CODIGO" -lt 200 ] || [ "$CODIGO" -ge 300 ]; then
             echo "O Easypanel recusou o deploy. A imagem esta publicada; implante na mao."
