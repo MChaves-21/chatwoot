@@ -1,15 +1,24 @@
-# Build da imagem propria do Chatwoot para a Goncalves & Silva.
+# Esteira do Chatwoot da Goncalves & Silva: verificar -> buildar -> implantar.
 #
 # Diferencas em relacao aos workflows do upstream:
 #   - publica no GHCR usando o GITHUB_TOKEN, entao nao ha secret para configurar;
 #   - so linux/amd64 (o VPS do Easypanel e amd64) — corta o tempo pela metade;
 #   - edicao "ee", igual a imagem chatwoot/chatwoot:latest que a instancia ja usa.
 #     Trocar para "ce" mudaria os recursos disponiveis.
+#
+# A verificacao roda ANTES e o build depende dela (`needs`). Um JSON de traducao
+# quebrado derruba o dashboard em tela branca e passa batido pelo build Docker;
+# barrar em 2 minutos e melhor que descobrir em producao.
+#
+# Em pull request, so verifica. Publicar imagem e so no push da goncalves-main.
 
-name: Build Chatwoot (Goncalves & Silva)
+name: Chatwoot (Goncalves & Silva)
 
 on:
   push:
+    branches:
+      - goncalves-main
+  pull_request:
     branches:
       - goncalves-main
   workflow_dispatch:
@@ -22,8 +31,33 @@ permissions:
   packages: write
 
 jobs:
-  build:
+  verificar:
+    name: Verificar
     runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Node da versao do projeto
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      # Instala so o compilador de SFC. Um `pnpm install` completo levaria
+      # minutos e traria 2 mil pacotes que nenhuma destas checagens usa.
+      - name: Instalar o compilador de .vue
+        run: npm install --no-save --no-audit --no-fund @vue/compiler-sfc@3.5.13
+
+      - name: Verificacoes do fork
+        run: node .github/scripts/verificar-goncalves.mjs
+
+  build:
+    name: Build e publicacao
+    needs: verificar
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    outputs:
+      image: ${{ steps.nome.outputs.image }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -32,7 +66,11 @@ jobs:
         run: echo -en '\nENV CW_EDITION="ee"' >> docker/Dockerfile
 
       - name: Nome da imagem em minusculas
-        run: echo "IMAGE=$(echo '${{ env.IMAGE }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+        id: nome
+        run: |
+          NOME=$(echo '${{ env.IMAGE }}' | tr '[:upper:]' '[:lower:]')
+          echo "IMAGE=$NOME" >> $GITHUB_ENV
+          echo "image=$NOME" >> $GITHUB_OUTPUT
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -69,5 +107,45 @@ jobs:
             echo "${{ env.IMAGE }}:${{ github.sha }}"
             echo '```'
             echo ""
-            echo "No Easypanel, aponte o servico para a tag \`:goncalves\`."
+            echo "Rollback: aponte o Easypanel para a tag do sha anterior."
+          } >> $GITHUB_STEP_SUMMARY
+
+  implantar:
+    name: Implantar no Easypanel
+    needs: build
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      # O deploy so acontece se o segredo EASYPANEL_DEPLOY_HOOK existir. Sem
+      # ele o job passa avisando, em vez de falhar — assim quem ainda nao
+      # configurou continua com o build funcionando e implanta na mao.
+      - name: Chamar o webhook de deploy
+        env:
+          HOOK: ${{ secrets.EASYPANEL_DEPLOY_HOOK }}
+        run: |
+          if [ -z "$HOOK" ]; then
+            echo "Segredo EASYPANEL_DEPLOY_HOOK nao configurado."
+            echo "A imagem ${{ needs.build.outputs.image }}:goncalves esta publicada;"
+            echo "clique em Deploy no Easypanel para puxa-la."
+            {
+              echo "### Deploy manual necessario"
+              echo ""
+              echo "Configure o segredo \`EASYPANEL_DEPLOY_HOOK\` para automatizar."
+            } >> $GITHUB_STEP_SUMMARY
+            exit 0
+          fi
+
+          CODIGO=$(curl -sS -o /tmp/resposta.txt -w '%{http_code}' -X POST "$HOOK")
+          echo "HTTP $CODIGO"
+          cat /tmp/resposta.txt || true
+
+          if [ "$CODIGO" -lt 200 ] || [ "$CODIGO" -ge 300 ]; then
+            echo "O Easypanel recusou o deploy. A imagem esta publicada; implante na mao."
+            exit 1
+          fi
+
+          {
+            echo "### Deploy disparado"
+            echo ""
+            echo "\`${{ needs.build.outputs.image }}:${{ github.sha }}\`"
           } >> $GITHUB_STEP_SUMMARY

@@ -244,7 +244,112 @@ todos os leads com contrato. Sobrou apenas o **id 188** (~airtonteixeira32), que
 
 ---
 
-## 5. Bugs adjacentes achados na auditoria
+## 5. Mapa das fases do Kanban — Auxílio Acidente
+
+Referência: o que precisa acontecer para um card mudar de coluna.
+
+### Como a decisão é tomada
+
+Não existe campo "etapa" no banco. A cada hora o sync lê os leads e **calcula** a
+coluna a partir de flags, numa **cascata em que o primeiro critério que bate
+vence**. A ordem importa: contrato assinado ganha de tudo, e a qualificação é
+testada depois dos estados de perda.
+
+### As 7 colunas automáticas
+
+| Coluna | Condição | O que precisa acontecer no mundo real |
+|---|---|---|
+| **Contrato Assinado** | `Contrato_assinado` | Cliente assina no ZapSign → webhook `ferramentacontratual` → fluxo "Comunicar do Contrato Assinado" |
+| **Aguardando Assinatura** | `Contrato_enviado` **ou** `video_assinatura` | Contrato gerado e enviado, **ou** a IA disparou `[audio_assinatura]` (o que ela faz logo após gerar o contrato) |
+| **Desqualificado** | `Desqualificado` | A IA executa MARCAR LEAD DESQUALIFICADO — só com as 3 perguntas da trava respondidas "não" explícito |
+| **Descarte (SDR)** | `Descartado_sem_resposta` | Alguém arrasta o card para "Descarte (SDR)"; o sync detecta, fecha a conversa e desliga a IA |
+| **Contrato em Elaboração** | `Iniciou_coleta` **E** `SEGURADO` | Lead qualificado **e** a IA pediu o nome completo (início da ETAPA 8) |
+| **Comercial** | `SEGURADO` | Cliente confirma vínculo com o INSS: CLT na época, CLT nos 2 anos anteriores, ou auxílio-doença |
+| **SDR** | nenhuma das acima | Estado inicial de todo lead novo |
+
+### Quem grava cada flag
+
+| Flag | Gravada por | Quando |
+|---|---|---|
+| `SEGURADO` | tool **SEGURADO** (agente PREV) | cliente confirma vínculo com o INSS |
+| `Iniciou_coleta` | tool **Indicar Início ETAPA 9** (agente PREV) | ao pedir o nome completo, na ETAPA 8 |
+| `Desqualificado` | tool **MARCAR LEAD DESQUALIFICADO** (agente PREV) | antes da mensagem de encerramento por desqualificação |
+| `Descartado_sem_resposta` | **Kanban Sync** | conversa recebe a etiqueta `descarte_sdr` |
+| `video_assinatura` | nó **Marcar Assinatura Enviado** (PREV) | IA emite `[audio_assinatura]` após gerar o contrato |
+| `Contrato_enviado` | **6. WEBHOOK CONTRATOS**, nó ATUALIZAR CONTRATO ENVIADO | POST externo em `/webhook/CONTRATOPREV_IA`, feito pela ferramenta de contratos |
+| `Contrato_assinado` | **Comunicar do Contrato Assinado** | ZapSign envia `doc_signed` com `external_id` começando em `LOTE-` |
+
+### As 4 colunas que o sistema nunca preenche
+
+**Análise Médica**, **Análise Jurídica**, **Efetivado** e **Aguardando Tempo**
+existem no quadro, mas nenhuma regra as calcula. Só recebem card se alguém
+arrastar — e **sem a etiqueta `manual` o sync desfaz o movimento na hora
+seguinte**. Na rodada das 16:00 de 17/08, 42 cards apareceram como
+`pulado_manual`, ou seja, protegidos por essa trava.
+
+### Dois pontos frágeis
+
+**"Aguardando Assinatura" hoje depende quase só de `video_assinatura`.** O campo
+`Contrato_enviado` vem de um webhook (`CONTRATOPREV_IA`) que a ferramenta externa
+de contratos deveria chamar, mas nas execuções retidas **nenhuma chegou por esse
+caminho**. Na prática quem move o card é a tag de áudio da IA, não a confirmação
+real de envio do contrato.
+
+**A qualificação depende inteiramente da IA.** Se um atendente humano assume a
+conversa cedo, ninguém grava `SEGURADO` — e o lead fica em SDR mesmo em
+negociação avançada. Foi a causa dos três casos de 17/08 (ver seção 6). Não tem
+correção automática: ou a equipe marca no sistema, ou o quadro mente.
+
+---
+
+## 6. Os três cards que mudaram de coluna em 17/08
+
+Na primeira rodada com a cascata nova (execução **145858**, 15:00), de 415 leads
+**6 tiveram etiqueta mexida** — e só 3 foram mudança real de coluna:
+
+| Conversa | Nome | Telefone | Movimento |
+|---|---|---|---|
+| #734 | ~Sueli | 5517982208854 | Contrato em Elaboração → SDR |
+| #838 | ~🍀✨ | 5571993758391 | Contrato em Elaboração → SDR |
+| #323 | ~Lucia Vera | 5585992979204 | Contrato em Elaboração → SDR |
+
+Os outros 3 não foram mudança: `5583993112864` foi para Desqualificado por
+marcação intencional nossa, e `~Lorrany` / `~MR` eram leads criados naquele dia,
+recebendo etiqueta pela primeira vez.
+
+**Todos os três têm o mesmo padrão:** `Iniciou_coleta = true` com
+`SEGURADO = false`. Pela regra nova isso derruba para SDR.
+
+**Mas o diagnóstico "não qualificado" estava errado.** Lendo as conversas #734 e
+#838: são atendimentos reais em andamento com a Juliana — apresentação do caso de
+R$60 mil, pedido de laudo, coleta de dados para contrato. O que faltou foi o
+**registro**: em ambos um humano assumiu cedo (`atendimento_humanizado`) e a IA
+nunca chegou a executar a tool SEGURADO.
+
+A equipe percebeu e devolveu os cards à mão (#838 → Comercial, #734 →
+Contrato em Elaboração, ambos por volta das 16:10). **Enquanto o cadastro não for
+acertado, o sync vai desfazer isso toda hora.**
+
+Correção necessária (pendente — ver seção 9):
+
+```sql
+-- Sueli: qualificada e já em coleta de dados para contrato
+update "LEADS PREV" set "SEGURADO" = true where id = 415;
+
+-- #838: qualificado, mas ainda em fase comercial —
+-- a IA ligou Iniciou_coleta cedo demais
+update "LEADS PREV" set "SEGURADO" = true,
+                        "Iniciou_coleta" = false,
+                        "Horário_coleta" = null
+ where id = 417;
+```
+
+`~Lucia Vera` (id 213) tem o mesmo padrão mas a conversa ainda não foi lida —
+verificar antes de marcar.
+
+---
+
+## 7. Bugs adjacentes achados na auditoria
 
 ### `indicar Data do Acidente` falhava em silêncio
 
@@ -272,7 +377,7 @@ Funciona, mas o `"Sim"` no código engana quem lê.
 
 ---
 
-## 6. Kanban no Chatwoot — filtros de busca
+## 8. Kanban no Chatwoot — filtros de busca
 
 ### Onde vive
 
@@ -334,7 +439,7 @@ tinha obrigado a encurtar os rótulos dos botões.
 
 ---
 
-## 7. Como implantar (o "Implantar" sozinho não basta)
+## 9. Como implantar (o "Implantar" sozinho não basta)
 
 A fonte no Easypanel **não é Git** — é imagem Docker fixada num SHA. Clicar em
 "Implantar" sem trocar a tag redeploya a mesma imagem antiga.
@@ -356,7 +461,7 @@ Implantações desta sessão: `2a14083` (busca) e `cf4ccf7` (largura da barra).
 
 ---
 
-## 8. Estado final e pendências
+## 10. Estado final e pendências
 
 ### Publicado e ativo
 
@@ -387,24 +492,31 @@ Nenhuma alteração ficou pela metade. O que segue é verificação e trabalho n
    Lembrando que a falha aqui é silenciosa por design: credencial errada faz
    voltar a duplicidade, não quebra o atendimento.
 
+**Correção de dados pendente (bloqueada nesta sessão):**
+
+4. **`UPDATE` nos leads 415 e 417** (seção 6) — o comando foi bloqueado pelo
+   controle de segurança e precisa ser rodado no SQL Editor. Sem ele, o sync
+   continua devolvendo esses cards para SDR de hora em hora, desfazendo o que a
+   equipe arruma à mão. Verificar também a `~Lucia Vera` (id 213).
+
 **Verificação manual:**
 
-4. **Credencial** dos nós "Ler Etiquetas do Contato (video)" e "Marcar Video
+5. **Credencial** dos nós "Ler Etiquetas do Contato (video)" e "Marcar Video
    Apresentacao Enviado" — atribuída sem poder ser conferida (a API redige
    credenciais). Confirmar que é a mesma do nó "Ler Etiquetas CW".
 
 **Trabalho novo:**
 
-5. **Áudio "Não poder mais trabalhar devido ao auxílio acidente.ogg"** sem
+6. **Áudio "Não poder mais trabalhar devido ao auxílio acidente.ogg"** sem
    ramificação no Switch — precisa de tag nova, cadeia
    Buscar → Baixar → Enviar → Marcar, e instrução no prompt.
-6. **Leads desqualificados antigos** nunca foram marcados — a correção não
+7. **Leads desqualificados antigos** nunca foram marcados — a correção não
    alcança o passado. Um levantamento em lote (sem `SEGURADO`, sem contrato,
    conversa encerrada) evitaria descobrir um a um.
 
 **Decidido não fazer:**
 
-7. **7 conversas fechadas indevidamente** no incidente da v4. Não foi possível
+8. **7 conversas fechadas indevidamente** no incidente da v4. Não foi possível
    determinar quais estavam abertas antes, e reabrir em bloco jogaria conversa
    antiga de volta na caixa da equipe. Como todas são de leads com contrato
    assinado, conversa resolvida é o estado final normal delas.
