@@ -11,6 +11,7 @@ import {
 } from './helper/filterHelper';
 import { groupFilterTypes } from './helper/filterAttributeIcons';
 import languages from 'dashboard/components/widgets/conversation/advancedFilterItems/languages.js';
+import { KANBAN_STAGE_FILTERS } from 'dashboard/routes/dashboard/kanban/conversationFilters';
 
 /**
  * @typedef {Object} FilterOption
@@ -116,7 +117,13 @@ export function useConversationFilterContext() {
       attributeName: t('FILTER.ATTRIBUTES.STATUS'),
       label: t('FILTER.ATTRIBUTES.STATUS'),
       inputType: 'multiSelect',
-      options: ['open', 'resolved', 'pending', 'snoozed', 'all'].map(id => {
+      // 'all' saiu em 28/08/2026. Nao e status de conversa: no banco uma
+      // conversa e open, resolved, pending ou snoozed, e mais nada. Como opcao
+      // de um filtro de igualdade, "Todas" virava `status = all` e nao casava
+      // com conversa nenhuma — a lista voltava vazia e parecia bug do sistema.
+      // O seletor rapido da lista (ConversationBasicFilter) continua com ela,
+      // e la faz sentido: ali "all" significa "nao filtrar".
+      options: ['open', 'resolved', 'pending', 'snoozed'].map(id => {
         return {
           id,
           name: t(`CHAT_LIST.CHAT_STATUS_FILTER_ITEMS.${id}.TEXT`),
@@ -255,6 +262,37 @@ export function useConversationFilterContext() {
       filterOperators: presenceOperators.value,
       attributeModel: 'standard',
     },
+    // Fases dos dois funis do kanban. Ver o cabecalho de
+    // routes/dashboard/kanban/conversationFilters.js: a chave e propria e vira
+    // `labels` so na fronteira com o backend.
+    ...KANBAN_STAGE_FILTERS.map(stageFilter => ({
+      attributeKey: stageFilter.attributeKey,
+      value: stageFilter.attributeKey,
+      attributeName: stageFilter.attributeName,
+      label: stageFilter.attributeName,
+      inputType: 'multiSelect',
+      // Bolinha da cor da coluna, igual ao que "Etiquetas" ja faz — e o que
+      // liga a opcao aqui a coluna la no quadro.
+      options: stageFilter.stages.map(stage => ({
+        id: stage.label,
+        name: stage.title,
+        icon: h('span', {
+          class: 'rounded-full',
+          style: {
+            backgroundColor: stage.color,
+            height: '6px',
+            width: '6px',
+          },
+        }),
+      })),
+      dataType: 'text',
+      // equalityOperators e nao presenceOperators (o que "Etiquetas" usa) de
+      // proposito: "esta presente" aqui significaria "tem QUALQUER etiqueta",
+      // porque no backend a chave vira `labels`. Como filtro de fase isso nao
+      // quer dizer nada e responderia o oposto do que o nome promete.
+      filterOperators: equalityOperators.value,
+      attributeModel: 'standard',
+    })),
     {
       attributeKey: CONVERSATION_ATTRIBUTES.BROWSER_LANGUAGE,
       value: CONVERSATION_ATTRIBUTES.BROWSER_LANGUAGE,

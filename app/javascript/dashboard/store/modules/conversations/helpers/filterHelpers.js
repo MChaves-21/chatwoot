@@ -48,6 +48,7 @@
  */
 import { coerceToDate } from '@chatwoot/utils';
 import jsonLogic from 'json-logic-js';
+import { KANBAN_STAGE_KEYS } from 'dashboard/routes/dashboard/kanban/conversationFilters';
 
 /**
  * Gets a value from a conversation based on the attribute key
@@ -61,6 +62,12 @@ import jsonLogic from 'json-logic-js';
  * 3. Properties in conversation.custom_attributes (conversation_type, etc.)
  */
 const getValueFromConversation = (conversation, attributeKey) => {
+  // Fases do kanban: chave propria na tela, etiqueta no banco. Sem esta linha a
+  // checagem local devolveria undefined e uma conversa que chegasse por
+  // websocket com a etiqueta certa nao entraria na lista ja filtrada — so
+  // apareceria depois de recarregar, quando o servidor responde.
+  if (KANBAN_STAGE_KEYS.includes(attributeKey)) return conversation.labels;
+
   switch (attributeKey) {
     case 'status':
     case 'priority':

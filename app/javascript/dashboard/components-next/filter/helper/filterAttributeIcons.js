@@ -32,6 +32,9 @@ const ATTRIBUTE_ICONS = {
   content: 'i-lucide-message-square-text',
   mail_subject: 'i-lucide-mail-open',
   conversation_language: 'i-lucide-languages',
+  // Fases do kanban (ver routes/dashboard/kanban/conversationFilters.js)
+  kanban_stage_auxilio: 'i-lucide-columns-3',
+  kanban_stage_bpc: 'i-lucide-columns-3',
   // Shared
   labels: 'i-lucide-tags',
   created_at: 'i-lucide-calendar',
