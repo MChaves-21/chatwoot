@@ -103,27 +103,12 @@ export const AUXILIO_COLUMNS = [
 export const BPC_COLUMNS = [
   { title: 'Sem etapa', label: UNSTAGED_LABEL, color: '#94a3b8' },
   /*
-   * Duas colunas de ORIGEM, nao de etapa — 13/08/2026.
-   *
-   * Os 428 leads migrados do ChatGuru entraram aqui, e vieram de dois arquivos
-   * diferentes (a base do Closer e a do SDR). Separar por arquivo em vez de
-   * jogar todos em "Lead novo" existe por um motivo pratico: sao 428 leads
-   * frios de ate um ano atras, e misturar com quem chegou hoje faria a
-   * primeira coluna do funil deixar de significar "lead novo".
-   *
-   * Ficam ANTES de "Lead novo" de proposito: a leitura do quadro passa a ser
-   * "o que herdei" -> "o que chegou agora" -> o resto do funil. Quando a
-   * equipe trabalhar um lead do ChatGuru, ela arrasta para a coluna certa e
-   * ele sai daqui para nunca mais voltar.
-   *
-   * 14/08/2026 — "Closer ChatGuru" era #8b5cf6, a MESMA cor de "Lead
-   * qualificado / Negociacao", duas colunas do mesmo quadro. Passou para
-   * #d946ef, que nao aparece em nenhum outro lugar do arquivo e fica vizinha do
-   * rosa do "SDR ChatGuru": as duas colunas de origem continuam se lendo como
-   * par, e nenhuma delas se confunde mais com etapa de funil.
+   * 15/09/2026 — sairam as colunas de ORIGEM "Closer ChatGuru"
+   * (chatguru_closer) e "SDR ChatGuru" (chatguru_sdr), criadas em 13/08 para
+   * os 428 leads migrados do ChatGuru. A equipe ja distribuiu todos: na API,
+   * nenhuma conversa (status=all, todas as caixas) tinha mais essas etiquetas.
+   * Se alguma voltar a aparecer, a conversa cai em "Sem etapa", nao some.
    */
-  { title: 'Closer ChatGuru', label: 'chatguru_closer', color: '#d946ef' },
-  { title: 'SDR ChatGuru', label: 'chatguru_sdr', color: '#ec4899' },
   { title: 'Lead novo', label: 'bpc_lead_novo', color: '#3b82f6' },
   {
     title: 'Aguardando requisito de qualificacao',
@@ -267,8 +252,6 @@ export const STAGE_EMOJI = {
   descarte_sdr: '🗑️',
   aguardando_tempo: '⏳',
   // BPC
-  chatguru_closer: '📇',
-  chatguru_sdr: '📇',
   bpc_lead_novo: '🆕',
   bpc_aguardando_requisito: '📋',
   bpc_qualificado: '💼',
