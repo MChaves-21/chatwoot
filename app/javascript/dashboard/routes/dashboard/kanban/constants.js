@@ -194,13 +194,11 @@ export const BPC_COLUMNS = [
 export const TRABALHISTA_FUNNEL_ID = 'trabalhista';
 
 /**
- * Caixa do canal Trabalhista. AINDA NAO EXISTE (25/09/2026): o numero de
- * WhatsApp do canal nao foi conectado. Enquanto for null o quadro le as
- * etiquetas trab_* de todas as caixas — nao mistura nada, porque so o canal
- * trabalhista aplica etiquetas com esse prefixo. Quando a caixa for criada,
- * trocar null pelo id dela.
+ * Caixa do canal Trabalhista: id 10, criada em 25/09/2026 pela integracao
+ * uazapi (instancia "Trabalhista", numero 558589132364). Se voltar a null, o
+ * quadro le as etiquetas trab_* de todas as caixas.
  */
-export const TRABALHISTA_INBOX_ID = null;
+export const TRABALHISTA_INBOX_ID = 10;
 
 /**
  * Funil Trabalhista — 25/09/2026. As colunas sao as ETAPAS do agente de IA
