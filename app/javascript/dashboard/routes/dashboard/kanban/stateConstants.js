@@ -40,6 +40,10 @@ export const CLOSED_LABELS = [
   'bpc_desqualificado',
   'bpc_cancelado',
   'bpc_fechado_sem_resposta',
+  // Trabalhista (25/09/2026): os tres desfechos de descarte do roteiro.
+  'trab_prescrito',
+  'trab_sem_direito',
+  'trab_desinteresse',
 ];
 
 /**

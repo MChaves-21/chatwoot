@@ -30,11 +30,17 @@
  * salva) volta mostrando "Fases Kanban BPC", nao "Etiquetas".
  */
 
-import { AUXILIO_COLUMNS, BPC_COLUMNS, UNSTAGED_LABEL } from './constants';
+import {
+  AUXILIO_COLUMNS,
+  BPC_COLUMNS,
+  TRABALHISTA_COLUMNS,
+  UNSTAGED_LABEL,
+} from './constants';
 
 export const KANBAN_STAGE_ATTRIBUTES = {
   AUXILIO: 'kanban_stage_auxilio',
   BPC: 'kanban_stage_bpc',
+  TRABALHISTA: 'kanban_stage_trabalhista',
 };
 
 /** Toda chave de fase vira `labels` na hora de falar com o servidor. */
@@ -72,5 +78,10 @@ export const KANBAN_STAGE_FILTERS = [
     attributeKey: KANBAN_STAGE_ATTRIBUTES.BPC,
     attributeName: 'Fases Kanban · BPC',
     stages: stages(BPC_COLUMNS),
+  },
+  {
+    attributeKey: KANBAN_STAGE_ATTRIBUTES.TRABALHISTA,
+    attributeName: 'Fases Kanban · Trabalhista',
+    stages: stages(TRABALHISTA_COLUMNS),
   },
 ];

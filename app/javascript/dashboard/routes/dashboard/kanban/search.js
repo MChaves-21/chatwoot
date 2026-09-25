@@ -30,7 +30,12 @@
  */
 
 import ApiClient from '../../../api/ApiClient';
-import { AUXILIO_COLUMNS, BPC_COLUMNS, FUNNELS } from './constants';
+import {
+  AUXILIO_COLUMNS,
+  BPC_COLUMNS,
+  FUNNELS,
+  TRABALHISTA_COLUMNS,
+} from './constants';
 import {
   CLOSED_LABELS,
   STATE_COLUMNS,
@@ -166,6 +171,9 @@ const STAGE_INDEX = (() => {
   });
   BPC_COLUMNS.forEach(c => {
     idx[c.label] = { funnel: 'BPC', stage: c.title };
+  });
+  TRABALHISTA_COLUMNS.forEach(c => {
+    idx[c.label] = { funnel: 'Trabalhista', stage: c.title };
   });
   return idx;
 })();

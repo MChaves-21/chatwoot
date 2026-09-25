@@ -110,6 +110,17 @@ export const BPC_COLUMNS = [
    * Se alguma voltar a aparecer, a conversa cai em "Sem etapa", nao some.
    */
   { title: 'Lead novo', label: 'bpc_lead_novo', color: '#3b82f6' },
+  /*
+   * 25/09/2026 — pedido do Goncalves: coluna logo depois de "Lead novo"
+   * para os leads novos que pedem atencao especial. Etiqueta nova
+   * bpc_lead_novo_especial; precisa existir no Chatwoot (Configuracoes >
+   * Etiquetas) para aparecer no seletor de etiquetas da conversa.
+   */
+  {
+    title: 'Lead novo especial',
+    label: 'bpc_lead_novo_especial',
+    color: '#ec4899',
+  },
   {
     title: 'Aguardando requisito de qualificacao',
     label: 'bpc_aguardando_requisito',
@@ -176,6 +187,71 @@ export const BPC_COLUMNS = [
 ];
 
 /**
+ * Id do funil Trabalhista — 25/09/2026. Constante pelo mesmo motivo do
+ * BPC_FUNNEL_ID: ha regra de tela que depende dele (a aba Resumo do card nao
+ * aparece aqui, ver Index.vue).
+ */
+export const TRABALHISTA_FUNNEL_ID = 'trabalhista';
+
+/**
+ * Caixa do canal Trabalhista. AINDA NAO EXISTE (25/09/2026): o numero de
+ * WhatsApp do canal nao foi conectado. Enquanto for null o quadro le as
+ * etiquetas trab_* de todas as caixas — nao mistura nada, porque so o canal
+ * trabalhista aplica etiquetas com esse prefixo. Quando a caixa for criada,
+ * trocar null pelo id dela.
+ */
+export const TRABALHISTA_INBOX_ID = null;
+
+/**
+ * Funil Trabalhista — 25/09/2026. As colunas sao as ETAPAS do agente de IA
+ * trabalhista (campo etapa_atual do json_estado no n8n), na mesma ordem do
+ * roteiro. O pedido foi "kanban por estado de Trabalhista": uma coluna para
+ * cada estado do atendimento.
+ *
+ * Prefixo trab_ obrigatorio, pelo mesmo motivo do bpc_: moveToStage apaga as
+ * etiquetas de etapa do funil ativo antes de aplicar a nova.
+ *
+ * O estado `encerrado` do roteiro virou quatro colunas, uma por desfecho
+ * (motivo_encerramento). Uma coluna so para "contrato enviado", "prescrito",
+ * "sem direito" e "desistiu" misturaria quem virou cliente com quem foi
+ * descartado. As tres de descarte entram em CLOSED_LABELS.
+ */
+export const TRABALHISTA_COLUMNS = [
+  { title: 'Apresentacao', label: 'trab_apresentacao', color: '#3b82f6' },
+  { title: 'Qualificacao', label: 'trab_qualificacao', color: '#6366f1' },
+  {
+    title: 'Coleta de informacoes',
+    label: 'trab_coleta_info',
+    color: '#8b5cf6',
+  },
+  {
+    title: 'Explicacao do processo',
+    label: 'trab_explicacao_processo',
+    color: '#0ea5e9',
+  },
+  {
+    title: 'Condicoes financeiras',
+    label: 'trab_condicoes_financeiras',
+    color: '#06b6d4',
+  },
+  { title: 'Objecao', label: 'trab_objecao', color: '#f97316' },
+  { title: 'Fechamento', label: 'trab_fechamento', color: '#eab308' },
+  {
+    title: 'Coleta de dados do contrato',
+    label: 'trab_coleta_contrato',
+    color: '#f59e0b',
+  },
+  {
+    title: 'Contrato enviado',
+    label: 'trab_contrato_enviado',
+    color: '#22c55e',
+  },
+  { title: 'Prescrito', label: 'trab_prescrito', color: '#64748b' },
+  { title: 'Sem direito', label: 'trab_sem_direito', color: '#ef4444' },
+  { title: 'Desistiu', label: 'trab_desinteresse', color: '#dc2626' },
+];
+
+/**
  * Os funis disponiveis. Acrescentar um terceiro e acrescentar um item aqui —
  * o seletor do cabecalho e o resto do quadro leem desta lista.
  *
@@ -194,6 +270,12 @@ export const FUNNELS = [
     title: 'BPC',
     inboxId: 9,
     columns: BPC_COLUMNS,
+  },
+  {
+    id: TRABALHISTA_FUNNEL_ID,
+    title: 'Trabalhista',
+    inboxId: TRABALHISTA_INBOX_ID,
+    columns: TRABALHISTA_COLUMNS,
   },
   /**
    * Quadro por estado da conversa — 10/08/2026.
@@ -253,6 +335,7 @@ export const STAGE_EMOJI = {
   aguardando_tempo: '⏳',
   // BPC
   bpc_lead_novo: '🆕',
+  bpc_lead_novo_especial: '⭐',
   bpc_aguardando_requisito: '📋',
   bpc_qualificado: '💼',
   bpc_documentos_iniciais: '📎',
@@ -268,6 +351,19 @@ export const STAGE_EMOJI = {
   bpc_desqualificado: '❌',
   bpc_cancelado: '🚫',
   bpc_fechado_sem_resposta: '🔇',
+  // Trabalhista
+  trab_apresentacao: '👋',
+  trab_qualificacao: '📞',
+  trab_coleta_info: '🔎',
+  trab_explicacao_processo: '⚖️',
+  trab_condicoes_financeiras: '💰',
+  trab_objecao: '🤔',
+  trab_fechamento: '🤝',
+  trab_coleta_contrato: '📝',
+  trab_contrato_enviado: '✍️',
+  trab_prescrito: '⌛',
+  trab_sem_direito: '❌',
+  trab_desinteresse: '🚫',
 };
 
 /** Etiqueta que o quadro acrescenta ao mover um card na mao. */

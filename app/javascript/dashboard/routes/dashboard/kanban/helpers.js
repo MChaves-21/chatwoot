@@ -399,6 +399,8 @@ export function nextSteps(label) {
     [UNSTAGED_LABEL]:
       'Card ainda sem etapa - classificar arrastando para a coluna correta.',
     bpc_lead_novo: 'Fazer o primeiro contato e iniciar a qualificacao.',
+    bpc_lead_novo_especial:
+      'Lead novo com atencao especial - priorizar o primeiro contato.',
     bpc_aguardando_requisito:
       'Confirmar renda familiar por pessoa e o enquadramento (deficiencia ou 65+).',
     bpc_qualificado: 'Apresentar a proposta e fechar os honorarios.',
@@ -417,6 +419,21 @@ export function nextSteps(label) {
       'Cliente desistiu - sem acao. Retomar apenas se ele procurar de novo.',
     bpc_fechado_sem_resposta:
       'Nunca respondeu - candidato a campanha de reativacao, nao a cobranca.',
+
+    // ------------------------------------------------ Trabalhista (25/09/2026)
+    trab_apresentacao: 'Lead acabou de chegar - a IA faz a apresentacao.',
+    trab_qualificacao: 'Confirmar se trabalhou com ou sem carteira.',
+    trab_coleta_info:
+      'Coletar funcao, dias/horario, tempo, salario, pagamento e testemunhas.',
+    trab_explicacao_processo: 'Explicar como funciona a acao.',
+    trab_condicoes_financeiras: 'Explicar os honorarios (so recebe se ganhar).',
+    trab_objecao: 'Tratar a objecao (medo, lealdade ao patrao, demora).',
+    trab_fechamento: 'Confirmar se o cliente quer entrar com o processo.',
+    trab_coleta_contrato: 'Coletar os dados e gerar o contrato.',
+    trab_contrato_enviado: 'Cobrar a assinatura do contrato.',
+    trab_prescrito: 'Desligado ha mais de 2 anos - sem acao.',
+    trab_sem_direito: 'Nao preenche o minimo de dias/horas - sem acao.',
+    trab_desinteresse: 'Cliente desistiu - retomar so se ele procurar.',
   };
   return m[label] || '';
 }

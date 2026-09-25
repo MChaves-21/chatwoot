@@ -29,7 +29,7 @@ import DailyTableModal from './components/DailyTableModal.vue';
 import { useKanbanBoard } from './useKanbanBoard';
 import { useStateBoard } from './useStateBoard';
 import { exportToExcel } from './excel';
-import { BPC_FUNNEL_ID } from './constants';
+import { BPC_FUNNEL_ID, TRABALHISTA_FUNNEL_ID } from './constants';
 import { activeFilterCount, passesFilter } from './helpers';
 import { searchEverywhere, stateTermFor, locate } from './search';
 
@@ -113,7 +113,11 @@ const isStateMode = computed(() => activeFunnel.value.mode === 'state');
  * A decisao mora aqui, e nao dentro do ContactPopup, porque quem sabe qual
  * funil esta aberto e esta tela. O popup so recebe um booleano.
  */
-const showCardSummary = computed(() => activeFunnelId.value !== BPC_FUNNEL_ID);
+// 25/09/2026: Trabalhista tambem fica sem Resumo (o resumo le as flags do
+// lead de Auxilio Acidente, que nao existem para o canal trabalhista).
+const showCardSummary = computed(
+  () => ![BPC_FUNNEL_ID, TRABALHISTA_FUNNEL_ID].includes(activeFunnelId.value)
+);
 
 /**
  * Carrega so quando o funil fica ativo. Sao ~21 requisicoes; nao vale cobrar
