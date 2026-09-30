@@ -446,6 +446,18 @@ export const MAX_PAGES_UNSTAGED = 40;
  */
 export const LS_KEY = 'cw_kanban_prefs_v5';
 
+/**
+ * Agendar mensagem — 30/09/2026. URL fixa do webhook do n8n, para o botao
+ * "Agendar" aparecer para TODO atendente, sem depender das Configuracoes do
+ * kanban (que ficam no localStorage de cada navegador — era por isso que o
+ * botao aparecia num computador e sumia no outro).
+ *
+ * Nao ha segredo no codigo: o n8n confere a SESSAO do atendente no Chatwoot
+ * (GET /api/v1/profile). A URL das Configuracoes, se preenchida, ainda vence.
+ */
+export const SCHEDULE_WEBHOOK_URL =
+  'https://n8n.goncalvesesilva.cloud/webhook/kanban-agendar';
+
 export const DEFAULT_PREFS = {
   funnelId: DEFAULT_FUNNEL_ID,
   tags: DEFAULT_TAGS,

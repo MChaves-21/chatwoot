@@ -14,7 +14,7 @@ import EmailTranscriptModal from './EmailTranscriptModal.vue';
 import ResolveAction from 'dashboard/routes/dashboard/kanban/components/ConversationStatePicker.vue';
 // Fork (14/08/2026): botao "Agendar mensagem". Tambem vive na pasta do kanban
 // pelo mesmo motivo — apagar estas duas linhas devolve o cabecalho original.
-// Ele se esconde sozinho enquanto o webhook nao estiver configurado.
+// Desde 30/09/2026 aparece sempre (URL fixa + login do Chatwoot no n8n).
 import ScheduleMessageButton from 'dashboard/routes/dashboard/kanban/components/ScheduleMessageButton.vue';
 import ButtonV4 from 'dashboard/components-next/button/Button.vue';
 import DropdownMenu from 'dashboard/components-next/dropdown-menu/DropdownMenu.vue';

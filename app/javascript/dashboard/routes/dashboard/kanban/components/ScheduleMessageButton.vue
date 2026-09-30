@@ -63,8 +63,10 @@ import { useStoreGetters } from 'dashboard/composables/store';
 import { useAlert } from 'dashboard/composables';
 import { onClickOutside } from '@vueuse/core';
 
+import Cookies from 'js-cookie';
+
 import KanbanAPI, { scheduleMessage } from '../api';
-import { LS_KEY } from '../constants';
+import { LS_KEY, SCHEDULE_WEBHOOK_URL } from '../constants';
 
 const NOTA_PRIVADA_AO_AGENDAR = true;
 
@@ -95,16 +97,33 @@ function readPrefs() {
 }
 
 /**
- * Sem webhook configurado o botao NAO aparece.
+ * 30/09/2026: o botao aparece SEMPRE.
  *
- * Botao que abre um painel e falha ao salvar e pior que botao ausente: o
- * atendente acha que agendou. Quem configura e o modal de Configuracoes do
- * kanban.
+ * Antes ele so aparecia se as Configuracoes do kanban (URL + segredo) estivessem
+ * preenchidas no localStorage DAQUELE navegador — por isso sumia no computador
+ * de quem nunca abriu as Configuracoes. Agora a URL e fixa (SCHEDULE_WEBHOOK_URL)
+ * e o n8n autentica pela sessao do Chatwoot de quem esta logado.
  */
-const isEnabled = computed(() => {
-  const p = readPrefs();
-  return Boolean(p.scheduleUrl && p.secret);
-});
+const isEnabled = computed(() => true);
+
+/**
+ * Credenciais da sessao do dashboard (devise_token_auth), as mesmas que o
+ * Chatwoot usa em toda chamada. `change_headers_on_each_request = false`,
+ * entao reenviar nao invalida a sessao. O n8n so as usa para perguntar ao
+ * Chatwoot quem e o atendente (GET /api/v1/profile).
+ */
+function readSessionAuth() {
+  try {
+    const raw = JSON.parse(Cookies.get('cw_d_session_info') || '{}');
+    return {
+      'access-token': raw['access-token'] || '',
+      client: raw.client || '',
+      uid: raw.uid || '',
+    };
+  } catch (e) {
+    return {};
+  }
+}
 
 const isOpen = ref(false);
 const isSaving = ref(false);
@@ -210,8 +229,9 @@ const submit = async () => {
   // string crua faria o n8n comparar 15:00 de Fortaleza com 15:00 UTC e
   // disparar tres horas cedo.
   const res = await scheduleMessage({
-    url: prefs.scheduleUrl,
+    url: prefs.scheduleUrl || SCHEDULE_WEBHOOK_URL,
     secret: prefs.secret,
+    auth: readSessionAuth(),
     conversationId: conversationIdAtual,
     inboxId: currentChat.value.inbox_id,
     phone: phone.value,

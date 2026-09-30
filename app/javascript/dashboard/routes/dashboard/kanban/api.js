@@ -225,6 +225,7 @@ export async function fetchSummary({ url, secret, conversationId, phone, message
 export async function scheduleMessage({
   url,
   secret,
+  auth,
   conversationId,
   inboxId,
   phone,
@@ -232,13 +233,16 @@ export async function scheduleMessage({
   scheduledAt,
   content,
 }) {
-  if (!url || !secret) return { ok: false, error: 'Webhook de agendamento não configurado.' };
+  // 30/09/2026: o n8n autentica pela sessao do Chatwoot (`auth`). O `secret`
+  // antigo so vai junto se ainda estiver nas Configuracoes deste navegador.
+  if (!url) return { ok: false, error: 'Webhook de agendamento não configurado.' };
   try {
     const r = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        secret,
+        secret: secret || undefined,
+        auth,
         conversation_id: conversationId,
         inbox_id: inboxId,
         phone,
@@ -247,7 +251,16 @@ export async function scheduleMessage({
         content,
       }),
     });
-    if (!r.ok) return { ok: false, error: `O n8n respondeu ${r.status}.` };
+    if (!r.ok) {
+      // A recusa do n8n traz o motivo em `error` (login, data, mensagem vazia).
+      let motivo = '';
+      try {
+        motivo = (JSON.parse(await r.text()) || {}).error || '';
+      } catch (e) {
+        motivo = '';
+      }
+      return { ok: false, error: motivo || `O n8n respondeu ${r.status}.` };
+    }
     // Resposta vazia conta como sucesso: um webhook do n8n com "Respond
     // Immediately" devolve 200 sem corpo, e exigir JSON aqui reprovaria um
     // agendamento que de fato gravou.
