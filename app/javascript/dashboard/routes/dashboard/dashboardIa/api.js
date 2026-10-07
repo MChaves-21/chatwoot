@@ -17,8 +17,10 @@
  *                    estao em contrato assinado ou alem.
  */
 
+import Cookies from 'js-cookie';
 import ApiClient from '../../../api/ApiClient';
 import {
+  LOSS_REASONS_URL,
   MAX_HISTORY_PAGES,
   MAX_PAGES_PER_INBOX,
   SCAN_CONCURRENCY,
@@ -62,6 +64,37 @@ export function addedLabels(content) {
 class DashboardIaAPI extends ApiClient {
   constructor() {
     super('conversations', { accountScoped: true });
+  }
+
+  /** Prefixo da conta: /api/v1/accounts/:id */
+  get base() {
+    return this.url.replace(/\/conversations$/, '');
+  }
+
+  /**
+   * Tudo de uma vez, pelo endpoint do fork (dashboard_ia_controller.rb):
+   * linhas enxutas, historico de etiquetas e metas. Uma requisicao no lugar
+   * de ~105.
+   *
+   * Lanca erro se o endpoint nao existir (imagem antiga), se o usuario nao
+   * for administrador ou se a resposta vier fora do formato — quem chama cai
+   * no plano B (scan + signedDates).
+   */
+  async snapshot({ inboxIds }) {
+    const params = new URLSearchParams();
+    inboxIds.forEach(id => params.append('inbox_ids[]', String(id)));
+    const res = await axios.get(`${this.base}/dashboard_ia?${params.toString()}`);
+    const data = res.data || {};
+    if (!Array.isArray(data.rows)) {
+      throw new Error('Resposta inesperada do endpoint do painel.');
+    }
+    return data;
+  }
+
+  /** Grava metas no servidor ({ funil: n }) e devolve o conjunto completo. */
+  async saveGoals(goals) {
+    const res = await axios.patch(`${this.base}/dashboard_ia/goals`, { goals });
+    return (res.data || {}).goals || {};
   }
 
   async page(inboxId, page) {
@@ -180,3 +213,39 @@ class DashboardIaAPI extends ApiClient {
 }
 
 export default new DashboardIaAPI();
+
+/**
+ * Motivos de descarte, do n8n. Devolve { total, motivos: [{ motivo, total }] }
+ * ou null — o bloco e opcional, entao qualquer falha (n8n fora, usuario nao
+ * administrador, sessao vencida) so esconde o bloco, nunca derruba o painel.
+ *
+ * O n8n autentica pela sessao do dashboard (devise_token_auth), a mesma que o
+ * botao Agendar do Kanban manda. Nao ha segredo no codigo.
+ */
+export async function fetchLossReasons() {
+  try {
+    const raw = JSON.parse(Cookies.get('cw_d_session_info') || '{}');
+    const auth = {
+      'access-token': raw['access-token'],
+      client: raw.client,
+      uid: raw.uid,
+    };
+    if (!auth['access-token']) return null;
+    const res = await fetch(LOSS_REASONS_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ auth }),
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (!data || !Array.isArray(data.motivos)) return null;
+    return {
+      total: Number(data.total) || 0,
+      motivos: data.motivos
+        .map(m => ({ motivo: String(m.motivo), total: Number(m.total) || 0 }))
+        .filter(m => m.total > 0),
+    };
+  } catch (e) {
+    return null;
+  }
+}

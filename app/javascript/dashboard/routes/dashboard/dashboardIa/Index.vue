@@ -11,7 +11,8 @@
  * nem na conversa, nem no contato, nem na LEADS PREV. Quando o n8n passar a
  * gravar isso na conversa, o bloco entra em metrics.js como os outros.
  */
-import { computed, onMounted, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import { useMapGetter } from 'dashboard/composables/store';
 import {
   ALL_FUNNELS_ID,
@@ -33,7 +34,51 @@ import DashFunnel from './components/DashFunnel.vue';
 import DashDonut from './components/DashDonut.vue';
 
 const dash = useDashboardIa();
-onMounted(() => dash.load());
+const route = useRoute();
+const router = useRouter();
+
+// ------------------------------------------------------------- Modo TV
+// Tela cheia + recarga sozinha a cada 5 minutos, para deixar num monitor.
+const rootEl = ref(null);
+const tvMode = ref(false);
+const TV_REFRESH_MS = 5 * 60 * 1000;
+let tvTimer = null;
+
+function syncTv() {
+  tvMode.value = document.fullscreenElement === rootEl.value;
+  clearInterval(tvTimer);
+  tvTimer = tvMode.value
+    ? setInterval(() => dash.load({ force: true, silent: true }), TV_REFRESH_MS)
+    : null;
+}
+
+function toggleTv() {
+  if (document.fullscreenElement) document.exitFullscreen();
+  else if (rootEl.value && rootEl.value.requestFullscreen)
+    rootEl.value.requestFullscreen();
+}
+
+function printPdf() {
+  window.print();
+}
+
+onMounted(() => {
+  dash.load();
+  document.addEventListener('fullscreenchange', syncTv);
+});
+onBeforeUnmount(() => {
+  document.removeEventListener('fullscreenchange', syncTv);
+  clearInterval(tvTimer);
+});
+
+/** Abre a lista de conversas do Chatwoot com aquela etiqueta de etapa. */
+function openStage(label) {
+  if (!label || label.startsWith('__')) return;
+  router.push({
+    name: 'label_conversations',
+    params: { accountId: route.params.accountId, label },
+  });
+}
 
 const currentUser = useMapGetter('getCurrentUser');
 
@@ -66,8 +111,10 @@ const FILTER_LABEL =
 // total, com 40px de altura e margem embaixo. Os `!` desfazem isso so aqui.
 const SELECT =
   '!w-auto !min-w-[11rem] !mb-0 !h-9 !py-0 !text-xs !rounded-xl !bg-n-solid-1';
+const DATE = '!w-36 !mb-0 !h-9 !py-0 !text-xs !rounded-xl !bg-n-solid-1';
 const MINI =
   'flex flex-col gap-0.5 p-3 rounded-xl border border-n-weak bg-n-solid-1';
+const MEDALS = ['#f59e0b', '#94a3b8', '#f97316'];
 const INSIGHT =
   'flex gap-3 items-start p-3 text-sm rounded-xl border text-n-slate-11';
 
@@ -80,9 +127,15 @@ const greeting = computed(() => {
   return name ? `${part}, ${name}!` : `${part}!`;
 });
 
-const periodTitle = computed(
-  () => (PERIODS.find(p => p.key === dash.period.value) || {}).title || ''
-);
+const periodTitle = computed(() => {
+  if (dash.period.value === 'custom') {
+    const { customFrom: a, customTo: b } = dash;
+    return a.value && b.value
+      ? `${ymdToBR(a.value)} a ${ymdToBR(b.value)}`
+      : 'escolha as duas datas';
+  }
+  return (PERIODS.find(p => p.key === dash.period.value) || {}).title || '';
+});
 
 const updatedText = computed(() => {
   if (!dash.loadedAt.value) return '';
@@ -92,6 +145,12 @@ const updatedText = computed(() => {
   });
   return `Atualizado às ${t}`;
 });
+
+const sourceHint = computed(() =>
+  dash.source.value === 'navegador'
+    ? 'Leitura pelo navegador (plano B): o servidor não respondeu ao painel. Sem histórico de etapas e sem meta compartilhada.'
+    : 'Ler as conversas de novo'
+);
 
 const progressPct = computed(() =>
   dash.progress.total
@@ -227,6 +286,35 @@ const funnelConversion = computed(() => {
 
 const stageChips = computed(() => (activeBlock.value || { stages: [] }).stages);
 
+const durationItems = computed(() =>
+  ((activeBlock.value || {}).durations || [])
+    .filter(d => d.n > 0)
+    .map(d => ({
+      key: d.label,
+      title: d.title,
+      value: Math.round(d.avgDays * 10) / 10,
+      note: `${int(d.n)} leads`,
+      color: d.color,
+    }))
+);
+
+const lossItems = computed(() =>
+  ((dash.lossReasons.value || {}).motivos || []).map(m => ({
+    key: m.motivo,
+    title: m.motivo,
+    value: m.total,
+    note: pct(
+      dash.lossReasons.value.total
+        ? (m.total / dash.lossReasons.value.total) * 100
+        : 0
+    ),
+  }))
+);
+
+const rankingMax = computed(() =>
+  Math.max(1, ...dash.ranking.value.map(a => a.signed))
+);
+
 const offStages = computed(() =>
   stageChips.value
     .filter(s => s.kind !== 'path')
@@ -286,8 +374,15 @@ const goalMarker = computed(() =>
   Math.min(Math.max(dash.goalData.value.donePct, 0), 100)
 );
 
+const goalScope = computed(() =>
+  dash.funnelId.value === ALL_FUNNELS_ID
+    ? 'geral'
+    : (DASH_FUNNELS.find(f => f.id === dash.funnelId.value) || {}).title || ''
+);
+
 const goalInsight = computed(() => {
   const g = dash.goalData.value;
+  if (!g.goal) return '';
   if (g.projectionPct >= 100)
     return `No ritmo atual, a projeção passa da meta: ${int(g.projection)} contratos (${pct(g.projectionPct)}).`;
   return `No ritmo atual, o mês fecha em ${int(g.projection)} contratos — ${pct(g.projectionPct)} da meta.`;
@@ -435,7 +530,7 @@ const stateCount = computed(
 );
 
 function startGoalEdit() {
-  goalDraft.value = String(dash.goal.value);
+  goalDraft.value = dash.goal.value ? String(dash.goal.value) : '';
   editingGoal.value = true;
 }
 
@@ -446,8 +541,11 @@ function saveGoal() {
 </script>
 
 <template>
-  <div class="flex flex-col w-full h-full bg-n-background">
-    <div class="overflow-y-auto flex-1">
+  <div
+    ref="rootEl"
+    class="flex flex-col w-full h-full dia-root bg-n-background"
+  >
+    <div class="overflow-y-auto flex-1 dia-scroll">
       <div class="flex flex-col gap-5 p-6 mx-auto max-w-[1480px]">
         <!-- Saudacao -->
         <header class="flex flex-wrap gap-3 justify-between items-start">
@@ -470,16 +568,44 @@ function saveGoal() {
               Lendo datas de assinatura: faltam {{ dash.signedPending.value }}
             </span>
             <button
+              class="flex gap-2 items-center px-3 py-1.5 text-xs rounded-full border shadow-sm transition-colors dia-no-print border-n-weak bg-n-solid-1 text-n-slate-11 hover:bg-n-alpha-2"
+              title="Gerar PDF do painel (use “Salvar como PDF” na janela de impressão)"
+              @click="printPdf"
+            >
+              <span class="i-lucide-file-down size-3.5" />
+              PDF
+            </button>
+            <button
+              class="flex gap-2 items-center px-3 py-1.5 text-xs rounded-full border shadow-sm transition-colors dia-no-print border-n-weak bg-n-solid-1 text-n-slate-11 hover:bg-n-alpha-2"
+              title="Tela cheia, com atualização automática a cada 5 minutos"
+              @click="toggleTv"
+            >
+              <span class="i-lucide-tv size-3.5" />
+              {{ tvMode ? 'Sair do Modo TV' : 'Modo TV' }}
+            </button>
+            <button
               class="flex gap-2 items-center px-3 py-1.5 text-xs rounded-full border shadow-sm transition-colors border-n-weak bg-n-solid-1 text-n-slate-11 hover:bg-n-alpha-2 disabled:opacity-60"
-              :disabled="dash.loading.value"
-              title="Ler as conversas de novo"
+              :disabled="dash.loading.value || dash.refreshing.value"
+              :title="sourceHint"
               @click="dash.load({ force: true })"
             >
-              <span class="rounded-full size-2 bg-[#22c55e]" />
+              <span
+                class="rounded-full size-2"
+                :style="{
+                  background:
+                    dash.source.value === 'navegador'
+                      ? COLORS.amber
+                      : COLORS.green,
+                }"
+              />
               {{ updatedText || 'Atualizar' }}
               <span
-                class="i-lucide-refresh-cw size-3.5"
-                :class="dash.loading.value ? 'animate-spin' : ''"
+                class="i-lucide-refresh-cw size-3.5 dia-no-print"
+                :class="
+                  dash.loading.value || dash.refreshing.value
+                    ? 'animate-spin'
+                    : ''
+                "
               />
             </button>
           </div>
@@ -487,7 +613,8 @@ function saveGoal() {
 
         <!-- Filtros -->
         <div
-          class="flex flex-wrap gap-x-5 gap-y-3 items-end pb-5 border-b border-n-weak"
+          v-show="!tvMode"
+          class="flex flex-wrap gap-x-5 gap-y-3 items-end pb-5 border-b dia-no-print border-n-weak"
         >
           <div class="flex flex-col gap-1.5">
             <span :class="FILTER_LABEL">Período</span>
@@ -500,6 +627,33 @@ function saveGoal() {
               >
                 {{ p.title }}
               </button>
+              <button
+                :class="[SEG, dash.period.value === 'custom' ? SEG_ON : SEG_OFF]"
+                @click="dash.setPeriod('custom')"
+              >
+                Personalizado
+              </button>
+            </div>
+          </div>
+
+          <div
+            v-if="dash.period.value === 'custom'"
+            class="flex flex-col gap-1.5"
+          >
+            <span :class="FILTER_LABEL">De · até</span>
+            <div class="flex gap-1.5 items-center">
+              <input
+                v-model="dash.customFrom.value"
+                type="date"
+                aria-label="Data inicial"
+                :class="DATE"
+              />
+              <input
+                v-model="dash.customTo.value"
+                type="date"
+                aria-label="Data final"
+                :class="DATE"
+              />
             </div>
           </div>
 
@@ -629,14 +783,16 @@ function saveGoal() {
             <div
               class="grid gap-3 grid-cols-[repeat(auto-fill,minmax(8.5rem,1fr))]"
             >
-              <div
+              <button
                 v-for="s in stageChips"
                 :key="s.label"
-                class="flex flex-col gap-1 p-3 min-w-0 rounded-xl border border-n-weak bg-n-solid-1"
+                type="button"
+                class="flex flex-col gap-1 p-3 min-w-0 text-left rounded-xl border transition-shadow border-n-weak bg-n-solid-1 hover:shadow-md"
                 :style="{
                   backgroundImage: `linear-gradient(160deg, ${tint(s.color, 10)}, transparent 60%)`,
                 }"
-                :title="`${s.title}: ${int(s.count)} (${pct(s.pct)} do funil)`"
+                :title="`${s.title}: ${int(s.count)} (${pct(s.pct)} do funil) — clique para ver as conversas`"
+                @click="openStage(s.label)"
               >
                 <span class="flex gap-1.5 items-center min-w-0">
                   <span
@@ -660,7 +816,7 @@ function saveGoal() {
                 <span class="text-[11px] text-n-slate-10">
                   {{ pct(s.pct) }} do total
                 </span>
-              </div>
+              </button>
             </div>
 
             <div class="grid gap-5 xl:grid-cols-5">
@@ -681,7 +837,7 @@ function saveGoal() {
                   </span>
                 </template>
 
-                <DashFunnel :steps="funnelSteps" />
+                <DashFunnel :steps="funnelSteps" @select="openStage" />
 
                 <div
                   v-if="funnelConversion"
@@ -749,6 +905,126 @@ function saveGoal() {
               </DashPanel>
             </div>
           </template>
+
+          <!-- Motivos de descarte -->
+          <DashPanel
+            v-if="dash.showLossReasons.value"
+            title="Por que Perdemos · Auxílio Acidente"
+            :subtitle="`Motivo registrado nos ${int(dash.lossReasons.value.total)} leads desqualificados · base inteira, sem filtro de período`"
+            icon="i-lucide-circle-help"
+            :color="COLORS.red"
+          >
+            <DashBars :items="lossItems" :color="COLORS.red" wide />
+          </DashPanel>
+
+          <div class="grid gap-5 lg:grid-cols-2">
+            <!-- Ranking -->
+            <DashPanel
+              title="Ranking por Responsável"
+              subtitle="Quem tem a conversa atribuída hoje · ordenado por contratos"
+              icon="i-lucide-medal"
+              :color="COLORS.amber"
+            >
+              <table class="w-full text-sm">
+                <thead>
+                  <tr class="text-[10px] tracking-wider uppercase text-n-slate-10">
+                    <th class="pb-2 font-semibold text-left">Responsável</th>
+                    <th class="pb-2 font-semibold text-right">Leads</th>
+                    <th class="pb-2 font-semibold text-right">Qualif.</th>
+                    <th class="pb-2 pl-4 font-semibold text-left">Contratos</th>
+                    <th class="pb-2 font-semibold text-right">Conversão</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr
+                    v-for="(a, i) in dash.ranking.value"
+                    :key="a.id"
+                    class="border-t border-n-weak"
+                  >
+                    <td class="py-2">
+                      <span class="flex gap-2 items-center min-w-0">
+                        <span
+                          class="flex flex-shrink-0 justify-center items-center text-xs font-bold rounded-full size-6"
+                          :class="
+                            i < 3 && a.id && a.signed
+                              ? 'text-white'
+                              : 'bg-n-alpha-2 text-n-slate-11'
+                          "
+                          :style="
+                            i < 3 && a.id && a.signed
+                              ? { background: MEDALS[i] }
+                              : null
+                          "
+                        >
+                          {{ a.id ? i + 1 : '–' }}
+                        </span>
+                        <span
+                          class="truncate"
+                          :class="a.id ? 'text-n-slate-12' : 'text-n-slate-10'"
+                        >
+                          {{ a.name }}
+                        </span>
+                      </span>
+                    </td>
+                    <td class="py-2 text-right tabular-nums text-n-slate-12">
+                      {{ int(a.total) }}
+                    </td>
+                    <td class="py-2 text-right tabular-nums text-n-slate-12">
+                      {{ int(a.qualified) }}
+                    </td>
+                    <td class="py-2 pl-4 w-2/5">
+                      <span class="flex gap-2 items-center">
+                        <span
+                          class="overflow-hidden flex-1 h-2 rounded-full bg-n-alpha-2"
+                        >
+                          <span
+                            class="block h-full rounded-full"
+                            :style="{
+                              width: `${(a.signed / rankingMax) * 100}%`,
+                              background: COLORS.green,
+                            }"
+                          />
+                        </span>
+                        <span
+                          class="w-8 font-semibold text-right tabular-nums text-n-slate-12"
+                        >
+                          {{ int(a.signed) }}
+                        </span>
+                      </span>
+                    </td>
+                    <td class="py-2 text-right tabular-nums text-n-slate-11">
+                      {{ pct(a.conversion) }}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </DashPanel>
+
+            <!-- Tempo por etapa -->
+            <DashPanel
+              :title="`Tempo Médio em Cada Etapa${activeBlock ? ' · ' + activeBlock.funnel.title : ''}`"
+              subtitle="Dias entre entrar na etapa e passar para a seguinte, pelo histórico de etiquetas"
+              icon="i-lucide-hourglass"
+              :color="COLORS.indigo"
+            >
+              <DashBars
+                v-if="dash.hasHistory.value"
+                :items="durationItems"
+                empty="Nenhuma passagem de etapa registrada no filtro."
+              />
+              <p v-else class="text-sm text-n-slate-11">
+                Este bloco depende do histórico de etapas, que vem do servidor.
+                Nesta carga o painel leu pelo navegador (plano B).
+              </p>
+              <p
+                v-if="dash.hasHistory.value && durationItems.length"
+                class="mt-auto text-xs text-n-slate-10"
+              >
+                Valores em dias. Só entram leads com a data das duas etapas
+                registrada; etapa sem passagem registrada não aparece.
+              </p>
+            </DashPanel>
+          </div>
 
           <div class="grid gap-5 lg:grid-cols-2">
             <!-- Tempo ate fechamento -->
@@ -822,7 +1098,7 @@ function saveGoal() {
             <!-- Meta -->
             <DashPanel
               title="Meta de Vendas"
-              :subtitle="`Contratos assinados em ${goalMonth}, pela data da assinatura`"
+              :subtitle="`Meta ${goalScope} · contratos assinados em ${goalMonth}, pela data da assinatura`"
               icon="i-lucide-target"
               :color="COLORS.greenDark"
             >
@@ -849,7 +1125,11 @@ function saveGoal() {
                 <button
                   v-else
                   class="flex justify-center items-center rounded-lg size-8 text-n-slate-11 hover:bg-n-alpha-2"
-                  title="Alterar a meta (fica salva só neste navegador)"
+                  :title="
+                    dash.hasHistory.value
+                      ? `Alterar a meta ${goalScope} (vale para todos)`
+                      : `Alterar a meta ${goalScope} (fica só neste navegador)`
+                  "
                   aria-label="Alterar a meta"
                   @click="startGoalEdit"
                 >
@@ -857,6 +1137,9 @@ function saveGoal() {
                 </button>
               </template>
 
+              <p v-if="dash.goalError.value" class="text-xs text-n-ruby-11">
+                {{ dash.goalError.value }}
+              </p>
               <div class="flex flex-wrap gap-3 justify-between items-end">
                 <div>
                   <div
@@ -866,7 +1149,14 @@ function saveGoal() {
                   </div>
                   <div class="text-sm text-n-slate-11">contratos fechados</div>
                 </div>
-                <div class="flex flex-col gap-1 items-end">
+                <button
+                  v-if="!dash.goalData.value.goal"
+                  class="px-3 py-1.5 text-xs font-semibold text-white rounded-lg dia-no-print bg-[#22c55e] hover:opacity-90"
+                  @click="startGoalEdit"
+                >
+                  Definir meta deste funil
+                </button>
+                <div v-else class="flex flex-col gap-1 items-end">
                   <span class="text-sm text-n-slate-11">
                     de {{ int(dash.goalData.value.goal) }} contratos
                   </span>
@@ -882,7 +1172,7 @@ function saveGoal() {
                 </div>
               </div>
 
-              <div class="pt-5">
+              <div v-if="dash.goalData.value.goal" class="pt-5">
                 <div
                   class="relative h-2.5 rounded-full"
                   :style="{ background: tint(COLORS.green, 16) }"
@@ -992,6 +1282,7 @@ function saveGoal() {
               </div>
 
               <div
+                v-if="goalInsight"
                 :class="INSIGHT"
                 :style="{
                   background: tint(COLORS.green, 6),
@@ -1299,3 +1590,42 @@ function saveGoal() {
     </div>
   </div>
 </template>
+
+<!--
+  Impressao / PDF. Sem `scoped` de proposito: precisa alcancar os ancestrais
+  da tela (barra lateral, containers com altura fixa) para o painel inteiro
+  sair no papel, e nao so o pedaco visivel. Tudo fica dentro de @media print e
+  amarrado a .dia-root, entao nao afeta nenhuma outra tela do Chatwoot.
+-->
+<style>
+@media print {
+  body *:not(:has(.dia-root)):not(.dia-root):not(.dia-root *) {
+    display: none !important;
+  }
+
+  *:has(.dia-root),
+  .dia-root,
+  .dia-root .dia-scroll {
+    display: block !important;
+    position: static !important;
+    overflow: visible !important;
+    width: auto !important;
+    height: auto !important;
+    max-height: none !important;
+  }
+
+  .dia-root .dia-no-print {
+    display: none !important;
+  }
+
+  .dia-root section {
+    break-inside: avoid;
+  }
+
+  .dia-root,
+  .dia-root * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}
+</style>

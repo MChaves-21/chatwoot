@@ -15,6 +15,9 @@ const props = defineProps({
   steps: { type: Array, required: true },
 });
 
+// Clicar numa faixa pede para abrir as conversas daquela etapa.
+const emit = defineEmits(['select']);
+
 const int = n => Number(n).toLocaleString('pt-BR');
 const pct = n =>
   `${Number(n).toLocaleString('pt-BR', {
@@ -44,10 +47,12 @@ const widthOf = i => {
       >
         {{ pct(steps[i - 1].next) }}
       </span>
-      <div
-        class="flex gap-3 justify-between items-center px-4 h-12 text-white rounded-xl shadow-sm"
+      <button
+        type="button"
+        class="flex gap-3 justify-between items-center px-4 h-12 text-white rounded-xl shadow-sm transition-transform hover:scale-[1.01]"
         :style="{ width: `${widthOf(i)}%`, background: gradient(s.color) }"
-        :title="`${s.title}: ${int(s.reached)} leads nesta etapa ou além (${pct(s.pct)} do total)`"
+        :title="`${s.title}: ${int(s.reached)} leads nesta etapa ou além (${pct(s.pct)} do total) — clique para ver as conversas desta etapa`"
+        @click="emit('select', s.label)"
       >
         <span class="flex gap-2 items-center min-w-0">
           <span
@@ -63,7 +68,7 @@ const widthOf = i => {
             ({{ pct(s.pct) }})
           </span>
         </span>
-      </div>
+      </button>
     </li>
   </ol>
 </template>

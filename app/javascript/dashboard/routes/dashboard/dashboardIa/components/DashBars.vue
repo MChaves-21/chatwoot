@@ -14,6 +14,8 @@ const props = defineProps({
   ranked: { type: Boolean, default: false },
   // Rotulo curto (UF): coluna estreita, para a barra ganhar espaco.
   narrow: { type: Boolean, default: false },
+  // Rotulo longo (frase): coluna larga.
+  wide: { type: Boolean, default: false },
   empty: { type: String, default: 'Sem dados no filtro.' },
 });
 
@@ -48,7 +50,7 @@ const MEDALS = ['#f59e0b', '#94a3b8', '#f97316'];
       <span
         class="flex-shrink-0 truncate"
         :class="[
-          narrow ? 'w-10 font-semibold' : 'w-36',
+          narrow ? 'w-10 font-semibold' : wide ? 'w-96' : 'w-36',
           item.muted ? 'text-n-slate-10' : 'text-n-slate-12',
         ]"
       >
@@ -71,7 +73,7 @@ const MEDALS = ['#f59e0b', '#94a3b8', '#f97316'];
       </span>
       <span
         v-if="item.note"
-        class="flex-shrink-0 w-12 text-xs text-right tabular-nums text-n-slate-10"
+        class="flex-shrink-0 text-xs text-right whitespace-nowrap min-w-12 tabular-nums text-n-slate-10"
       >
         {{ item.note }}
       </span>

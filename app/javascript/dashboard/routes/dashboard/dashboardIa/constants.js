@@ -129,6 +129,17 @@ export const DEFAULT_MONTHLY_GOAL = 60;
 
 export const LS_KEY = 'cw_dashboard_ia_v1';
 
+/**
+ * Motivos de descarte — webhook do n8n ("Dashboard IA - Motivos de descarte").
+ * O motivo da desqualificacao mora na LEADS PREV (Supabase), nao no Chatwoot;
+ * o n8n devolve so categoria e contagem, e so para administrador logado (ele
+ * confere a sessao do Chatwoot, como o botao Agendar do Kanban).
+ * A LEADS PREV e do funil de Auxilio Acidente: o bloco so vale para ele.
+ */
+export const LOSS_REASONS_URL =
+  'https://n8n.goncalvesesilva.cloud/webhook/dashboard-ia-motivos';
+export const LOSS_REASONS_FUNNEL_ID = 'auxilio_acidente';
+
 /** Varredura das caixas: quantas paginas ao mesmo tempo (ver COLUMN_CONCURRENCY do Kanban). */
 export const SCAN_CONCURRENCY = 3;
 

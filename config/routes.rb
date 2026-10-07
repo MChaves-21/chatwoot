@@ -324,6 +324,11 @@ Rails.application.routes.draw do
           end
           resources :labels, only: [:index, :show, :create, :update, :destroy]
 
+          # Dashboard IA (fork Goncalves & Silva): dados agregados do painel comercial.
+          resource :dashboard_ia, only: [:show], controller: 'dashboard_ia' do
+            patch :goals
+          end
+
           resources :notifications, only: [:index, :update, :destroy] do
             collection do
               post :read_all

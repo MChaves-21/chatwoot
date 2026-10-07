@@ -102,7 +102,7 @@ export function ufFromPhone(raw) {
  *
  * Devolve `null` para conversa de caixa que nao pertence a nenhum funil.
  */
-export function toRow(conv) {
+export function toRow(conv, extra = {}) {
   const funnel = FUNNEL_BY_INBOX.get(conv.inbox_id);
   if (!funnel) return null;
 
@@ -127,6 +127,8 @@ export function toRow(conv) {
   const sender = (conv.meta && conv.meta.sender) || {};
   const assignee = (conv.meta && conv.meta.assignee) || null;
   const rank = funnel.path.indexOf(stage);
+  // { etiqueta: ms } — quando cada etiqueta foi aplicada pela primeira vez.
+  const history = extra.history || {};
   const signedRank = funnel.signedFrom
     ? funnel.path.indexOf(funnel.signedFrom)
     : -1;
@@ -139,22 +141,81 @@ export function toRow(conv) {
     rank,
     lost: LOST_LABELS.includes(stage),
     signed: signedRank >= 0 && rank >= signedRank,
-    qualified: qualifiedRank >= 0 && rank >= qualifiedRank,
+    // Com o historico do servidor, "qualificado" passa a ser quem ALGUMA VEZ
+    // chegou na etapa de qualificado ou alem — inclusive quem foi descartado
+    // depois. Sem historico, vale so a etapa atual.
+    qualified:
+      qualifiedRank >= 0 &&
+      (rank >= qualifiedRank ||
+        funnel.path.some((l, i) => i >= qualifiedRank && history[l])),
+    history,
     createdMs,
     createdYmd: created.ymd,
     createdHour: created.hour,
     updatedYmd: spParts(updatedMs).ymd,
     assigneeId: assignee ? assignee.id : 0,
     assigneeName: assignee ? assignee.name : 'Não atribuído',
-    uf: ufFromPhone(sender.phone_number),
+    uf: extra.uf !== undefined ? extra.uf : ufFromPhone(sender.phone_number),
   };
+}
+
+/**
+ * Linha a partir do formato enxuto do endpoint do servidor:
+ * [id, inbox_id, etiquetas, criada, ultima atividade, responsavel, ddd].
+ * `stages` e { etiqueta: epoch } daquela conversa; `agents` e { id: nome }.
+ */
+export function toRowFromSnapshot(item, { agents = {}, stages = {} } = {}) {
+  const [id, inboxId, labels, createdAt, lastActivityAt, assigneeId, ddd] =
+    item;
+  const history = {};
+  Object.entries(stages).forEach(([label, at]) => {
+    history[label] = at * 1000;
+  });
+  return toRow(
+    {
+      id,
+      inbox_id: inboxId,
+      labels,
+      created_at: createdAt,
+      last_activity_at: lastActivityAt,
+      meta: {
+        sender: {},
+        assignee: assigneeId
+          ? { id: assigneeId, name: agents[assigneeId] || `Agente ${assigneeId}` }
+          : null,
+      },
+    },
+    { uf: ddd ? DDD_UF[Number(ddd)] || null : null, history }
+  );
+}
+
+/**
+ * Data da assinatura pelo historico: a primeira vez que a conversa recebeu a
+ * etiqueta de contrato assinado ou de qualquer etapa posterior.
+ */
+export function signedAtFromHistory(row) {
+  const funnel = FUNNEL_BY_ID.get(row.funnelId);
+  if (!funnel || !funnel.signedFrom) return null;
+  const from = funnel.path.indexOf(funnel.signedFrom);
+  const times = funnel.path
+    .slice(from)
+    .map(l => row.history[l])
+    .filter(Boolean);
+  return times.length ? Math.min(...times) : null;
 }
 
 // ------------------------------------------------------------------ filtros
 
 /** Intervalo do periodo em dias { from, to } (inclusivos) ou null para "tudo". */
-export function periodRange(key, todayYmd) {
+export function periodRange(key, todayYmd, custom = {}) {
   switch (key) {
+    case 'custom': {
+      // Sem as duas datas ainda nao ha filtro; datas invertidas sao trocadas.
+      if (!custom.from || !custom.to) return null;
+      return custom.from <= custom.to
+        ? { from: custom.from, to: custom.to }
+        : { from: custom.to, to: custom.from };
+    }
     case 'hoje':
       return { from: todayYmd, to: todayYmd };
     case 'ontem':
@@ -179,8 +240,8 @@ export function filterScope(rows, { funnelId, assigneeId }) {
   );
 }
 
-export function filterPeriod(rows, { period, mode, todayYmd }) {
-  const range = periodRange(period, todayYmd);
+export function filterPeriod(rows, { period, mode, todayYmd, custom }) {
+  const range = periodRange(period, todayYmd, custom);
   if (!range) return rows;
   const field = mode === 'atualizacao' ? 'updatedYmd' : 'createdYmd';
   return rows.filter(r => r[field] >= range.from && r[field] <= range.to);
@@ -324,6 +385,72 @@ export function weeklySeries(rows, { todayYmd, weeks = 12 }) {
     efficiency: buckets.map(b => pct(b.signed, b.qualified)),
     qualifiedPct: buckets.map(b => pct(b.qualified, b.total)),
   };
+}
+
+/** Ranking por responsavel: volume, qualificados, contratos e conversao. */
+export function byAssignee(rows) {
+  const map = new Map();
+  rows.forEach(r => {
+    const cur = map.get(r.assigneeId) || {
+      id: r.assigneeId,
+      name: r.assigneeName,
+      total: 0,
+      qualified: 0,
+      signed: 0,
+    };
+    cur.total += 1;
+    if (r.qualified) cur.qualified += 1;
+    if (r.signed) cur.signed += 1;
+    map.set(r.assigneeId, cur);
+  });
+  return [...map.values()]
+    .map(a => ({ ...a, conversion: pct(a.signed, a.total) }))
+    // "Nao atribuido" (id 0) nao e uma pessoa: fica sempre por ultimo, fora
+    // da disputa de posicao.
+    .sort(
+      (a, b) =>
+        (a.id === 0) - (b.id === 0) ||
+        b.signed - a.signed ||
+        b.total - a.total
+    );
+}
+
+/**
+ * Tempo medio em cada etapa do caminho, pelo historico de etiquetas: da
+ * entrada na etapa ate a entrada na PROXIMA etapa registrada.
+ *
+ * So entram conversas que tem as duas datas; etapa sem nenhuma passagem
+ * registrada fica com n = 0. Sem historico (plano B), devolve tudo zerado.
+ */
+export function stageDurations(rows, funnel) {
+  const titles = new Map(funnel.columns.map(c => [c.label, c.title]));
+  const colors = new Map(funnel.columns.map(c => [c.label, c.color]));
+  const mine = rows.filter(r => r.funnelId === funnel.id);
+  return funnel.path
+    .map((label, i) => {
+      const days = [];
+      mine.forEach(r => {
+        const at = r.history[label];
+        if (!at) return;
+        const later = funnel.path
+          .slice(i + 1)
+          .map(l => r.history[l])
+          .filter(t => t && t >= at);
+        if (later.length) days.push((Math.min(...later) - at) / DAY_MS);
+      });
+      const sorted = days.slice().sort((a, b) => a - b);
+      return {
+        label,
+        title: titles.get(label) || label,
+        color: colors.get(label),
+        n: days.length,
+        avgDays: days.length
+          ? days.reduce((a, b) => a + b, 0) / days.length
+          : 0,
+        medianDays: sorted.length ? sorted[Math.floor(sorted.length / 2)] : 0,
+      };
+    })
+    .filter(s => s.label !== UNSTAGED_LABEL);
 }
 
 // ------------------------------------------------------ tempo ate fechamento
