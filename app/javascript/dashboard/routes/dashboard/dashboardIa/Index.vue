@@ -58,16 +58,49 @@ function toggleTv() {
     rootEl.value.requestFullscreen();
 }
 
+// ----------------------------------------------------------------- PDF
+// O Chatwoot carrega o CSS do app com media="screen" (padrao do
+// vite_javascript_tag do vite_rails). Na impressao NENHUM estilo se aplica: o
+// PDF saia como HTML cru, com a barra lateral e sem cores. Enquanto imprime,
+// essas folhas passam a valer para "all"; depois voltam ao que eram.
+let printSheets = [];
+
+function enablePrintStyles() {
+  if (printSheets.length) return;
+  printSheets = [
+    ...document.querySelectorAll('link[rel="stylesheet"][media="screen"]'),
+  ];
+  printSheets.forEach(link => {
+    link.media = 'all';
+  });
+}
+
+function restorePrintStyles() {
+  printSheets.forEach(link => {
+    link.media = 'screen';
+  });
+  printSheets = [];
+}
+
 function printPdf() {
-  window.print();
+  enablePrintStyles();
+  // Dois quadros de folga para o navegador recalcular os estilos antes de
+  // abrir a janela de impressao.
+  requestAnimationFrame(() => requestAnimationFrame(() => window.print()));
 }
 
 onMounted(() => {
   dash.load();
   document.addEventListener('fullscreenchange', syncTv);
+  // Cobre tambem o Ctrl+P, que nao passa pelo botao.
+  window.addEventListener('beforeprint', enablePrintStyles);
+  window.addEventListener('afterprint', restorePrintStyles);
 });
 onBeforeUnmount(() => {
   document.removeEventListener('fullscreenchange', syncTv);
+  window.removeEventListener('beforeprint', enablePrintStyles);
+  window.removeEventListener('afterprint', restorePrintStyles);
+  restorePrintStyles();
   clearInterval(tvTimer);
 });
 
@@ -751,7 +784,7 @@ function saveGoal() {
 
         <template v-else>
           <!-- Indicadores -->
-          <div class="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-5">
+          <div class="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-5 dia-g5">
             <DashStat v-for="k in kpiCards" :key="k.key" v-bind="k" />
           </div>
 
@@ -819,10 +852,10 @@ function saveGoal() {
               </button>
             </div>
 
-            <div class="grid gap-5 xl:grid-cols-5">
+            <div class="grid gap-5 xl:grid-cols-5 dia-g5">
               <!-- Funil -->
               <DashPanel
-                class="xl:col-span-3"
+                class="xl:col-span-3 dia-s3"
                 :title="`Funil de Vendas · ${activeBlock.funnel.title}`"
                 subtitle="Quantos leads estão em cada etapa ou além dela"
               >
@@ -872,7 +905,7 @@ function saveGoal() {
 
               <!-- Fora do funil -->
               <DashPanel
-                class="xl:col-span-2"
+                class="xl:col-span-2 dia-s2"
                 title="Fora do funil"
                 :subtitle="`${int(activeBlock.steps.off)} conversas descartadas, em espera ou sem etapa`"
                 icon="i-lucide-filter-x"
@@ -917,7 +950,7 @@ function saveGoal() {
             <DashBars :items="lossItems" :color="COLORS.red" wide />
           </DashPanel>
 
-          <div class="grid gap-5 lg:grid-cols-2">
+          <div class="grid gap-5 lg:grid-cols-2 dia-g2">
             <!-- Ranking -->
             <DashPanel
               title="Ranking por Responsável"
@@ -1026,7 +1059,7 @@ function saveGoal() {
             </DashPanel>
           </div>
 
-          <div class="grid gap-5 lg:grid-cols-2">
+          <div class="grid gap-5 lg:grid-cols-2 dia-g2">
             <!-- Tempo ate fechamento -->
             <DashPanel
               title="Tempo Médio até Fechamento"
@@ -1201,7 +1234,7 @@ function saveGoal() {
                 </div>
               </div>
 
-              <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <div class="grid grid-cols-2 gap-3 sm:grid-cols-4 dia-g4">
                 <div :class="MINI">
                   <span class="flex gap-1.5 items-center text-xs text-n-slate-11">
                     <span
@@ -1338,7 +1371,7 @@ function saveGoal() {
             </div>
           </div>
 
-          <div class="grid grid-cols-2 gap-4 lg:grid-cols-4">
+          <div class="grid grid-cols-2 gap-4 lg:grid-cols-4 dia-g4">
             <div
               v-for="c in chatCards"
               :key="c.key"
@@ -1402,7 +1435,7 @@ function saveGoal() {
             <DashLine :points="chatPoints" :series="CHAT_SERIES" />
           </DashPanel>
 
-          <div class="grid gap-5 lg:grid-cols-2">
+          <div class="grid gap-5 lg:grid-cols-2 dia-g2">
             <DashPanel
               title="Distribuição por período do dia"
               icon="i-lucide-sun"
@@ -1616,6 +1649,41 @@ function saveGoal() {
 
   .dia-root .dia-no-print {
     display: none !important;
+  }
+
+  /* A4 em paisagem, com o painel reduzido para caber como na tela. */
+  @page {
+    size: A4 landscape;
+    margin: 8mm;
+  }
+
+  .dia-root {
+    zoom: 0.72;
+  }
+
+  /*
+   * As grades do painel dependem da largura da TELA (lg:, xl:). Na impressao
+   * o navegador mede a largura do papel e derrubaria tudo para uma coluna;
+   * aqui as colunas sao fixadas na mao.
+   */
+  .dia-root .dia-g2 {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .dia-root .dia-g4 {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  }
+
+  .dia-root .dia-g5 {
+    grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+  }
+
+  .dia-root .dia-s3 {
+    grid-column: span 3 / span 3 !important;
+  }
+
+  .dia-root .dia-s2 {
+    grid-column: span 2 / span 2 !important;
   }
 
   .dia-root section {
