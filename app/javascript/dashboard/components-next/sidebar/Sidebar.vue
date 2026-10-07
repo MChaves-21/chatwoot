@@ -710,6 +710,13 @@ const menuItems = computed(() => {
       ],
     },
     {
+      name: 'Dashboard IA',
+      label: 'Dashboard IA',
+      icon: 'i-lucide-layout-dashboard',
+      to: accountScopedRoute('dashboard_ia_index'),
+      activeOn: ['dashboard_ia_index'],
+    },
+    {
       name: 'Campaigns',
       label: t('SIDEBAR.CAMPAIGNS'),
       icon: 'i-lucide-megaphone',
