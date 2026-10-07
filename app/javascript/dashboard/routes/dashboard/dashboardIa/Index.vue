@@ -32,6 +32,7 @@ import DashBars from './components/DashBars.vue';
 import DashLine from './components/DashLine.vue';
 import DashFunnel from './components/DashFunnel.vue';
 import DashDonut from './components/DashDonut.vue';
+import DashMap from './components/DashMap.vue';
 
 const dash = useDashboardIa();
 const route = useRoute();
@@ -557,6 +558,19 @@ const stateItems = computed(() => {
   }));
   return showAllStates.value ? items : items.slice(0, 5);
 });
+
+// Para o mapa: todos os estados, { UF: valor }, na metrica escolhida.
+const stateValues = computed(() => {
+  const out = {};
+  dash.states.value.list.forEach(s => {
+    out[s.uf] = s[stateMetric.value];
+  });
+  return out;
+});
+
+const stateTotal = computed(() =>
+  Object.values(stateValues.value).reduce((a, b) => a + b, 0)
+);
 
 const stateCount = computed(
   () => dash.states.value.list.filter(s => s[stateMetric.value] > 0).length
@@ -1601,22 +1615,41 @@ function saveGoal() {
                 </button>
               </div>
             </template>
-            <DashBars :items="stateItems" narrow />
-            <button
-              v-if="stateCount > 5"
-              class="flex gap-1.5 justify-center items-center py-2.5 text-sm rounded-xl border transition-colors border-n-weak text-n-slate-11 hover:bg-n-alpha-2"
-              @click="showAllStates = !showAllStates"
-            >
-              {{
-                showAllStates
-                  ? 'Mostrar só os 5 maiores'
-                  : `Ver todos os estados (${stateCount})`
-              }}
-              <span
-                class="i-lucide-chevron-down size-4 transition-transform"
-                :class="showAllStates ? 'rotate-180' : ''"
+            <div class="grid gap-6 items-center lg:grid-cols-2 dia-g2">
+              <DashMap
+                :values="stateValues"
+                :color="COLORS.greenDark"
+                :unit="stateMetric === 'leads' ? 'leads' : 'contratos'"
               />
-            </button>
+              <div class="flex flex-col gap-4">
+                <span
+                  class="self-start px-3 py-1 text-xs font-semibold rounded-full tabular-nums"
+                  :style="{
+                    background: tint(COLORS.green, 16),
+                    color: COLORS.greenDark,
+                  }"
+                >
+                  {{ int(stateTotal) }}
+                  {{ stateMetric === 'leads' ? 'leads' : 'contratos' }}
+                </span>
+                <DashBars :items="stateItems" narrow />
+                <button
+                  v-if="stateCount > 5"
+                  class="flex gap-1.5 justify-center items-center py-2.5 text-sm rounded-xl border transition-colors dia-no-print border-n-weak text-n-slate-11 hover:bg-n-alpha-2"
+                  @click="showAllStates = !showAllStates"
+                >
+                  {{
+                    showAllStates
+                      ? 'Mostrar só os 5 maiores'
+                      : `Ver todos os estados (${stateCount})`
+                  }}
+                  <span
+                    class="i-lucide-chevron-down size-4 transition-transform"
+                    :class="showAllStates ? 'rotate-180' : ''"
+                  />
+                </button>
+              </div>
+            </div>
           </DashPanel>
         </template>
       </div>
@@ -1651,14 +1684,18 @@ function saveGoal() {
     display: none !important;
   }
 
-  /* A4 em paisagem, com o painel reduzido para caber como na tela. */
+  /*
+   * Folha em pe (retrato), que e o padrao de qualquer impressora e leitor de
+   * PDF. Forcar paisagem aqui fazia o "Salvar como PDF" entregar a pagina
+   * deitada. O painel e reduzido para caber na largura da folha.
+   */
   @page {
-    size: A4 landscape;
+    size: A4 portrait;
     margin: 8mm;
   }
 
   .dia-root {
-    zoom: 0.72;
+    zoom: 0.62;
   }
 
   /*
