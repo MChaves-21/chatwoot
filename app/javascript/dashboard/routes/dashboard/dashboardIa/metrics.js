@@ -292,6 +292,40 @@ export function funnelSteps(rows, funnel) {
   };
 }
 
+/**
+ * Curvas dos indicadores do topo: as ultimas 12 semanas, pela data de
+ * criacao da conversa. Cada ponto e uma semana (a ultima termina hoje).
+ * Sao dados reais do filtro de funil/responsavel, nao enfeite.
+ */
+export function weeklySeries(rows, { todayYmd, weeks = 12 }) {
+  const buckets = [];
+  for (let i = weeks - 1; i >= 0; i -= 1) {
+    buckets.push({
+      from: shiftYmd(todayYmd, -(7 * i + 6)),
+      to: shiftYmd(todayYmd, -7 * i),
+      total: 0,
+      signed: 0,
+      qualified: 0,
+    });
+  }
+  const first = buckets[0].from;
+  rows.forEach(r => {
+    if (r.createdYmd < first || r.createdYmd > todayYmd) return;
+    const b = buckets.find(x => r.createdYmd >= x.from && r.createdYmd <= x.to);
+    if (!b) return;
+    b.total += 1;
+    if (r.signed) b.signed += 1;
+    if (r.qualified) b.qualified += 1;
+  });
+  return {
+    total: buckets.map(b => b.total),
+    signed: buckets.map(b => b.signed),
+    conversion: buckets.map(b => pct(b.signed, b.total)),
+    efficiency: buckets.map(b => pct(b.signed, b.qualified)),
+    qualifiedPct: buckets.map(b => pct(b.qualified, b.total)),
+  };
+}
+
 // ------------------------------------------------------ tempo ate fechamento
 
 /**
@@ -324,6 +358,7 @@ export function closing(rows, signedAt) {
     n: days.length,
     missing: signed.length - days.length,
     avgDays: avg,
+    avgHours: avg * 24,
     medianDays: median,
     buckets,
   };
@@ -370,6 +405,9 @@ export function monthlyGoal(rows, signedAt, { goal, todayYmd }) {
     return {
       day: i + 1,
       done: i < dayNow ? acc : null,
+      // Projecao: do realizado de hoje ate o fim do mes, no ritmo medio atual.
+      projection:
+        i + 1 >= dayNow ? done + (done / dayNow) * (i + 1 - dayNow) : null,
       target: (goal / total) * (i + 1),
     };
   });
@@ -410,6 +448,11 @@ export function newChats(rows, { days, todayYmd }) {
   });
 
   const series = [...byDay.entries()].map(([ymd, count]) => ({ ymd, count }));
+  // Media movel de ate 7 dias (os dias anteriores disponiveis na janela).
+  series.forEach((s, i) => {
+    const win = series.slice(Math.max(0, i - 6), i + 1);
+    s.avg = win.reduce((a, w) => a + w.count, 0) / win.length;
+  });
   const total = series.reduce((a, s) => a + s.count, 0);
   const peak = series.reduce((a, s) => (s.count > a.count ? s : a), series[0]);
 

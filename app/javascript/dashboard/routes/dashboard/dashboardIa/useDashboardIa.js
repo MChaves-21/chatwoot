@@ -26,6 +26,7 @@ import {
   newChats,
   spParts,
   stageTable,
+  weeklySeries,
 } from './metrics';
 
 const CACHE_TTL_MS = 5 * 60 * 1000;
@@ -111,6 +112,10 @@ export function useDashboardIa() {
   );
 
   const summary = computed(() => kpis(periodRows.value));
+
+  const sparks = computed(() =>
+    weeklySeries(scopeRows.value, { todayYmd: todayYmd.value })
+  );
 
   const byFunnel = computed(() =>
     funnels.value.map(f => ({
@@ -235,6 +240,7 @@ export function useDashboardIa() {
     assignees,
     // contas
     summary,
+    sparks,
     byFunnel,
     closingTime,
     goalData,

@@ -167,3 +167,24 @@ export const DDD_UF = {
   86: 'PI', 89: 'PI', 91: 'PA', 93: 'PA', 94: 'PA', 92: 'AM', 97: 'AM',
   95: 'RR', 96: 'AP', 98: 'MA', 99: 'MA',
 };
+
+/**
+ * Cores de destaque do painel. Fixas (hex) de proposito: sao as mesmas no
+ * tema claro e no escuro e combinam com as cores das colunas do Kanban.
+ * Texto e fundo continuam nos tokens do Chatwoot (n-slate, n-solid).
+ */
+export const COLORS = {
+  green: '#22c55e',
+  greenDark: '#16a34a',
+  blue: '#3b82f6',
+  purple: '#8b5cf6',
+  cyan: '#06b6d4',
+  amber: '#f59e0b',
+  orange: '#f97316',
+  red: '#ef4444',
+  indigo: '#6366f1',
+  slate: '#94a3b8',
+};
+
+/** Verde do mais escuro ao mais claro: faixas do tempo ate o fechamento. */
+export const GREEN_RAMP = ['#15803d', '#16a34a', '#22c55e', '#4ade80', '#bbf7d0'];
