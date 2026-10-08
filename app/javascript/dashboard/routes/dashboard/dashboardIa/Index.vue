@@ -29,7 +29,7 @@ import { useDashboardIa } from './useDashboardIa';
 import DashPanel from './components/DashPanel.vue';
 import DashKpi from './components/DashKpi.vue';
 import DashRing from './components/DashRing.vue';
-import DashFlow from './components/DashFlow.vue';
+import DashFunnel from './components/DashFunnel.vue';
 import DashBars from './components/DashBars.vue';
 import DashLine from './components/DashLine.vue';
 import DashColumns from './components/DashColumns.vue';
@@ -330,6 +330,39 @@ const activeBlock = computed(() => {
   return blocks.find(b => b.funnel.id === funnelTab.value) || blocks[0] || null;
 });
 
+// Icone por etapa no funil. Etapa sem icone aqui usa o ponto generico.
+const STAGE_ICONS = {
+  sdr: 'i-lucide-users',
+  comercial: 'i-lucide-briefcase',
+  contrato_em_elaboracao: 'i-lucide-file-text',
+  aguardando_assinatura: 'i-lucide-pen-line',
+  contrato_assinado: 'i-lucide-trophy',
+  analise_medica: 'i-lucide-stethoscope',
+  analise_juridica: 'i-lucide-scale',
+  efetivado: 'i-lucide-party-popper',
+  bpc_lead_novo: 'i-lucide-user-plus',
+  bpc_lead_novo_especial: 'i-lucide-star',
+  bpc_aguardando_requisito: 'i-lucide-clipboard-list',
+  bpc_qualificado: 'i-lucide-briefcase',
+  bpc_documentos_iniciais: 'i-lucide-paperclip',
+  bpc_aguardando_assinatura: 'i-lucide-pen-line',
+  bpc_contrato_assinado: 'i-lucide-trophy',
+  bpc_pegar_senha: 'i-lucide-key-round',
+  bpc_analise_medica: 'i-lucide-stethoscope',
+  bpc_analise_juridica: 'i-lucide-scale',
+  bpc_pos_juridica: 'i-lucide-hourglass',
+  bpc_efetivado: 'i-lucide-party-popper',
+  trab_apresentacao: 'i-lucide-hand',
+  trab_qualificacao: 'i-lucide-users',
+  trab_coleta_info: 'i-lucide-search',
+  trab_explicacao_processo: 'i-lucide-scale',
+  trab_condicoes_financeiras: 'i-lucide-banknote',
+  trab_objecao: 'i-lucide-message-circle-question',
+  trab_fechamento: 'i-lucide-handshake',
+  trab_coleta_contrato: 'i-lucide-file-text',
+  trab_contrato_enviado: 'i-lucide-send',
+};
+
 const flowSteps = computed(() => {
   const b = activeBlock.value;
   if (!b) return [];
@@ -337,6 +370,7 @@ const flowSteps = computed(() => {
   return b.steps.steps.map(s => ({
     ...s,
     color: colors.get(s.label) || MUTED,
+    icon: STAGE_ICONS[s.label] || 'i-lucide-circle-dot',
   }));
 });
 
@@ -590,6 +624,30 @@ const stateCount = computed(
           </div>
         </header>
 
+        <!--
+          Funil no topo (pedido de 08/10/2026): a escolha vale para o painel
+          INTEIRO — indicadores, meta, funil, conversas, equipe e mapa — e
+          nao so para o bloco do funil.
+        -->
+        <nav
+          class="flex overflow-x-auto gap-1 border-b dia-no-print border-n-weak"
+          aria-label="Funil"
+        >
+          <button
+            v-for="f in funnelOptions"
+            :key="f.id"
+            class="px-4 pt-1 pb-2.5 -mb-px text-sm whitespace-nowrap border-b-2 transition-colors"
+            :class="
+              dash.funnelId.value === f.id
+                ? 'font-semibold border-n-brand text-n-slate-12'
+                : 'border-transparent text-n-slate-11 hover:text-n-slate-12'
+            "
+            @click="dash.setFunnel(f.id)"
+          >
+            {{ f.title }}
+          </button>
+        </nav>
+
         <!-- Filtros -->
         <div
           v-show="!tvMode"
@@ -647,16 +705,6 @@ const stateCount = computed(
 
           <span class="flex-1" />
 
-          <select
-            :class="SELECT"
-            :value="dash.funnelId.value"
-            aria-label="Funil"
-            @change="dash.setFunnel($event.target.value)"
-          >
-            <option v-for="f in funnelOptions" :key="f.id" :value="f.id">
-              {{ f.title }}
-            </option>
-          </select>
 
           <select
             :class="SELECT"
@@ -881,7 +929,7 @@ const stateCount = computed(
           <template v-if="activeBlock">
             <DashPanel
               :title="`Caminho do lead · ${activeBlock.funnel.title}`"
-              subtitle="Leads que chegaram em cada etapa ou além. Em vermelho, a passagem mais fraca. Clique numa coluna para abrir as conversas."
+              subtitle="Leads que chegaram em cada etapa ou além, com a passagem entre uma e outra. Clique numa faixa para abrir as conversas."
             >
               <template #actions>
                 <div class="flex gap-6 text-right">
@@ -905,7 +953,7 @@ const stateCount = computed(
                   </div>
                 </div>
               </template>
-              <DashFlow :steps="flowSteps" @select="openStage" />
+              <DashFunnel :steps="flowSteps" @select="openStage" />
               <p v-if="!funnelConversion" :class="NOTE">
                 Este funil termina em “Contrato enviado” e não tem etapa de
                 contrato assinado.
