@@ -10,7 +10,7 @@ import { computed } from 'vue';
 
 const props = defineProps({
   items: { type: Array, required: true },
-  color: { type: String, default: '#22c55e' },
+  color: { type: String, default: '#2781F6' },
   ranked: { type: Boolean, default: false },
   // Rotulo curto (UF): coluna estreita, para a barra ganhar espaco.
   narrow: { type: Boolean, default: false },

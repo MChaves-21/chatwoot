@@ -50,6 +50,12 @@ export function shiftYmd(ymd, delta) {
   return dt.toISOString().slice(0, 10);
 }
 
+/** Dia da semana (0 = domingo) de um YYYY-MM-DD, sem passar por fuso. */
+export function weekdayOf(ymd) {
+  const [y, m, d] = ymd.split('-').map(Number);
+  return new Date(Date.UTC(y, m - 1, d)).getUTCDay();
+}
+
 export function ymdToBR(ymd) {
   const [, m, d] = ymd.split('-');
   return `${d}/${m}`;
@@ -152,6 +158,8 @@ export function toRow(conv, extra = {}) {
     createdMs,
     createdYmd: created.ymd,
     createdHour: created.hour,
+    // 0 = domingo. Calculado do dia em Sao Paulo, nao do fuso do navegador.
+    createdWeekday: weekdayOf(created.ymd),
     updatedYmd: spParts(updatedMs).ymd,
     assigneeId: assignee ? assignee.id : 0,
     assigneeName: assignee ? assignee.name : 'Não atribuído',
@@ -238,6 +246,34 @@ export function filterScope(rows, { funnelId, assigneeId }) {
       (funnelId === ALL_FUNNELS_ID || r.funnelId === funnelId) &&
       (assigneeId === null || r.assigneeId === assigneeId)
   );
+}
+
+/**
+ * O periodo imediatamente anterior, do mesmo tamanho — base das setas de
+ * "subiu/caiu" dos indicadores. `null` quando nao ha periodo (Todo periodo,
+ * personalizado incompleto).
+ */
+export function previousRange(period, todayYmd, custom = {}) {
+  const range = periodRange(period, todayYmd, custom);
+  if (!range) return null;
+  if (period === 'mes') {
+    // Este mes x mesmo trecho do mes passado (1 ao dia de hoje).
+    const [y, m] = todayYmd.split('-').map(Number);
+    const prev = new Date(Date.UTC(y, m - 2, 1));
+    const py = prev.getUTCFullYear();
+    const pm = String(prev.getUTCMonth() + 1).padStart(2, '0');
+    const last = new Date(Date.UTC(py, prev.getUTCMonth() + 1, 0)).getUTCDate();
+    const day = Math.min(Number(todayYmd.slice(8, 10)), last);
+    return { from: `${py}-${pm}-01`, to: `${py}-${pm}-${String(day).padStart(2, '0')}` };
+  }
+  const len = daysBetween(range.from, range.to) + 1;
+  return { from: shiftYmd(range.from, -len), to: shiftYmd(range.from, -1) };
+}
+
+export function filterRange(rows, range, mode) {
+  if (!range) return rows;
+  const field = mode === 'atualizacao' ? 'updatedYmd' : 'createdYmd';
+  return rows.filter(r => r[field] >= range.from && r[field] <= range.to);
 }
 
 export function filterPeriod(rows, { period, mode, todayYmd, custom }) {
@@ -564,11 +600,14 @@ export function newChats(rows, { days, todayYmd }) {
   for (let i = 0; i < days; i += 1) byDay.set(shiftYmd(from, i), 0);
 
   const hours = new Array(24).fill(0);
+  // grid[diaDaSemana][hora]: quando os leads chegam, cruzando os dois.
+  const grid = Array.from({ length: 7 }, () => new Array(24).fill(0));
   let previous = 0;
   rows.forEach(r => {
     if (r.createdYmd >= from && r.createdYmd <= todayYmd) {
       byDay.set(r.createdYmd, byDay.get(r.createdYmd) + 1);
       hours[r.createdHour] += 1;
+      grid[r.createdWeekday][r.createdHour] += 1;
     } else if (r.createdYmd >= prevFrom && r.createdYmd < from) {
       previous += 1;
     }
@@ -604,6 +643,7 @@ export function newChats(rows, { days, todayYmd }) {
     series,
     parts,
     hours: hours.map((count, hour) => ({ hour, count })),
+    grid,
     peakHour: total ? peakHour : null,
     previous,
     change: previous > 0 ? ((total - previous) / previous) * 100 : null,

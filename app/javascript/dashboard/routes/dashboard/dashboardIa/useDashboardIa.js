@@ -29,11 +29,13 @@ import {
   byState,
   closing,
   filterPeriod,
+  filterRange,
   filterScope,
   funnelSteps,
   kpis,
   monthlyGoal,
   newChats,
+  previousRange,
   signedAtFromHistory,
   spParts,
   stageDurations,
@@ -169,6 +171,16 @@ export function useDashboardIa() {
   );
 
   const summary = computed(() => kpis(periodRows.value));
+
+  // Mesmo calculo no periodo anterior de mesmo tamanho, para as setas de
+  // subiu/caiu. null em "Todo periodo" (nao ha anterior).
+  const summaryPrev = computed(() => {
+    const range = previousRange(period.value, todayYmd.value, {
+      from: customFrom.value,
+      to: customTo.value,
+    });
+    return range ? kpis(filterRange(scopeRows.value, range, mode.value)) : null;
+  });
 
   const sparks = computed(() =>
     weeklySeries(scopeRows.value, { todayYmd: todayYmd.value })
@@ -379,6 +391,7 @@ export function useDashboardIa() {
     assignees,
     // contas
     summary,
+    summaryPrev,
     sparks,
     byFunnel,
     ranking,

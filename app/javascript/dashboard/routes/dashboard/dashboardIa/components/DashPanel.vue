@@ -1,38 +1,35 @@
 <script setup>
 /**
- * Cartao do painel: icone colorido, titulo, subtitulo e acoes a direita.
+ * Cartao do painel: superficie lisa, borda fina, titulo com icone discreto.
+ * Sem fundo colorido de proposito — a cor fica reservada para o dado.
  */
-import { tint } from '../chart';
-
 defineProps({
-  title: { type: String, required: true },
+  title: { type: String, default: '' },
   subtitle: { type: String, default: '' },
   icon: { type: String, default: '' },
-  color: { type: String, default: '#22c55e' },
+  // Mantidos por compatibilidade; o visual atual nao usa cor no cabecalho.
+  color: { type: String, default: '' },
 });
 </script>
 
 <template>
   <section
-    class="flex flex-col gap-4 p-5 rounded-2xl border shadow-sm min-w-0 border-n-weak bg-n-solid-1"
+    class="flex flex-col gap-4 p-5 min-w-0 rounded-xl border border-n-weak bg-n-solid-1"
   >
-    <header class="flex flex-wrap gap-3 justify-between items-start">
-      <div class="flex gap-3 items-center min-w-0">
-        <span
-          v-if="icon"
-          class="flex flex-shrink-0 justify-center items-center rounded-xl size-9"
-          :style="{ background: tint(color, 14), color }"
+    <header
+      v-if="title || $slots.actions"
+      class="flex flex-wrap gap-3 justify-between items-start"
+    >
+      <div class="min-w-0">
+        <h3
+          class="flex gap-2 items-center text-sm font-semibold text-n-slate-12"
         >
-          <span class="size-[18px]" :class="icon" />
-        </span>
-        <div class="min-w-0">
-          <h2 class="text-base font-semibold leading-tight text-n-slate-12">
-            {{ title }}
-          </h2>
-          <p v-if="subtitle" class="mt-0.5 text-xs text-n-slate-11">
-            {{ subtitle }}
-          </p>
-        </div>
+          <span v-if="icon" class="size-4 text-n-slate-10" :class="icon" />
+          {{ title }}
+        </h3>
+        <p v-if="subtitle" class="mt-0.5 text-xs text-n-slate-10">
+          {{ subtitle }}
+        </p>
       </div>
       <slot name="actions" />
     </header>

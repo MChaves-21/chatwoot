@@ -64,12 +64,27 @@ class Whatsapp::OneoffCampaignService
   end
 
   def process_audience(audience_labels)
-    contacts = campaign.account.contacts.tagged_with(audience_labels, any: true)
+    contacts = audience_contacts(audience_labels)
     Rails.logger.info "Processing #{contacts.count} contacts for campaign #{campaign.id}"
 
     contacts.each { |contact| process_contact(contact) }
 
     Rails.logger.info "Campaign #{campaign.id} processing completed"
+  end
+
+  # Fork Goncalves & Silva (08/10/2026): o publico da campanha passa a incluir
+  # tambem os contatos cujas CONVERSAS tem a etiqueta escolhida. As etapas do
+  # Kanban (sdr, comercial, bpc_lead_novo...) sao etiquetas de conversa, nao de
+  # contato; sem isto, uma campanha para "comercial" nao alcancaria ninguem.
+  # Contato com a etiqueta nele mesmo continua entrando, como no upstream.
+  # Cada contato entra uma vez so, mesmo com varias conversas etiquetadas.
+  def audience_contacts(audience_labels)
+    contacts = campaign.account.contacts
+    return contacts.none if audience_labels.blank?
+
+    by_contact = contacts.tagged_with(audience_labels, any: true).select(:id)
+    by_conversation = campaign.account.conversations.tagged_with(audience_labels, any: true).select(:contact_id)
+    contacts.where(id: by_contact).or(contacts.where(id: by_conversation))
   end
 
   def process_liquid_template_params(contact)

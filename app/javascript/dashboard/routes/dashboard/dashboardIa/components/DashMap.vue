@@ -14,7 +14,7 @@ import { BRAZIL_STATES, BRAZIL_VIEWBOX } from '../brazilMap';
 
 const props = defineProps({
   values: { type: Object, required: true },
-  color: { type: String, default: '#22c55e' },
+  color: { type: String, default: '#2781F6' },
   unit: { type: String, default: 'leads' },
 });
 
