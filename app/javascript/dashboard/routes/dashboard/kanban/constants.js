@@ -79,6 +79,29 @@ export const AUXILIO_COLUMNS = [
   },
   { title: 'Contrato Assinado', label: 'contrato_assinado', color: '#22c55e' },
   { title: 'Analise medica', label: 'analise_medica', color: '#14b8a6' },
+  /*
+   * 09/10/2026 — pedido do Goncalves: duas colunas entre a analise medica e a
+   * juridica, para o caso que o Dr. Gerardo reprova e que pode voltar na
+   * repescagem.
+   *
+   *   reprovado_dr_gerardo  o parecer medico foi contra. NAO entra em
+   *                         CLOSED_LABELS: o caso ainda pode ser repescado,
+   *                         entao arrastar para ca nao resolve a conversa.
+   *   aprovado_repescagem   reavaliado e aprovado; segue para a juridica.
+   *
+   * No Dashboard IA as duas contam como "chegou na analise medica" (ver
+   * rankAs em dashboardIa/constants.js), para nao virarem "fora do caminho".
+   */
+  {
+    title: 'Reprovado pelo Dr. Gerardo',
+    label: 'reprovado_dr_gerardo',
+    color: '#e11d48',
+  },
+  {
+    title: 'Aprovado na repescagem',
+    label: 'aprovado_repescagem',
+    color: '#84cc16',
+  },
   { title: 'Analise juridica', label: 'analise_juridica', color: '#a855f7' },
   { title: 'Efetivado', label: 'efetivado', color: '#16a34a' },
   { title: 'Desqualificado', label: 'desqualificado', color: '#ef4444' },

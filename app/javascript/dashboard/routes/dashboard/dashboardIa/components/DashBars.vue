@@ -50,13 +50,13 @@ const MEDALS = ['#f59e0b', '#94a3b8', '#f97316'];
       <span
         class="flex-shrink-0 truncate"
         :class="[
-          narrow ? 'w-10 font-semibold' : wide ? 'w-96' : 'w-36',
+          narrow ? 'w-10 font-semibold' : wide ? 'w-1/2 min-w-0' : 'w-36',
           item.muted ? 'text-n-slate-10' : 'text-n-slate-12',
         ]"
       >
         {{ item.title }}
       </span>
-      <span class="overflow-hidden flex-1 h-2 rounded-full bg-n-alpha-2">
+      <span class="overflow-hidden flex-1 h-2 min-w-8 rounded-full bg-n-alpha-2">
         <span
           class="block h-full rounded-full"
           :style="{

@@ -338,6 +338,8 @@ const STAGE_ICONS = {
   aguardando_assinatura: 'i-lucide-pen-line',
   contrato_assinado: 'i-lucide-trophy',
   analise_medica: 'i-lucide-stethoscope',
+  reprovado_dr_gerardo: 'i-lucide-thumbs-down',
+  aprovado_repescagem: 'i-lucide-rotate-ccw',
   analise_juridica: 'i-lucide-scale',
   efetivado: 'i-lucide-party-popper',
   bpc_lead_novo: 'i-lucide-user-plus',

@@ -376,6 +376,10 @@ export function nextSteps(label) {
     aguardando_assinatura: 'Cobrar a assinatura do contrato.',
     contrato_assinado: 'Encaminhar para analise medica/juridica.',
     analise_medica: 'Aguardar/cobrar o parecer medico.',
+    reprovado_dr_gerardo:
+      'Reprovado na analise medica - avaliar se vai para a repescagem.',
+    aprovado_repescagem:
+      'Aprovado na repescagem - encaminhar para a analise juridica.',
     analise_juridica: 'Aguardar/cobrar o parecer juridico.',
     efetivado: 'Caso efetivado - acompanhar o andamento.',
     desqualificado: 'Lead desqualificado - sem acao.',

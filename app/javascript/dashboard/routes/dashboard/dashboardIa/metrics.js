@@ -132,7 +132,7 @@ export function toRow(conv, extra = {}) {
   const created = spParts(createdMs);
   const sender = (conv.meta && conv.meta.sender) || {};
   const assignee = (conv.meta && conv.meta.assignee) || null;
-  const rank = funnel.path.indexOf(stage);
+  const rank = funnel.path.indexOf((funnel.rankAs || {})[stage] || stage);
   // { etiqueta: ms } — quando cada etiqueta foi aplicada pela primeira vez.
   const history = extra.history || {};
   const signedRank = funnel.signedFrom

@@ -40,6 +40,15 @@ export const FUNNEL_READING = {
     ],
     qualifiedFrom: 'comercial',
     signedFrom: 'contrato_assinado',
+    /*
+     * Etapas fora da linha reta do funil que contam como uma etapa dela.
+     * Reprovado pelo Dr. Gerardo e Aprovado na repescagem (09/10/2026) ja
+     * passaram pela analise medica; sem isto cairiam em "fora do caminho".
+     */
+    rankAs: {
+      reprovado_dr_gerardo: 'analise_medica',
+      aprovado_repescagem: 'analise_medica',
+    },
   },
   bpc: {
     path: [
