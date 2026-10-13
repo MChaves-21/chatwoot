@@ -289,7 +289,9 @@ export const FUNNELS = [
   {
     id: BPC_FUNNEL_ID,
     title: 'BPC',
-    inboxId: 9,
+    // 13/10/2026: o numero do BPC foi para a API oficial (caixa 15, "BPC API
+    // COEX") e as 1.109 conversas da caixa 9 foram migradas para ela.
+    inboxId: 15,
     columns: BPC_COLUMNS,
   },
   {

@@ -717,6 +717,13 @@ const menuItems = computed(() => {
       activeOn: ['dashboard_ia_index'],
     },
     {
+      name: 'Disparador',
+      label: 'Disparador',
+      icon: 'i-lucide-send',
+      to: accountScopedRoute('disparador_index'),
+      activeOn: ['disparador_index'],
+    },
+    {
       name: 'Campaigns',
       label: t('SIDEBAR.CAMPAIGNS'),
       icon: 'i-lucide-megaphone',

@@ -14,7 +14,8 @@
 export const STATE_FUNNEL_ID = 'por_estado';
 
 /** As duas caixas juntas. Este quadro cruza os dois funis de proposito. */
-export const STATE_INBOX_IDS = [6, 9];
+// 13/10/2026: BPC passou da caixa 9 (uazapi) para a 15 (API oficial).
+export const STATE_INBOX_IDS = [6, 15];
 
 /**
  * Etiquetas que significam "nao deu certo". Mantidas pelo sync do n8n.
@@ -149,7 +150,8 @@ export const STATE_COLUMNS = [
  */
 export const INBOX_NAMES = {
   6: 'Auxílio Acidente',
-  9: 'BPC',
+  9: 'BPC (antiga)',
+  15: 'BPC',
 };
 
 /**

@@ -65,7 +65,11 @@ const currentChat = computed(() => getters.getSelectedChat.value || {});
  * do Auxilio, que e a caixa maior — errar para o lado mais provavel e melhor
  * que nao marcar nada.
  */
-const DISCARD_BY_INBOX = { 6: 'desqualificado', 9: 'bpc_desqualificado' };
+const DISCARD_BY_INBOX = {
+  6: 'desqualificado',
+  9: 'bpc_desqualificado',
+  15: 'bpc_desqualificado',
+};
 const discardLabel = computed(
   () => DISCARD_BY_INBOX[currentChat.value.inbox_id] || 'desqualificado'
 );
