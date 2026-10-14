@@ -6,6 +6,8 @@
  * "Retomar" recalcula o horario de todos os pendentes a partir de agora (no
  * n8n), com o mesmo ritmo da criacao. "Cancelar" marca os pendentes como
  * cancelados; quem ja estava "Enviando" naquele minuto ainda pode sair.
+ * "Excluir" so aparece em campanha concluida ou cancelada e apaga a campanha e
+ * os destinatarios no n8n (o historico nas conversas do Chatwoot fica).
  */
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useRoute } from 'vue-router';
@@ -22,7 +24,7 @@ import StatusPill from './StatusPill.vue';
 const props = defineProps({
   campanhaId: { type: Number, required: true },
 });
-const emit = defineEmits(['back', 'changed']);
+const emit = defineEmits(['back', 'changed', 'deleted']);
 
 const route = useRoute();
 const BTN =
@@ -101,6 +103,31 @@ async function act(acao, pergunta) {
     await callDisparador(acao, { campanha_id: props.campanhaId });
     await load();
     emit('changed');
+  } catch (e) {
+    // eslint-disable-next-line no-alert
+    window.alert(e.message);
+  } finally {
+    busy.value = false;
+  }
+}
+
+const podeExcluir = computed(
+  () =>
+    campanha.value &&
+    ['concluida', 'cancelada'].includes(campanha.value.status)
+);
+
+async function excluir() {
+  const pergunta =
+    'Excluir esta campanha do Disparador? Some da lista junto com a lista de ' +
+    'destinatários. As mensagens já enviadas continuam nas conversas. Não dá ' +
+    'para desfazer.';
+  // eslint-disable-next-line no-alert
+  if (!window.confirm(pergunta)) return;
+  busy.value = true;
+  try {
+    await callDisparador('excluir', { campanha_id: props.campanhaId });
+    emit('deleted');
   } catch (e) {
     // eslint-disable-next-line no-alert
     window.alert(e.message);
@@ -213,6 +240,15 @@ function exportCsv() {
           </button>
           <button :class="BTN" @click="exportCsv">
             <span class="i-lucide-download size-3.5" /> CSV
+          </button>
+          <button
+            v-if="podeExcluir"
+            :class="BTN"
+            class="text-n-ruby-11"
+            :disabled="busy"
+            @click="excluir"
+          >
+            <span class="i-lucide-trash-2 size-3.5" /> Excluir
           </button>
         </div>
       </header>

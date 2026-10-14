@@ -108,6 +108,7 @@ function onCreated(id) {
           :campanha-id="selectedId"
           @back="backToList"
           @changed="load"
+          @deleted="backToList"
         />
 
         <template v-else>

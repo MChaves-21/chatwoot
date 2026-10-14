@@ -10,7 +10,7 @@ em lote a conversas que **já existem** no Chatwoot, em qualquer caixa.
 | `routes/dashboard/disparador/` | a tela inteira (lista, nova campanha, acompanhamento) |
 | `dashboard.routes.js` | +2 linhas: importa e registra as rotas |
 | `components-next/sidebar/Sidebar.vue` | +7 linhas: item "Disparador" abaixo do Dashboard IA |
-| n8n `DISPARADOR - API (webhook)` (ZVGOuUNQDfslMF2d) | `POST /webhook/disparador-api` — listar, detalhar, criar, pausar, retomar, cancelar. Valida a sessão do Chatwoot em `GET /api/v1/profile` (conta 1). Na criação calcula o horário de cada envio. |
+| n8n `DISPARADOR - API (webhook)` (ZVGOuUNQDfslMF2d) | `POST /webhook/disparador-api` — listar, detalhar, criar, pausar, retomar, cancelar, excluir. Valida a sessão do Chatwoot em `GET /api/v1/profile` (conta 1). Na criação calcula o horário de cada envio. |
 | n8n `DISPARADOR - Envio (cron)` (JJoKTzSi53fZYn2S) | a cada minuto: reserva os vencidos, espera o horário, confere campanha e etiquetas, posta em `POST /conversations/:id/messages`, grava o resultado e conclui a campanha sem pendentes |
 | n8n Data Tables | `disparo_campanhas` (Nv07DUl1SEQrdDdD) e `disparo_destinatarios` (4jy1voKJunOOvuSI) |
 
@@ -37,6 +37,13 @@ conversa.
 - **Status da linha:** `pendente` → `reservado` (o cron pegou) → `enviado` /
   `erro` / `pulado`; `cancelado` quando a campanha é cancelada. A reserva só
   pega `pendente`, então duas rodadas sobrepostas não enviam em dobro.
+- **Excluir (13/10/2026):** botão no detalhe, só em campanha `concluida` ou
+  `cancelada`. O n8n recusa se ainda houver linha `reservado` (mensagem saindo
+  naquele minuto). Apaga as linhas de `disparo_destinatarios` e
+  `disparo_campanhas`; as mensagens já enviadas continuam nas conversas.
+- **Code node com "Executar uma vez" ligado recebe só o PRIMEIRO item** — não
+  usar essa opção em nó que lê `$input.all()` (foi o bug da contagem vazia na
+  lista em 13/10/2026).
 - **Linha presa em `reservado`** (execução morreu no meio) não volta sozinha.
   Antes de devolver para `pendente` na tabela, conferir na conversa se saiu.
 - **Primeira mensagem numa conversa nunca respondida** grava o
