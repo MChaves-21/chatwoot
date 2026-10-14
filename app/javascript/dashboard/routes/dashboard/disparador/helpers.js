@@ -208,3 +208,98 @@ export function progressOf(campanha) {
     pct: total ? Math.round((feitos / total) * 100) : 0,
   };
 }
+
+/* ------------------------------------------------------------------------ */
+/* Envio para um numero                                                      */
+/* ------------------------------------------------------------------------ */
+
+/**
+ * Telefone digitado -> forma canonica para comparar: 55 + DDD + numero SEM o
+ * nono digito. A caixa da API oficial grava sem o 9 e a uazapi grava com, entao
+ * comparar pela forma canonica casa os dois.
+ * Devolve '' se nao der para entender o numero.
+ */
+export function canonicalPhone(value) {
+  let d = String(value || '').replace(/\D/g, '');
+  if (d.startsWith('0')) d = d.replace(/^0+/, '');
+  if (d.length === 10 || d.length === 11) d = `55${d}`;
+  if (!d.startsWith('55') || (d.length !== 12 && d.length !== 13)) return '';
+  if (d.length === 13 && d[4] === '9') d = d.slice(0, 4) + d.slice(5);
+  return d.length === 12 ? d : '';
+}
+
+/** Os 8 ultimos digitos: e o que a busca do Chatwoot (ILIKE) casa nos dois formatos. */
+export function phoneSearchKey(value) {
+  const c = canonicalPhone(value);
+  return c ? c.slice(-8) : '';
+}
+
+export function samePhone(a, b) {
+  const x = canonicalPhone(a);
+  return !!x && x === canonicalPhone(b);
+}
+
+/** "(85) 99855-2131" para mostrar. Devolve o valor original se nao entender. */
+export function formatPhone(value) {
+  const c = canonicalPhone(value);
+  if (!c) return String(value || '');
+  const ddd = c.slice(2, 4);
+  const n = `9${c.slice(4)}`;
+  return `(${ddd}) ${n.slice(0, 5)}-${n.slice(5)}`;
+}
+
+/**
+ * Conversas de um contato -> uma opcao por caixa (a de atividade mais recente),
+ * com o nome da caixa e se da para mandar texto livre.
+ *
+ * `can_reply` vem do Chatwoot: na API oficial ele e false quando o cliente nao
+ * escreveu nas ultimas 24 h, e ai so template aprovado chega.
+ */
+export function conversationOptions(conversations, inboxes) {
+  const nomes = {};
+  (inboxes || []).forEach(i => {
+    nomes[i.id] = i;
+  });
+  const porCaixa = new Map();
+  (conversations || []).forEach(c => {
+    const atual = porCaixa.get(c.inbox_id);
+    if (!atual || Number(c.last_activity_at) > Number(atual.last_activity_at)) {
+      porCaixa.set(c.inbox_id, c);
+    }
+  });
+  return [...porCaixa.values()]
+    .map(c => {
+      const inbox = nomes[c.inbox_id] || {};
+      const oficial = inbox.channel_type === 'Channel::Whatsapp';
+      return {
+        conversation_id: Number(c.id),
+        inbox_id: Number(c.inbox_id),
+        inbox_nome: inbox.name || `Caixa ${c.inbox_id}`,
+        oficial,
+        textoLivre: !oficial || c.can_reply !== false,
+        status: c.status,
+        last_activity_at: Number(c.last_activity_at) || 0,
+        templates: oficial ? usableTemplates(inbox.message_templates) : [],
+      };
+    })
+    .sort((a, b) => b.last_activity_at - a.last_activity_at);
+}
+
+/** Corpo do POST /conversations/:id/messages para template, no formato do Chatwoot. */
+export function templateMessageBody(template, params, nome) {
+  const filled = {};
+  Object.entries(params || {}).forEach(([k, v]) => {
+    filled[k] = renderText(v, nome);
+  });
+  return {
+    content: renderTemplate(template.body_text, params, nome),
+    message_type: 'outgoing',
+    template_params: {
+      name: template.name,
+      category: template.category,
+      language: template.language,
+      ...(template.namespace ? { namespace: template.namespace } : {}),
+      processed_params: { body: filled },
+    },
+  };
+}

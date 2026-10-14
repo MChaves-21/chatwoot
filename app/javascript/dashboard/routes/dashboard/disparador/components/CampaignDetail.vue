@@ -165,7 +165,7 @@ function exportCsv() {
       class="inline-flex gap-1 items-center self-start text-sm text-n-slate-11 hover:text-n-slate-12"
       @click="emit('back')"
     >
-      <span class="i-lucide-arrow-left size-4" /> Campanhas
+      <span class="i-lucide-arrow-left size-4" /> Voltar
     </button>
 
     <p v-if="error" class="text-sm text-n-ruby-11">{{ error }}</p>
@@ -183,16 +183,21 @@ function exportCsv() {
             <StatusPill :status="campanha.status" :map="CAMPAIGN_STATUS" />
           </div>
           <p class="mt-1 text-sm text-n-slate-11">
-            {{ campanha.inbox_nome }} · criada por {{ campanha.criado_por }} em
+            Pelo WhatsApp {{ campanha.inbox_nome }} · criada por
+            {{ campanha.criado_por }} em
             {{ formatDateTime(campanha.createdAt, TIME_ZONE) }}
           </p>
-          <p class="mt-1 text-xs text-n-slate-10">
-            Ritmo: {{ config.intervalo_min }}–{{ config.intervalo_max }} s
+          <p
+            v-if="destinatarios.length > 1"
+            class="mt-1 text-xs text-n-slate-10"
+          >
+            Uma mensagem a cada {{ config.intervalo_min }} a
+            {{ config.intervalo_max }} segundos
             <template v-if="config.pausa_a_cada">
-              · pausa de {{ config.pausa_minutos }} min a cada
+              , com descanso de {{ config.pausa_minutos }} min a cada
               {{ config.pausa_a_cada }}
             </template>
-            · {{ config.janela_inicio }}–{{ config.janela_fim }}
+            , das {{ config.janela_inicio }} às {{ config.janela_fim }}.
           </p>
         </div>
         <div class="flex flex-wrap gap-2">
@@ -218,11 +223,11 @@ function exportCsv() {
             @click="
               act(
                 'retomar',
-                'Retomar a campanha? Os pendentes ganham novos horários a partir de agora.'
+                'Continuar o envio? Quem ainda não recebeu ganha um novo horário a partir de agora.'
               )
             "
           >
-            <span class="i-lucide-play size-3.5" /> Retomar
+            <span class="i-lucide-play size-3.5" /> Continuar
           </button>
           <button
             v-if="['agendada', 'pausada'].includes(campanha.status)"
@@ -232,14 +237,14 @@ function exportCsv() {
             @click="
               act(
                 'cancelar',
-                'Cancelar a campanha? Os pendentes não serão mais enviados. Não dá para desfazer.'
+                'Cancelar? Quem ainda não recebeu não vai mais receber. Não dá para desfazer.'
               )
             "
           >
             <span class="i-lucide-square size-3.5" /> Cancelar
           </button>
           <button :class="BTN" @click="exportCsv">
-            <span class="i-lucide-download size-3.5" /> CSV
+            <span class="i-lucide-download size-3.5" /> Baixar planilha
           </button>
           <button
             v-if="podeExcluir"

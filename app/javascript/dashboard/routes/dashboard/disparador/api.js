@@ -118,3 +118,34 @@ export async function loadAudience({ inboxId, labels, status, onProgress }) {
   );
   return { conversations: all, total, truncated: total > pages * 25 };
 }
+
+/* ------------------------------------------------------------------------ */
+/* Envio para um numero — so a API do Chatwoot, com a sessao do atendente   */
+/* ------------------------------------------------------------------------ */
+
+// Contatos: mesmo prefixo da conta, sem outra classe (o lint permite uma por arquivo).
+const contactsUrl = () =>
+  audienceApi.url.replace(/\/conversations$/, '/contacts');
+
+/** Busca pelo texto (o Chatwoot casa nome, e-mail e telefone por ILIKE). */
+export async function searchContacts(q) {
+  const params = new URLSearchParams({ q, include_contacts: 'true' });
+  const res = await axios.get(`${contactsUrl()}/search?${params.toString()}`);
+  return (res.data && res.data.payload) || [];
+}
+
+export async function contactConversations(contactId) {
+  const res = await axios.get(`${contactsUrl()}/${contactId}/conversations`);
+  return (res.data && res.data.payload) || [];
+}
+
+/**
+ * Manda AGORA, como se o atendente tivesse digitado na conversa. A mensagem
+ * fica no historico com o nome de quem enviou e sai pelo caminho normal da
+ * caixa (uazapi ou API oficial).
+ */
+export async function sendNow(conversationId, body) {
+  const url = `${audienceApi.url}/${conversationId}/messages`;
+  const res = await axios.post(url, body);
+  return res.data;
+}

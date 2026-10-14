@@ -13,9 +13,15 @@ import { CAMPAIGN_STATUS, REFRESH_MS, TIME_ZONE } from './constants';
 import { formatDateTime, progressOf } from './helpers';
 import CampaignForm from './components/CampaignForm.vue';
 import CampaignDetail from './components/CampaignDetail.vue';
+import SingleSend from './components/SingleSend.vue';
 import StatusPill from './components/StatusPill.vue';
 
 const mode = ref('list');
+const TITLES = {
+  list: 'O que você quer fazer?',
+  single: 'Mandar para uma pessoa',
+  form: 'Mandar para várias pessoas',
+};
 const selectedId = ref(null);
 
 const campanhas = ref([]);
@@ -75,29 +81,76 @@ function onCreated(id) {
             <p
               class="text-[11px] font-semibold tracking-[0.14em] uppercase text-n-brand"
             >
-              Campanhas
+              Disparador
             </p>
             <h1
               class="mt-1 text-2xl font-semibold tracking-tight text-n-slate-12"
             >
-              {{ mode === 'form' ? 'Nova campanha' : 'Disparador' }}
+              {{ TITLES[mode] }}
             </h1>
-            <p class="mt-1 text-sm text-n-slate-11">
-              Mensagem em lote para conversas que já estão no Chatwoot, com
-              intervalo, pausas e janela de horário.
-            </p>
           </div>
-          <button
-            v-if="mode === 'list'"
-            class="inline-flex gap-1.5 items-center px-3 h-9 text-sm font-medium text-white rounded-lg bg-n-brand hover:opacity-90"
-            @click="mode = 'form'"
-          >
-            <span class="i-lucide-plus size-4" /> Nova campanha
-          </button>
         </header>
 
+        <!-- O que voce quer fazer? -->
+        <div
+          v-if="mode === 'list'"
+          class="grid grid-cols-1 gap-3 md:grid-cols-2"
+        >
+          <button
+            class="flex gap-4 items-start p-5 text-left rounded-xl border transition-colors border-n-weak bg-n-solid-1 hover:border-n-brand hover:bg-n-brand/5"
+            @click="mode = 'single'"
+          >
+            <span
+              class="flex justify-center items-center rounded-full size-11 shrink-0 bg-n-brand/10"
+            >
+              <span class="i-lucide-user-round size-5 text-n-brand" />
+            </span>
+            <span class="flex flex-col gap-1">
+              <span class="text-base font-semibold text-n-slate-12">
+                Mandar para uma pessoa
+              </span>
+              <span class="text-sm text-n-slate-11">
+                Digite o número, escolha o WhatsApp e escreva. Pode mandar na
+                hora ou agendar.
+              </span>
+            </span>
+          </button>
+          <button
+            class="flex gap-4 items-start p-5 text-left rounded-xl border transition-colors border-n-weak bg-n-solid-1 hover:border-n-brand hover:bg-n-brand/5"
+            @click="mode = 'form'"
+          >
+            <span
+              class="flex justify-center items-center rounded-full size-11 shrink-0 bg-n-brand/10"
+            >
+              <span class="i-lucide-users-round size-5 text-n-brand" />
+            </span>
+            <span class="flex flex-col gap-1">
+              <span class="text-base font-semibold text-n-slate-12">
+                Mandar para várias pessoas
+              </span>
+              <span class="text-sm text-n-slate-11">
+                Escolha quem recebe (por etapa do Kanban, por exemplo). As
+                mensagens saem aos poucos, sozinhas.
+              </span>
+            </span>
+          </button>
+        </div>
+
+        <h2
+          v-if="mode === 'list' && campanhas.length"
+          class="pt-2 text-sm font-semibold text-n-slate-12"
+        >
+          Envios feitos e agendados
+        </h2>
+
+        <SingleSend
+          v-if="mode === 'single'"
+          @back="backToList"
+          @scheduled="load"
+        />
+
         <CampaignForm
-          v-if="mode === 'form'"
+          v-else-if="mode === 'form'"
           @created="onCreated"
           @cancel="mode = 'list'"
         />
@@ -117,7 +170,7 @@ function onCreated(id) {
             v-else-if="!loading && !campanhas.length"
             class="p-6 text-sm text-center rounded-xl border border-dashed border-n-weak text-n-slate-11"
           >
-            Nenhuma campanha ainda.
+            Nenhum envio ainda. Escolha uma das opções acima para começar.
           </p>
 
           <div
@@ -127,11 +180,11 @@ function onCreated(id) {
             <table class="w-full text-sm">
               <thead class="text-xs text-left text-n-slate-10 bg-n-alpha-1">
                 <tr>
-                  <th class="px-3 py-2 font-medium">Campanha</th>
-                  <th class="px-3 py-2 font-medium">Caixa</th>
+                  <th class="px-3 py-2 font-medium">Nome</th>
+                  <th class="px-3 py-2 font-medium">WhatsApp</th>
                   <th class="px-3 py-2 font-medium">Status</th>
                   <th class="px-3 py-2 font-medium w-56">Progresso</th>
-                  <th class="px-3 py-2 font-medium">Início</th>
+                  <th class="px-3 py-2 font-medium">Começa</th>
                 </tr>
               </thead>
               <tbody>

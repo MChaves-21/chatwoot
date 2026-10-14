@@ -69,3 +69,38 @@ junto. Sem este deploy o funil BPC e o Dashboard IA ficam sem o BPC.
 - `vite build` de produção passou.
 - n8n: API testada de ponta a ponta com sessão real (6 ações); motor testado
   com o envio ao Chatwoot simulado (reserva, variável, resultado, conclusão).
+
+## Versão 2 (14/10/2026) — mais simples, e envio para uma pessoa
+
+A tela inicial pergunta "O que você quer fazer?" com duas escolhas grandes:
+
+- **Mandar para uma pessoa** (`components/SingleSend.vue`): digita o número em
+  qualquer formato, a tela acha o contato (com ou sem o nono dígito) e as
+  conversas dele, a pessoa escolhe por qual WhatsApp sai, escreve e manda.
+  - "Agora" posta direto na conversa com a sessão do atendente
+    (`POST /conversations/:id/messages`), sem n8n. Fica no histórico com o
+    nome de quem enviou.
+  - "Agendar" cria uma campanha de 1 destinatário no n8n (ritmo
+    `SINGLE_CONFIG`, 24/7). **Depende do cron `DISPARADOR - Envio` ligado.**
+  - Na API oficial, se o cliente não escreveu nas últimas 24 h
+    (`can_reply: false` na conversa), só oferece mensagem aprovada.
+  - Número sem conversa no Chatwoot: a tela orienta usar o "Nova conversa" do
+    Chatwoot. Criar conversa daqui dispararia o vídeo do BPC
+    (`conversation_created`) e, nas caixas da uazapi, exige o formato de
+    contato da uazapi.
+- **Mandar para várias pessoas** (`components/CampaignForm.vue`), agora em 5
+  passos com uma pergunta por tela: WhatsApp → Quem recebe → Mensagem →
+  Quando → Revisar.
+  - Quem recebe: "Todo mundo", "Por etapa do Kanban" ou "Por etiqueta"; a
+    contagem atualiza sozinha; descartados saem automaticamente (lista
+    escondida em "ver detalhes").
+  - Velocidade e horário em botões prontos (`PACES`, `WINDOWS`); os campos em
+    segundos ficam em "Personalizar".
+  - O nome da campanha é sugerido no último passo.
+- Acompanhamento: textos simples ("Continuar", "Baixar planilha", status
+  "Aguardando / Falhou / Não enviada") e botão **Excluir** para campanha
+  concluída ou cancelada (ação `excluir` do n8n, criada em 13/10).
+
+Funções novas em `helpers.js`, testadas com node: `canonicalPhone`,
+`phoneSearchKey`, `samePhone`, `formatPhone`, `conversationOptions`,
+`templateMessageBody`.

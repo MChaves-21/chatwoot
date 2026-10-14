@@ -55,6 +55,81 @@ export const DEFAULT_CONFIG = {
   dias: [1, 2, 3, 4, 5],
 };
 
+/**
+ * Ritmos prontos, para quem nao quer pensar em segundos. "Personalizar" na
+ * tela abre os campos crus. O mais seguro vem marcado.
+ */
+export const PACES = [
+  {
+    id: 'seguro',
+    titulo: 'Devagar e seguro',
+    descricao: 'Recomendado. Parece envio feito por uma pessoa.',
+    config: {
+      intervalo_min: 40,
+      intervalo_max: 90,
+      pausa_a_cada: 30,
+      pausa_minutos: 10,
+    },
+  },
+  {
+    id: 'normal',
+    titulo: 'Normal',
+    descricao: 'Mais rápido, ainda com pausas.',
+    config: {
+      intervalo_min: 20,
+      intervalo_max: 45,
+      pausa_a_cada: 40,
+      pausa_minutos: 5,
+    },
+  },
+  {
+    id: 'rapido',
+    titulo: 'Rápido',
+    descricao: 'Só para listas pequenas. Mais risco de bloqueio do número.',
+    config: {
+      intervalo_min: 8,
+      intervalo_max: 15,
+      pausa_a_cada: 50,
+      pausa_minutos: 5,
+    },
+  },
+];
+
+/** Janelas prontas. Horario de Fortaleza. */
+export const WINDOWS = [
+  {
+    id: 'comercial',
+    titulo: 'Horário comercial',
+    descricao: 'Segunda a sexta, das 9h às 17h30',
+    config: {
+      janela_inicio: '09:00',
+      janela_fim: '17:30',
+      dias: [1, 2, 3, 4, 5],
+    },
+  },
+  {
+    id: 'estendido',
+    titulo: 'Todos os dias',
+    descricao: 'Segunda a domingo, das 8h às 20h',
+    config: {
+      janela_inicio: '08:00',
+      janela_fim: '20:00',
+      dias: [1, 2, 3, 4, 5, 6, 7],
+    },
+  },
+];
+
+/** Ritmo do envio para um numero so: sai na proxima rodada do n8n. */
+export const SINGLE_CONFIG = {
+  intervalo_min: 5,
+  intervalo_max: 5,
+  pausa_a_cada: 0,
+  pausa_minutos: 0,
+  janela_inicio: '00:00',
+  janela_fim: '23:59',
+  dias: [1, 2, 3, 4, 5, 6, 7],
+};
+
 /** 1 = segunda ... 7 = domingo, igual ao n8n. */
 export const WEEKDAYS = [
   { id: 1, label: 'Seg' },
@@ -87,11 +162,11 @@ export const CAMPAIGN_STATUS = {
 };
 
 export const RECIPIENT_STATUS = {
-  pendente: { label: 'Na fila', tone: 'slate' },
+  pendente: { label: 'Aguardando', tone: 'slate' },
   reservado: { label: 'Enviando', tone: 'blue' },
   enviado: { label: 'Enviado', tone: 'teal' },
-  erro: { label: 'Erro', tone: 'ruby' },
-  pulado: { label: 'Pulado', tone: 'amber' },
+  erro: { label: 'Falhou', tone: 'ruby' },
+  pulado: { label: 'Não enviada', tone: 'amber' },
   cancelado: { label: 'Cancelado', tone: 'slate' },
 };
 
