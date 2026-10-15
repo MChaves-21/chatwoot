@@ -10,7 +10,11 @@
  * como qualificado e a partir de onde conta como contrato assinado.
  */
 
-import { FUNNELS, UNSTAGED_LABEL } from '../kanban/constants';
+import {
+  FUNNELS,
+  HOME_ACCOUNT_ID,
+  UNSTAGED_LABEL,
+} from '../kanban/constants';
 import { CLOSED_LABELS } from '../kanban/stateConstants';
 
 /**
@@ -98,6 +102,22 @@ export const DASH_FUNNELS = FUNNELS.filter(
 }));
 
 export const ALL_FUNNELS_ID = '__todos__';
+
+/**
+ * Conta dona dos funis acima (Goncalves & Silva). Os funis, a meta padrao e
+ * os motivos de descarte (LEADS PREV, via n8n) sao DESTA conta e de mais
+ * nenhuma (HOME_ACCOUNT_ID mora em kanban/constants.js). Outra conta no mesmo Chatwoot (ex.: escritorio parceiro na beta)
+ * abre o painel sem funis, sem meta padrao e sem motivos — nada da Goncalves
+ * aparece la (15/10/2026).
+ */
+export { HOME_ACCOUNT_ID };
+
+export const isHomeAccount = accountId =>
+  Number(accountId) === HOME_ACCOUNT_ID;
+
+/** Funis que o painel le nesta conta. Fora da conta dona: nenhum. */
+export const funnelsForAccount = accountId =>
+  isHomeAccount(accountId) ? DASH_FUNNELS : [];
 
 export const LOST_LABELS = CLOSED_LABELS;
 

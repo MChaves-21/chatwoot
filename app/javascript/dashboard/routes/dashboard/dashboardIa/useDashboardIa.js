@@ -17,11 +17,12 @@ import { computed, reactive, ref } from 'vue';
 import DashboardIaAPI, { fetchLossReasons } from './api';
 import {
   ALL_FUNNELS_ID,
-  DASH_FUNNELS,
   DEFAULT_MONTHLY_GOAL,
   DEFAULT_PERIOD,
   LOSS_REASONS_FUNNEL_ID,
   LS_KEY,
+  funnelsForAccount,
+  isHomeAccount,
 } from './constants';
 import {
   assigneeOptions,
@@ -45,9 +46,17 @@ import {
 } from './metrics';
 
 const CACHE_TTL_MS = 5 * 60 * 1000;
-const SIGNED_LS_KEY = `${LS_KEY}_assinaturas`;
 
-const cache = { rows: null, at: 0, source: '', goals: null };
+// Cache do modulo POR CONTA: quem e administrador de duas contas e troca de
+// uma para a outra nao pode ver, por alguns minutos, os numeros da anterior.
+const caches = new Map();
+function cacheFor(accountId) {
+  const key = String(accountId);
+  if (!caches.has(key)) {
+    caches.set(key, { rows: null, at: 0, source: '', goals: null });
+  }
+  return caches.get(key);
+}
 const reasonsCache = { data: null, at: 0 };
 
 function readLS(key, fallback) {
@@ -67,8 +76,16 @@ function writeLS(key, value) {
   }
 }
 
-export function useDashboardIa() {
-  const prefs = readLS(LS_KEY, {});
+export function useDashboardIa(accountId) {
+  const home = isHomeAccount(accountId);
+  // Funis desta conta. Fora da conta dona: lista vazia (ver HOME_ACCOUNT_ID).
+  const accountFunnels = funnelsForAccount(accountId);
+  const cache = cacheFor(accountId);
+  // Preferencias e datas de assinatura do navegador tambem separadas por
+  // conta (a conta dona mantem as chaves antigas).
+  const lsKey = home ? LS_KEY : `${LS_KEY}_conta_${accountId}`;
+  const signedLsKey = `${lsKey}_assinaturas`;
+  const prefs = readLS(lsKey, {});
 
   const rows = ref([]);
   const loading = ref(false);
@@ -80,7 +97,7 @@ export function useDashboardIa() {
 
   // { idDaConversa: ms }. So id e data — nada de nome ou telefone — entao
   // pode ficar no navegador: data de assinatura nao muda.
-  const signedAt = reactive(readLS(SIGNED_LS_KEY, {}));
+  const signedAt = reactive(readLS(signedLsKey, {}));
   const signedPending = ref(0);
 
   // Motivos de descarte (n8n). `null` = nao veio: o bloco some.
@@ -94,6 +111,11 @@ export function useDashboardIa() {
   );
 
   async function loadLossReasons({ force = false } = {}) {
+    // Motivos vem da LEADS PREV, que e so da conta dona.
+    if (!home) {
+      lossReasons.value = null;
+      return;
+    }
     if (!force && reasonsCache.data && Date.now() - reasonsCache.at < CACHE_TTL_MS) {
       lossReasons.value = reasonsCache.data;
       return;
@@ -104,7 +126,10 @@ export function useDashboardIa() {
     lossReasons.value = data;
   }
 
-  const funnelId = ref(prefs.funnelId || ALL_FUNNELS_ID);
+  const savedFunnel = accountFunnels.some(f => f.id === prefs.funnelId)
+    ? prefs.funnelId
+    : ALL_FUNNELS_ID;
+  const funnelId = ref(savedFunnel);
   const period = ref(prefs.period || DEFAULT_PERIOD);
   const customFrom = ref('');
   const customTo = ref('');
@@ -125,11 +150,12 @@ export function useDashboardIa() {
     const own = Number(goals[funnelId.value]);
     if (own > 0) return own;
     // Meta geral tem padrao; meta de um funil so existe se alguem definir.
-    return funnelId.value === ALL_FUNNELS_ID ? DEFAULT_MONTHLY_GOAL : 0;
+    // A meta padrao e a da conta dona; outra conta comeca sem meta.
+    return home && funnelId.value === ALL_FUNNELS_ID ? DEFAULT_MONTHLY_GOAL : 0;
   });
 
   const savePrefs = () =>
-    writeLS(LS_KEY, {
+    writeLS(lsKey, {
       funnelId: funnelId.value,
       // Periodo personalizado nao e lembrado: abrir o painel amanha num
       // intervalo antigo mostraria numero "errado" sem ninguem lembrar por que.
@@ -142,8 +168,8 @@ export function useDashboardIa() {
 
   const funnels = computed(() =>
     funnelId.value === ALL_FUNNELS_ID
-      ? DASH_FUNNELS
-      : DASH_FUNNELS.filter(f => f.id === funnelId.value)
+      ? accountFunnels
+      : accountFunnels.filter(f => f.id === funnelId.value)
   );
 
   // Opcoes de responsavel saem do funil escolhido, sem o filtro de
@@ -234,7 +260,8 @@ export function useDashboardIa() {
     const targets = [];
     rows.value.forEach(r => {
       if (!r.signed || signedAt[r.id]) return;
-      const f = DASH_FUNNELS.find(x => x.id === r.funnelId);
+      const f = accountFunnels.find(x => x.id === r.funnelId);
+      if (!f) return;
       targets.push({
         id: r.id,
         stopLabel: f.signedFrom,
@@ -251,7 +278,7 @@ export function useDashboardIa() {
       },
     });
     signedPending.value = 0;
-    writeLS(SIGNED_LS_KEY, { ...signedAt });
+    writeLS(signedLsKey, { ...signedAt });
   }
 
   function apply(data) {
@@ -312,7 +339,7 @@ export function useDashboardIa() {
     error.value = '';
     progress.fetched = 0;
     progress.total = 0;
-    const inboxIds = DASH_FUNNELS.map(f => f.inboxId).filter(Boolean);
+    const inboxIds = accountFunnels.map(f => f.inboxId).filter(Boolean);
     try {
       let data;
       try {
@@ -366,6 +393,9 @@ export function useDashboardIa() {
   }
 
   return {
+    // conta
+    funnelList: accountFunnels,
+    isHome: home,
     // estado
     rows,
     loading,

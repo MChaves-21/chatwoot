@@ -66,7 +66,11 @@ import { onClickOutside } from '@vueuse/core';
 import Cookies from 'js-cookie';
 
 import KanbanAPI, { scheduleMessage } from '../api';
-import { LS_KEY, SCHEDULE_WEBHOOK_URL } from '../constants';
+import {
+  HOME_ACCOUNT_ID,
+  LS_KEY,
+  SCHEDULE_WEBHOOK_URL,
+} from '../constants';
 
 const NOTA_PRIVADA_AO_AGENDAR = true;
 
@@ -104,7 +108,12 @@ function readPrefs() {
  * de quem nunca abriu as Configuracoes. Agora a URL e fixa (SCHEDULE_WEBHOOK_URL)
  * e o n8n autentica pela sessao do Chatwoot de quem esta logado.
  */
-const isEnabled = computed(() => true);
+// 15/10/2026: so na conta dona. O agendamento vai para o Supabase e o cron do
+// n8n posta na conta 1; em outra conta a mensagem iria para um cliente da
+// Goncalves.
+const isEnabled = computed(
+  () => Number(currentChat.value.account_id) === HOME_ACCOUNT_ID
+);
 
 /**
  * Credenciais da sessao do dashboard (devise_token_auth), as mesmas que o

@@ -480,6 +480,15 @@ export const LS_KEY = 'cw_kanban_prefs_v5';
  * Nao ha segredo no codigo: o n8n confere a SESSAO do atendente no Chatwoot
  * (GET /api/v1/profile). A URL das Configuracoes, se preenchida, ainda vence.
  */
+/**
+ * Conta dona dos funis, do n8n e do Supabase (Goncalves & Silva). Recursos
+ * que gravam ou leem fora do Chatwoot (Agendar, Dashboard IA) so funcionam
+ * nela: o cron do Agendar posta em /accounts/1/conversations/{id}, entao um
+ * agendamento feito em outra conta cairia numa conversa da Goncalves com o
+ * mesmo numero (15/10/2026).
+ */
+export const HOME_ACCOUNT_ID = 1;
+
 export const SCHEDULE_WEBHOOK_URL =
   'https://n8n.goncalvesesilva.cloud/webhook/kanban-agendar';
 

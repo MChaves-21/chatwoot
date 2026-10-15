@@ -20,7 +20,6 @@ import { useRoute, useRouter } from 'vue-router';
 import {
   ALL_FUNNELS_ID,
   CHAT_RANGES,
-  DASH_FUNNELS,
   DATE_MODES,
   PERIODS,
 } from './constants';
@@ -40,9 +39,10 @@ import DashMap from './components/DashMap.vue';
 const ACCENT = '#2781F6';
 const MUTED = '#94a3b8';
 
-const dash = useDashboardIa();
 const route = useRoute();
 const router = useRouter();
+// Cada conta ve so os proprios funis e numeros (ver HOME_ACCOUNT_ID).
+const dash = useDashboardIa(route.params.accountId);
 
 // ------------------------------------------------------------- Modo TV
 // Tela cheia + recarga sozinha a cada 5 minutos, para deixar num monitor.
@@ -154,7 +154,8 @@ const NOTE = 'text-xs leading-relaxed text-n-slate-10';
 const funnelTitle = computed(() =>
   dash.funnelId.value === ALL_FUNNELS_ID
     ? 'Todos os funis'
-    : (DASH_FUNNELS.find(f => f.id === dash.funnelId.value) || {}).title || ''
+    : (dash.funnelList.find(f => f.id === dash.funnelId.value) || {}).title ||
+      ''
 );
 
 const periodTitle = computed(() => {
@@ -189,7 +190,7 @@ const progressPct = computed(() =>
 
 const funnelOptions = [
   { id: ALL_FUNNELS_ID, title: 'Todos os funis' },
-  ...DASH_FUNNELS.map(f => ({ id: f.id, title: f.title })),
+  ...dash.funnelList.map(f => ({ id: f.id, title: f.title })),
 ];
 
 // ------------------------------------------------------------ indicadores
