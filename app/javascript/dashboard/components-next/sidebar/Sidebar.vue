@@ -717,6 +717,13 @@ const menuItems = computed(() => {
       activeOn: ['dashboard_ia_index'],
     },
     {
+      name: 'Relatorio da Equipe',
+      label: 'Relatório da Equipe',
+      icon: 'i-lucide-chart-no-axes-column',
+      to: accountScopedRoute('relatorio_equipe_index'),
+      activeOn: ['relatorio_equipe_index'],
+    },
+    {
       name: 'Disparador',
       label: 'Disparador',
       icon: 'i-lucide-send',

@@ -12,6 +12,7 @@ import { routes as captainRoutes } from './captain/captain.routes';
 import { routes as kanbanRoutes } from './kanban/routes';
 import { routes as dashboardIaRoutes } from './dashboardIa/routes';
 import { routes as disparadorRoutes } from './disparador/routes';
+import { routes as relatorioEquipeRoutes } from './relatorioEquipe/routes';
 import AppContainer from './Dashboard.vue';
 import Suspended from './suspended/Index.vue';
 import NoAccounts from './noAccounts/Index.vue';
@@ -28,6 +29,7 @@ export default {
         ...kanbanRoutes,
         ...dashboardIaRoutes,
         ...disparadorRoutes,
+        ...relatorioEquipeRoutes,
         ...inboxRoutes,
         ...conversation.routes,
         ...settings.routes,

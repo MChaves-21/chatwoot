@@ -329,6 +329,12 @@ Rails.application.routes.draw do
             patch :goals
           end
 
+          # Relatorio da Equipe (fork Goncalves & Silva): mensagens e conversas por usuario.
+          resource :relatorio_equipe, only: [:show], controller: 'relatorio_equipe' do
+            get :mensagens
+            patch :ia_users
+          end
+
           resources :notifications, only: [:index, :update, :destroy] do
             collection do
               post :read_all
