@@ -118,8 +118,14 @@ class RelatorioEquipe::Report
     base_messages.where(message_type: OUT_TYPES, sender_type: 'User', sender_id: @user_ids)
   end
 
+  # Conversas com qualquer uma das etiquetas. Direto na tabela de taggings:
+  # o `tagged_with(any: true)` do acts-as-taggable monta um SELECT que nao
+  # serve de subconsulta (dava erro 500, visto em producao em 16/10/2026).
+  # Restringir a conta nao e preciso aqui: `messages` ja filtra account_id.
   def labeled_conversation_ids
-    account.conversations.unscope(:order).tagged_with(@labels, on: :labels, any: true).select(:id)
+    ActsAsTaggableOn::Tagging.joins(:tag)
+                             .where(taggable_type: 'Conversation', context: 'labels', tags: { name: @labels })
+                             .select(:taggable_id)
   end
 
   def outgoing
