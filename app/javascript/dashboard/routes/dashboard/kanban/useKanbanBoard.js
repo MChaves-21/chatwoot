@@ -411,16 +411,35 @@ export function useKanbanBoard() {
     const beforeStatus = conv.status;
     const shouldResolve = isDiscard && beforeStatus !== 'resolved';
 
-    const fromSt = columns[fromLabel];
     const toSt = columns[toLabel];
 
-    if (fromSt) {
-      fromSt.loaded = fromSt.loaded.filter(c => c.id !== conv.id);
-      if (fromSt.total !== null) fromSt.total = Math.max(0, fromSt.total - 1);
-    }
+    /*
+     * 16/10/2026 - card duplicado na MESMA coluna.
+     *
+     * Uma conversa com duas etiquetas de etapa aparece em duas colunas (era o
+     * que o Kanban Sync v16 fazia com reprovado_dr_gerardo/aprovado_repescagem).
+     * Arrastar a copia de uma coluna para a outra fazia unshift numa coluna que
+     * JA tinha o card: a tela mostrava o card duas vezes e o contador subia sem
+     * conversa nova (Aprovado na repescagem: 8 cards para 5 conversas). So
+     * sumia com Recarregar.
+     *
+     * Agora o card sai de TODAS as colunas em que estava (nao so de
+     * fromLabel) e so entra no destino se ainda nao estiver la. `removedFrom`
+     * guarda de onde saiu, para o desfazer devolver no mesmo lugar.
+     */
+    const removedFrom = [];
+    Object.keys(columns).forEach(label => {
+      if (label === toLabel) return;
+      const st = columns[label];
+      if (!st || !st.loaded.some(c => c.id === conv.id)) return;
+      st.loaded = st.loaded.filter(c => c.id !== conv.id);
+      if (st.total !== null) st.total = Math.max(0, st.total - 1);
+      removedFrom.push(label);
+    });
     conv.labels = after;
     if (shouldResolve) conv.status = 'resolved';
-    if (toSt) {
+    const alreadyInTarget = !!toSt && toSt.loaded.some(c => c.id === conv.id);
+    if (toSt && !alreadyInTarget) {
       toSt.loaded.unshift(conv);
       if (toSt.total !== null) toSt.total += 1;
     }
@@ -451,16 +470,18 @@ export function useKanbanBoard() {
       }
       return { ok: true };
     } catch (err) {
-      if (toSt) {
+      if (toSt && !alreadyInTarget) {
         toSt.loaded = toSt.loaded.filter(c => c.id !== conv.id);
         if (toSt.total !== null) toSt.total = Math.max(0, toSt.total - 1);
       }
       conv.labels = before;
       conv.status = beforeStatus;
-      if (fromSt) {
-        fromSt.loaded.unshift(conv);
-        if (fromSt.total !== null) fromSt.total += 1;
-      }
+      removedFrom.forEach(label => {
+        const st = columns[label];
+        if (!st || st.loaded.some(c => c.id === conv.id)) return;
+        st.loaded.unshift(conv);
+        if (st.total !== null) st.total += 1;
+      });
       return { ok: false, error: err.message || 'Falha ao mover' };
     }
   }
