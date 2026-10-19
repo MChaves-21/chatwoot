@@ -149,6 +149,42 @@ const STAT_VALUE =
   'text-xl font-semibold tracking-tight tabular-nums text-n-slate-12';
 const NOTE = 'text-xs leading-relaxed text-n-slate-10';
 
+// ----------------------------------------------------------- fechamentos
+// Quem fechou cada contrato (IA sozinha ou equipe), gravado na conversa pelo
+// n8n no momento da assinatura.
+const CLOSING_FILTERS = [
+  { key: 'todos', label: 'Todos' },
+  { key: 'IA', label: 'Pela IA' },
+  { key: 'Equipe', label: 'Pela equipe' },
+];
+const closingFilter = ref('todos');
+const closingList = computed(() => {
+  const list = dash.closings.value.list;
+  return closingFilter.value === 'todos'
+    ? list
+    : list.filter(c => c.by === closingFilter.value);
+});
+const closingIaPct = computed(() => {
+  const c = dash.closings.value;
+  return c.total ? (c.ia / c.total) * 100 : 0;
+});
+const CLOSING_BADGE = {
+  IA: 'bg-n-teal-3 text-n-teal-11',
+  Equipe: 'bg-n-blue-3 text-n-blue-11',
+  'Fora do Chatwoot': 'bg-n-alpha-2 text-n-slate-11',
+};
+const brDate = ymd => (ymd ? ymd.split('-').reverse().join('/') : '—');
+const closingLabel = by =>
+  by === 'Equipe' ? 'Equipe' : by === 'IA' ? 'IA' : 'Fora do Chatwoot';
+
+/** Abre a conversa do contrato no Chatwoot. */
+function openConversation(id) {
+  router.push({
+    name: 'inbox_conversation',
+    params: { accountId: route.params.accountId, conversation_id: id },
+  });
+}
+
 // -------------------------------------------------------------- cabecalho
 
 const funnelTitle = computed(() =>
@@ -903,6 +939,115 @@ const stateCount = computed(
               </p>
             </DashPanel>
           </div>
+
+          <!-- Fechamentos: IA x equipe -->
+          <h2 :class="SECTION">
+            Fechamentos
+            <span class="flex-1 h-px bg-n-weak" />
+          </h2>
+
+          <DashPanel
+            title="Quem fechou os contratos"
+            :subtitle="`Contratos assinados · ${funnelTitle} · ${periodTitle}`"
+            icon="i-lucide-handshake"
+          >
+            <template #actions>
+              <span :class="SEG_BOX" class="dia-no-print">
+                <button
+                  v-for="o in CLOSING_FILTERS"
+                  :key="o.key"
+                  :class="[SEG, closingFilter === o.key ? SEG_ON : SEG_OFF]"
+                  @click="closingFilter = o.key"
+                >
+                  {{ o.label }}
+                </button>
+              </span>
+            </template>
+
+            <div class="grid grid-cols-2 gap-6 sm:grid-cols-4">
+              <div :class="STAT">
+                <span :class="STAT_LABEL">Assinados</span>
+                <span :class="STAT_VALUE">
+                  {{ int(dash.closings.value.total) }}
+                </span>
+              </div>
+              <div :class="STAT">
+                <span :class="STAT_LABEL">Fechados pela IA</span>
+                <span :class="STAT_VALUE" class="text-n-brand">
+                  {{ int(dash.closings.value.ia) }}
+                  <span class="text-sm font-normal text-n-slate-10">
+                    ({{ pct(closingIaPct) }})
+                  </span>
+                </span>
+              </div>
+              <div :class="STAT">
+                <span :class="STAT_LABEL">Fechados pela equipe</span>
+                <span :class="STAT_VALUE">
+                  {{ int(dash.closings.value.equipe) }}
+                </span>
+              </div>
+              <div :class="STAT">
+                <span :class="STAT_LABEL">Fora do horário comercial</span>
+                <span :class="STAT_VALUE">
+                  {{ int(dash.closings.value.foraHorario) }}
+                </span>
+              </div>
+            </div>
+
+            <div
+              v-if="closingList.length"
+              class="overflow-auto max-h-96 rounded-lg border border-n-weak"
+            >
+              <table class="w-full text-sm">
+                <thead class="sticky top-0 bg-n-solid-2">
+                  <tr class="text-xs text-left text-n-slate-11">
+                    <th class="px-3 py-2 font-medium">Cliente</th>
+                    <th class="px-3 py-2 font-medium">Assinou em</th>
+                    <th class="px-3 py-2 font-medium">Horário</th>
+                    <th class="px-3 py-2 font-medium">Quem fechou</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr
+                    v-for="c in closingList"
+                    :key="c.id"
+                    class="border-t cursor-pointer border-n-weak hover:bg-n-alpha-1"
+                    title="Abrir a conversa"
+                    @click="openConversation(c.id)"
+                  >
+                    <td class="px-3 py-2 text-n-slate-12">
+                      {{ c.name || `Conversa ${c.id}` }}
+                    </td>
+                    <td class="px-3 py-2 tabular-nums text-n-slate-11">
+                      {{ brDate(c.date) }} {{ c.time }}
+                    </td>
+                    <td class="px-3 py-2 text-n-slate-11">{{ c.slot }}</td>
+                    <td class="px-3 py-2">
+                      <span
+                        class="px-2 py-0.5 text-xs font-medium rounded-full"
+                        :class="CLOSING_BADGE[c.by] || CLOSING_BADGE['Fora do Chatwoot']"
+                      >
+                        {{ closingLabel(c.by) }}
+                      </span>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <p v-else :class="NOTE">
+              <template v-if="dash.source.value !== 'servidor'">
+                Os fechamentos só aparecem quando o painel é carregado do
+                servidor.
+              </template>
+              <template v-else>Nenhum contrato assinado neste período.</template>
+            </p>
+            <p :class="NOTE">
+              “IA” = assinou sem nenhum atendente entrar na conversa (sem
+              responsável, nota, mensagem de agente ou etiqueta manual). Horário
+              comercial: segunda a sexta, das 8h às 18h. Clique numa linha para
+              abrir a conversa.
+            </p>
+          </DashPanel>
 
           <!-- Funil -->
           <h2 :class="SECTION">

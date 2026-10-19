@@ -36,6 +36,7 @@ import {
   kpis,
   monthlyGoal,
   newChats,
+  periodRange,
   previousRange,
   signedAtFromHistory,
   spParts,
@@ -102,6 +103,8 @@ export function useDashboardIa(accountId) {
 
   // Motivos de descarte (n8n). `null` = nao veio: o bloco some.
   const lossReasons = ref(null);
+  // Fechamentos vindos do servidor (quem fechou cada contrato).
+  const closingsAll = ref([]);
   // O dado e da base inteira do Auxilio Acidente, sem filtro de periodo nem
   // de responsavel — so faz sentido mostrar quando o funil esta na tela.
   const showLossReasons = computed(
@@ -255,6 +258,31 @@ export function useDashboardIa(accountId) {
 
   const states = computed(() => byState(periodRows.value));
 
+  // Fechamentos do periodo e do funil escolhidos: quem fechou (IA ou equipe)
+  // e se foi fora do horario. A data e a da assinatura, nao a da conversa.
+  const closings = computed(() => {
+    const inboxes = new Set(funnels.value.map(f => f.inboxId));
+    const range = periodRange(period.value, todayYmd.value, {
+      from: customFrom.value,
+      to: customTo.value,
+    });
+    const list = closingsAll.value
+      .filter(c => inboxes.has(c.inboxId))
+      .filter(c => !range || (c.date >= range.from && c.date <= range.to))
+      .sort((a, b) =>
+        `${b.date} ${b.time}`.localeCompare(`${a.date} ${a.time}`)
+      );
+    const count = by => list.filter(c => c.by === by).length;
+    return {
+      list,
+      total: list.length,
+      ia: count('IA'),
+      equipe: count('Equipe'),
+      fora: count('Fora do Chatwoot'),
+      foraHorario: list.filter(c => c.slot && c.slot !== 'Comercial').length,
+    };
+  });
+
   /** Plano B: le do historico de cada conversa a data de assinatura. */
   async function loadSignedDates() {
     const targets = [];
@@ -283,6 +311,7 @@ export function useDashboardIa(accountId) {
 
   function apply(data) {
     rows.value = data.rows;
+    closingsAll.value = data.closings || [];
     loadedAt.value = data.at;
     source.value = data.source;
     if (data.goals) Object.assign(goals, data.goals);
@@ -307,6 +336,15 @@ export function useDashboardIa(accountId) {
         )
         .filter(Boolean),
       goals: d.goals || {},
+      closings: (d.closings || []).map(c => ({
+        id: c[0],
+        inboxId: c[1],
+        name: c[2] || '',
+        by: c[3] || '',
+        date: c[4] || '',
+        time: c[5] || '',
+        slot: c[6] || '',
+      })),
       source: 'servidor',
     };
   }
@@ -429,6 +467,7 @@ export function useDashboardIa(accountId) {
     goalData,
     chats,
     states,
+    closings,
     // acoes
     load,
     setFunnel,

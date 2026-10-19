@@ -26,6 +26,7 @@ class Api::V1::Accounts::DashboardIaController < Api::V1::Accounts::BaseControll
       agents: agent_names(conversations),
       stages: stage_history(ids),
       goals: stored_goals,
+      closings: closing_rows(ids),
       generated_at: Time.current.to_i
     }
   end
@@ -68,6 +69,22 @@ class Api::V1::Accounts::DashboardIaController < Api::V1::Accounts::BaseControll
         assignee_id,
         DashboardIa::HistoryParser.ddd(phone)
       ]
+    end
+  end
+
+  # Fechamentos: quem fechou o contrato (IA, Equipe ou Fora do Chatwoot) e
+  # quando assinou. Os atributos sao gravados na conversa pelo fluxo
+  # "Comunicar do Contrato Assinado" do n8n (19/10/2026).
+  # [id, inbox_id, cliente, fechado_por, assinado_em, assinado_hora, horario]
+  def closing_rows(ids)
+    Current.account.conversations
+           .where(inbox_id: ids)
+           .where("conversations.custom_attributes ->> 'fechado_por' IS NOT NULL")
+           .left_joins(:contact)
+           .pluck(:id, :inbox_id, 'contacts.name', 'conversations.custom_attributes')
+           .map do |id, inbox_id, name, attrs|
+      attrs ||= {}
+      [id, inbox_id, name, attrs['fechado_por'], attrs['assinado_em'], attrs['assinado_hora'], attrs['horario_assinatura']]
     end
   end
 
