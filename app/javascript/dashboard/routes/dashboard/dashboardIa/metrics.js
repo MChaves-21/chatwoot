@@ -11,9 +11,9 @@
  */
 
 import {
+  ALL_DASH_FUNNELS,
   ALL_FUNNELS_ID,
   CLOSING_BUCKETS,
-  DASH_FUNNELS,
   DAY_PARTS,
   DDD_UF,
   LOST_LABELS,
@@ -82,8 +82,10 @@ function pct(part, whole) {
 
 // ------------------------------------------------------------------ linhas
 
-const FUNNEL_BY_INBOX = new Map(DASH_FUNNELS.map(f => [f.inboxId, f]));
-const FUNNEL_BY_ID = new Map(DASH_FUNNELS.map(f => [f.id, f]));
+// Inclui os funis das contas parceiras (21/10/2026): sem isso as conversas da
+// caixa 16 (Ferreira & Paiva) eram descartadas e o painel da conta 3 ficava vazio.
+const FUNNEL_BY_INBOX = new Map(ALL_DASH_FUNNELS.map(f => [f.inboxId, f]));
+const FUNNEL_BY_ID = new Map(ALL_DASH_FUNNELS.map(f => [f.id, f]));
 
 export function funnelById(id) {
   return FUNNEL_BY_ID.get(id) || null;
@@ -146,7 +148,14 @@ export function toRow(conv, extra = {}) {
     stage,
     rank,
     lost: LOST_LABELS.includes(stage),
-    signed: signedRank >= 0 && rank >= signedRank,
+    // Com o historico do servidor, "assinado" e quem ALGUMA VEZ chegou em
+    // contrato assinado ou alem — inclusive quem foi descartado depois (ex.:
+    // reprovado na analise medica). Decisao de 19/10/2026: assinou, conta.
+    // Sem historico, vale so a etapa atual.
+    signed:
+      signedRank >= 0 &&
+      (rank >= signedRank ||
+        funnel.path.some((l, i) => i >= signedRank && history[l])),
     // Com o historico do servidor, "qualificado" passa a ser quem ALGUMA VEZ
     // chegou na etapa de qualificado ou alem — inclusive quem foi descartado
     // depois. Sem historico, vale so a etapa atual.

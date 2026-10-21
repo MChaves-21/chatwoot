@@ -11,8 +11,10 @@
  */
 
 import {
+  FP_FUNNEL_ID,
   FUNNELS,
   HOME_ACCOUNT_ID,
+  PARTNER_FUNNELS,
   UNSTAGED_LABEL,
 } from '../kanban/constants';
 import { CLOSED_LABELS } from '../kanban/stateConstants';
@@ -31,6 +33,22 @@ import { CLOSED_LABELS } from '../kanban/stateConstants';
  * total e na tabela por etapa, mas fica fora do funil.
  */
 export const FUNNEL_READING = {
+  /*
+   * Ferreira & Paiva (conta 3) — 21/10/2026. Mesmo caminho do Auxilio da
+   * Goncalves, mas parando em contrato assinado: o resto do funil nao existe
+   * la (contrato e cadastro sao manuais).
+   */
+  [FP_FUNNEL_ID]: {
+    path: [
+      'sdr',
+      'comercial',
+      'contrato_em_elaboracao',
+      'aguardando_assinatura',
+      'contrato_assinado',
+    ],
+    qualifiedFrom: 'comercial',
+    signedFrom: 'contrato_assinado',
+  },
   auxilio_acidente: {
     path: [
       'sdr',
@@ -91,15 +109,34 @@ export const FUNNEL_READING = {
 };
 
 /** Funis de etiqueta do Kanban que o painel sabe ler (o "Por estado" fica fora). */
-export const DASH_FUNNELS = FUNNELS.filter(
-  f => f.mode !== 'state' && FUNNEL_READING[f.id]
-).map(f => ({
+const toDashFunnel = f => ({
   id: f.id,
   title: f.title,
   inboxId: f.inboxId,
   columns: f.columns,
   ...FUNNEL_READING[f.id],
-}));
+});
+
+const isReadable = f => f.mode !== 'state' && FUNNEL_READING[f.id];
+
+export const DASH_FUNNELS = FUNNELS.filter(isReadable).map(toDashFunnel);
+
+/** Funis das contas parceiras, por conta (ver PARTNER_FUNNELS no Kanban). */
+export const PARTNER_DASH_FUNNELS = Object.fromEntries(
+  Object.entries(PARTNER_FUNNELS).map(([acc, list]) => [
+    Number(acc),
+    list.filter(isReadable).map(toDashFunnel),
+  ])
+);
+
+/**
+ * Todos os funis que o painel sabe ler, de todas as contas. Os ids de caixa
+ * sao globais no Chatwoot, entao o mapa caixa -> funil nao colide.
+ */
+export const ALL_DASH_FUNNELS = [
+  ...DASH_FUNNELS,
+  ...Object.values(PARTNER_DASH_FUNNELS).flat(),
+];
 
 export const ALL_FUNNELS_ID = '__todos__';
 
@@ -115,9 +152,14 @@ export { HOME_ACCOUNT_ID };
 export const isHomeAccount = accountId =>
   Number(accountId) === HOME_ACCOUNT_ID;
 
-/** Funis que o painel le nesta conta. Fora da conta dona: nenhum. */
+/**
+ * Funis que o painel le nesta conta. Conta parceira (21/10/2026): so os funis
+ * dela, com a caixa dela. Outra conta qualquer: nenhum.
+ */
 export const funnelsForAccount = accountId =>
-  isHomeAccount(accountId) ? DASH_FUNNELS : [];
+  isHomeAccount(accountId)
+    ? DASH_FUNNELS
+    : PARTNER_DASH_FUNNELS[Number(accountId)] || [];
 
 export const LOST_LABELS = CLOSED_LABELS;
 
@@ -125,7 +167,9 @@ export const LOST_LABELS = CLOSED_LABELS;
  * Etiqueta de contrato assinado de cada funil: e a que o painel procura no
  * historico da conversa para descobrir QUANDO o contrato foi assinado.
  */
-export const SIGNED_LABELS = DASH_FUNNELS.map(f => f.signedFrom).filter(Boolean);
+export const SIGNED_LABELS = [
+  ...new Set(ALL_DASH_FUNNELS.map(f => f.signedFrom).filter(Boolean)),
+];
 
 export const PERIODS = [
   { key: 'hoje', title: 'Hoje' },

@@ -15,6 +15,7 @@
 
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useStore } from 'vuex';
+import { useRoute } from 'vue-router';
 import { useAlert } from 'dashboard/composables';
 import { frontendURL } from 'dashboard/helper/URLHelper';
 
@@ -36,7 +37,10 @@ import { searchEverywhere, stateTermFor, locate } from './search';
 const store = useStore();
 const accountId = computed(() => store.getters.getCurrentAccountId);
 
-const board = useKanbanBoard();
+// A conta sai da URL, como no Dashboard IA: e ela que decide quais funis (e
+// quais caixas) o quadro mostra — ver PARTNER_FUNNELS em constants.js.
+const route = useRoute();
+const board = useKanbanBoard(route.params.accountId || accountId.value);
 const {
   prefs,
   filters,

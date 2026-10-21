@@ -317,10 +317,63 @@ export const FUNNELS = [
   },
 ];
 
+/**
+ * Funis de outras contas do mesmo Chatwoot — 21/10/2026.
+ *
+ * FUNNELS acima e da Goncalves & Silva: as caixas 6, 15 e 10 sao dela. Ate
+ * aqui a conta do Ferreira & Paiva (conta 3, beta externo) abria o quadro com
+ * esses mesmos funis e buscava a caixa 6, que nao existe na conta dela — todas
+ * as colunas vinham vazias, mesmo com conversas etiquetadas.
+ *
+ * Conta listada aqui ve SO os funis dela. Conta que nao esta aqui continua
+ * vendo FUNNELS, como antes.
+ *
+ * Ferreira & Paiva: so Auxilio Acidente, na caixa 16 (numero novo pela uazapi).
+ * As colunas param em Contrato Assinado: analise medica, Dr. Gerardo,
+ * repescagem, juridica e efetivado sao etapas internas da Goncalves. O id do
+ * funil e proprio (nao `auxilio_acidente`) porque o Dashboard IA indexa os
+ * funis por id e os dois conviveriam no mesmo mapa.
+ */
+export const FP_ACCOUNT_ID = 3;
+export const FP_INBOX_ID = 16;
+export const FP_FUNNEL_ID = 'fp_auxilio_acidente';
+
+const FP_STAGE_LABELS = [
+  'sdr',
+  'comercial',
+  'contrato_em_elaboracao',
+  'aguardando_assinatura',
+  'contrato_assinado',
+  'desqualificado',
+];
+
+export const PARTNER_FUNNELS = {
+  [FP_ACCOUNT_ID]: [
+    {
+      id: FP_FUNNEL_ID,
+      title: 'Auxílio Acidente',
+      inboxId: FP_INBOX_ID,
+      columns: AUXILIO_COLUMNS.filter(c => FP_STAGE_LABELS.includes(c.label)),
+    },
+  ],
+};
+
+/** Caixas dos funis das contas parceiras (para a busca do topo). */
+export const PARTNER_INBOX_IDS = Object.values(PARTNER_FUNNELS)
+  .flat()
+  .map(f => f.inboxId)
+  .filter(Boolean);
+
+/** Funis que o quadro mostra nesta conta. */
+export function kanbanFunnelsForAccount(accountId) {
+  return PARTNER_FUNNELS[Number(accountId)] || FUNNELS;
+}
+
 export const DEFAULT_FUNNEL_ID = FUNNELS[0].id;
 
-export function findFunnel(id) {
-  return FUNNELS.find(f => f.id === id) || FUNNELS[0];
+export function findFunnel(id, accountId) {
+  const list = kanbanFunnelsForAccount(accountId);
+  return list.find(f => f.id === id) || list[0];
 }
 
 export const DEFAULT_TAGS = [

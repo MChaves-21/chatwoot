@@ -11,13 +11,13 @@ import {
   COLUMN_CONCURRENCY,
   DEFAULT_PREFS,
   DISQUALIFIED_LABELS,
-  FUNNELS,
   LS_KEY,
   MANUAL_LABEL,
   MAX_PAGES_PER_COLUMN,
   NO_AUTOMATION_LABEL,
   UNSTAGED_LABEL,
   findFunnel,
+  kanbanFunnelsForAccount,
 } from './constants';
 import {
   EMPTY_FILTERS,
@@ -45,12 +45,16 @@ function loadPrefs() {
   return { ...DEFAULT_PREFS };
 }
 
-export function useKanbanBoard() {
+export function useKanbanBoard(accountId) {
   const prefs = reactive(loadPrefs());
   const filters = reactive({ ...EMPTY_FILTERS });
 
-  const activeFunnelId = ref(findFunnel(prefs.funnelId).id);
-  const activeFunnel = computed(() => findFunnel(activeFunnelId.value));
+  // Cada conta ve so os proprios funis (ver PARTNER_FUNNELS em constants.js).
+  const accountFunnels = kanbanFunnelsForAccount(accountId);
+  const activeFunnelId = ref(findFunnel(prefs.funnelId, accountId).id);
+  const activeFunnel = computed(() =>
+    findFunnel(activeFunnelId.value, accountId)
+  );
 
   /** label -> { page, total, done, loaded[] } */
   const columns = reactive({});
@@ -510,7 +514,7 @@ export function useKanbanBoard() {
    * sobreviveriam a troca misturando os dois quadros.
    */
   async function setFunnel(id) {
-    const next = findFunnel(id);
+    const next = findFunnel(id, accountId);
     if (next.id === activeFunnelId.value) return;
     activeFunnelId.value = next.id;
     prefs.funnelId = next.id;
@@ -532,7 +536,7 @@ export function useKanbanBoard() {
     statusText,
     errors,
     // funis
-    funnels: FUNNELS,
+    funnels: accountFunnels,
     activeFunnelId,
     activeFunnel,
     setFunnel,

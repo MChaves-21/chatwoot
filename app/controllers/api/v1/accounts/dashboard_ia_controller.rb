@@ -75,11 +75,17 @@ class Api::V1::Accounts::DashboardIaController < Api::V1::Accounts::BaseControll
   # Fechamentos: quem fechou o contrato (IA, Equipe ou Fora do Chatwoot) e
   # quando assinou. Os atributos sao gravados na conversa pelo fluxo
   # "Comunicar do Contrato Assinado" do n8n (19/10/2026).
+  # Entram tambem as conversas que estao em contrato assinado (ou etapa
+  # posterior) sem o atributo: etapa movida a mao, contrato fechado fora do
+  # fluxo automatico. Para essas os campos vem nulos e a tela usa a data em
+  # que a etiqueta foi aplicada.
   # [id, inbox_id, cliente, fechado_por, assinado_em, assinado_hora, horario]
+  SIGNED_LABELS_REGEX = '(^|,)\\s*(bpc_)?(contrato_assinado|analise_medica|analise_juridica|efetivado|pegar_senha|pos_juridica|reprovado_dr_gerardo|aprovado_repescagem)\\s*(,|$)'.freeze
+
   def closing_rows(ids)
     Current.account.conversations
            .where(inbox_id: ids)
-           .where("conversations.custom_attributes ->> 'fechado_por' IS NOT NULL")
+           .where("conversations.custom_attributes ->> 'fechado_por' IS NOT NULL OR conversations.cached_label_list ~ ?", SIGNED_LABELS_REGEX)
            .left_joins(:contact)
            .pluck(:id, :inbox_id, 'contacts.name', 'conversations.custom_attributes')
            .map do |id, inbox_id, name, attrs|

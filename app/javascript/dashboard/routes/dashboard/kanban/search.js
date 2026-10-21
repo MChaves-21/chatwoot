@@ -34,6 +34,7 @@ import {
   AUXILIO_COLUMNS,
   BPC_COLUMNS,
   FUNNELS,
+  PARTNER_INBOX_IDS,
   TRABALHISTA_COLUMNS,
 } from './constants';
 import {
@@ -196,7 +197,10 @@ export function stateTitle(conv) {
 
 // ---------------------------------------------------------------------- busca
 
-const isRelevantInbox = c => STATE_INBOX_IDS.includes(c && c.inbox_id);
+// A busca de contatos ja e restrita a conta aberta; somar as caixas das contas
+// parceiras so deixa o F&P (caixa 16) achar as conversas dele.
+const RELEVANT_INBOX_IDS = [...STATE_INBOX_IDS, ...PARTNER_INBOX_IDS];
+const isRelevantInbox = c => RELEVANT_INBOX_IDS.includes(c && c.inbox_id);
 
 /**
  * Busca principal. Duas estrategias, escolhidas pelo texto:

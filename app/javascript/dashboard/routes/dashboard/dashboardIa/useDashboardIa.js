@@ -43,6 +43,7 @@ import {
   stageDurations,
   stageTable,
   toRowFromSnapshot,
+  weekdayOf,
   weeklySeries,
 } from './metrics';
 
@@ -266,7 +267,26 @@ export function useDashboardIa(accountId) {
       from: customFrom.value,
       to: customTo.value,
     });
-    const list = closingsAll.value
+    // Sem o atributo do n8n (etapa movida a mao): vale a data em que a
+    // conversa recebeu a etiqueta de contrato assinado, e conta como equipe.
+    const filled = closingsAll.value
+      .map(c => {
+        if (c.by) return c;
+        const at = signedAt[c.id];
+        if (!at) return null;
+        const p = spParts(at);
+        const hh = String(p.hour).padStart(2, '0');
+        const wd = weekdayOf(p.ymd);
+        const slot =
+          wd === 0 || wd === 6
+            ? 'Fim de semana'
+            : p.hour < 8 || p.hour >= 18
+              ? 'Fora do horário'
+              : 'Comercial';
+        return { ...c, by: 'Equipe', manual: true, date: p.ymd, time: `${hh}h`, slot };
+      })
+      .filter(Boolean);
+    const list = filled
       .filter(c => inboxes.has(c.inboxId))
       .filter(c => !range || (c.date >= range.from && c.date <= range.to))
       .sort((a, b) =>

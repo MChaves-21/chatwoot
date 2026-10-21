@@ -152,6 +152,7 @@ export const INBOX_NAMES = {
   6: 'Auxílio Acidente',
   9: 'BPC (antiga)',
   15: 'BPC',
+  16: 'Auxílio Acidente',
 };
 
 /**

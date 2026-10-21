@@ -948,7 +948,7 @@ const stateCount = computed(
 
           <DashPanel
             title="Quem fechou os contratos"
-            :subtitle="`Contratos assinados · ${funnelTitle} · ${periodTitle}`"
+            :subtitle="`Pela data da assinatura · ${funnelTitle} · ${periodTitle}`"
             icon="i-lucide-handshake"
           >
             <template #actions>
@@ -1029,6 +1029,13 @@ const stateCount = computed(
                       >
                         {{ closingLabel(c.by) }}
                       </span>
+                      <span
+                        v-if="c.manual"
+                        class="ml-1 text-xs text-n-slate-10"
+                        title="Etapa movida à mão para contrato assinado, sem passar pelo fluxo automático da ZapSign"
+                      >
+                        (etapa manual)
+                      </span>
                     </td>
                   </tr>
                 </tbody>
@@ -1044,8 +1051,11 @@ const stateCount = computed(
             <p :class="NOTE">
               “IA” = assinou sem nenhum atendente entrar na conversa (sem
               responsável, nota, mensagem de agente ou etiqueta manual). Horário
-              comercial: segunda a sexta, das 8h às 18h. Clique numa linha para
-              abrir a conversa.
+              comercial: segunda a sexta, das 8h às 18h. Este bloco conta pela
+              data da assinatura; o indicador “Contratos assinados”, acima, conta
+              as conversas criadas no período que hoje estão em contrato
+              assinado ou depois — por isso os números podem diferir. Clique
+              numa linha para abrir a conversa.
             </p>
           </DashPanel>
 
