@@ -168,7 +168,7 @@ const filteredTotal = computed(() =>
 );
 
 const leadLookupEnabled = computed(() =>
-  Boolean(prefs.leadUrl && prefs.secret)
+  Boolean(prefs.leadUrl)
 );
 
 // ------------------------------------------------------------------ busca

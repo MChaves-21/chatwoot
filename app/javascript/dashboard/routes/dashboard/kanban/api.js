@@ -14,6 +14,7 @@
  *     nao ha mais campo "Account ID" para alguem preencher errado.
  */
 
+import Cookies from 'js-cookie';
 import ApiClient from '../../../api/ApiClient';
 import { MAX_PAGES_UNSTAGED } from './constants';
 
@@ -168,13 +169,41 @@ export default new KanbanAPI();
  * para toda a API do Chatwoot; agora alcanca apenas estes dois endpoints.
  * Ainda assim: use um segredo diferente do antigo e limite os workflows.
  */
+/**
+ * Credenciais da sessao do dashboard (devise_token_auth). O n8n so as usa
+ * para perguntar ao Chatwoot quem esta logado (GET /api/v1/profile) — mesmo
+ * esquema do Agendar e do Disparador (22/10/2026).
+ */
+export function readSessionAuth() {
+  try {
+    const raw = JSON.parse(Cookies.get('cw_d_session_info') || '{}');
+    return {
+      'access-token': raw['access-token'] || '',
+      client: raw.client || '',
+      uid: raw.uid || '',
+    };
+  } catch (e) {
+    return {};
+  }
+}
+
+/**
+ * 22/10/2026: o kanban-lead autentica pela sessao do Chatwoot (`auth`) e so
+ * responde a quem pertence a conta 1. O `secret` antigo vai junto apenas
+ * enquanto existir no localStorage, para a transicao; depois do deploy o n8n
+ * deixa de aceita-lo.
+ */
 export async function fetchLead({ url, secret, phone }) {
-  if (!phone || !url || !secret) return null;
+  if (!phone || !url) return null;
   try {
     const r = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ phone, secret }),
+      body: JSON.stringify({
+        phone,
+        auth: readSessionAuth(),
+        secret: secret || undefined,
+      }),
     });
     if (!r.ok) return null;
     let d = await r.json();

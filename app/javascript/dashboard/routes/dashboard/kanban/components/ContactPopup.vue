@@ -181,7 +181,7 @@ onMounted(async () => {
     full.value = f || {};
     messages.value = m || [];
 
-    if (props.prefs.leadUrl && props.prefs.secret && phone.value) {
+    if (props.prefs.leadUrl && phone.value) {
       const { fetchLead } = await import('../api');
       lead.value = await fetchLead({
         url: props.prefs.leadUrl,
