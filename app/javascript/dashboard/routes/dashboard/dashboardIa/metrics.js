@@ -13,9 +13,11 @@
 import {
   ALL_DASH_FUNNELS,
   ALL_FUNNELS_ID,
+  BUSINESS_HOURS,
   CLOSING_BUCKETS,
   DAY_PARTS,
   DDD_UF,
+  IMPORTED_LABEL,
   LOST_LABELS,
 } from './constants';
 import { UNSTAGED_LABEL } from '../kanban/constants';
@@ -78,6 +80,28 @@ function toMs(v) {
 
 function pct(part, whole) {
   return whole > 0 ? (part / whole) * 100 : 0;
+}
+
+/** Mediana (com n par, a media dos dois do meio). 0 para lista vazia. */
+function median(values) {
+  if (!values.length) return 0;
+  const sorted = values.slice().sort((a, b) => a - b);
+  const lo = sorted[Math.floor((sorted.length - 1) / 2)];
+  const hi = sorted[Math.ceil((sorted.length - 1) / 2)];
+  return (lo + hi) / 2;
+}
+
+/**
+ * Dentro do horario comercial (seg. a sex., BUSINESS_HOURS)? `weekday` 0 =
+ * domingo, `hour` 0..23, os dois ja no fuso do escritorio.
+ */
+export function isBusinessHour(weekday, hour) {
+  return (
+    weekday >= 1 &&
+    weekday <= 5 &&
+    hour >= BUSINESS_HOURS.from &&
+    hour < BUSINESS_HOURS.to
+  );
 }
 
 // ------------------------------------------------------------------ linhas
@@ -148,6 +172,8 @@ export function toRow(conv, extra = {}) {
     stage,
     rank,
     lost: LOST_LABELS.includes(stage),
+    // Conversa criada por importacao em lote (ver IMPORTED_LABEL).
+    imported: labels.includes(IMPORTED_LABEL),
     // Com o historico do servidor, "assinado" e quem ALGUMA VEZ chegou em
     // contrato assinado ou alem — inclusive quem foi descartado depois (ex.:
     // reprovado na analise medica). Decisao de 19/10/2026: assinou, conta.
@@ -248,10 +274,18 @@ export function periodRange(key, todayYmd, custom = {}) {
   }
 }
 
-/** Funil e responsavel — os filtros que valem para o painel inteiro. */
-export function filterScope(rows, { funnelId, assigneeId }) {
+/**
+ * Funil e responsavel — os filtros que valem para o painel inteiro.
+ * Conversa importada em lote nao e lead e fica fora, salvo `withImported`
+ * (a meta conta contrato, e contrato de conversa importada e contrato).
+ */
+export function filterScope(
+  rows,
+  { funnelId, assigneeId, withImported = false }
+) {
   return rows.filter(
     r =>
+      (withImported || !r.imported) &&
       (funnelId === ALL_FUNNELS_ID || r.funnelId === funnelId) &&
       (assigneeId === null || r.assigneeId === assigneeId)
   );
@@ -311,18 +345,24 @@ export function assigneeOptions(rows) {
 /**
  * Os cinco numeros do topo.
  *
- * Uma limitacao que vale conhecer: a etiqueta guarda so a etapa ATUAL. Um
- * lead que chegou ao Comercial e depois foi desqualificado aparece como
- * perdido, nao como qualificado. Por isso "qualificado" e "avancaram" contam
- * quem ESTA do Comercial em diante hoje, e tendem a ficar abaixo do real.
+ * "Qualificado" e "assinado" contam quem ALGUMA VEZ chegou na etapa, pelo
+ * historico de etiquetas (ver toRow) — inclusive quem foi descartado depois.
+ * So no plano B (sem historico) valem pela etapa atual e ficam abaixo do real.
  */
 export function kpis(rows) {
   const total = rows.length;
   const signed = rows.filter(r => r.signed).length;
   const qualified = rows.filter(r => r.qualified).length;
   const lost = rows.filter(r => r.lost).length;
+  // Chegaram fora do horario comercial: noite, madrugada, fim de semana e
+  // das 17h em diante (BUSINESS_HOURS), pela hora de criacao da conversa.
+  const offHours = rows.filter(
+    r => !isBusinessHour(r.createdWeekday, r.createdHour)
+  ).length;
   return {
     total,
+    offHours,
+    offHoursPct: pct(offHours, total),
     signed,
     qualified,
     lost,
@@ -483,7 +523,6 @@ export function stageDurations(rows, funnel) {
           .filter(t => t && t >= at);
         if (later.length) days.push((Math.min(...later) - at) / DAY_MS);
       });
-      const sorted = days.slice().sort((a, b) => a - b);
       return {
         label,
         title: titles.get(label) || label,
@@ -492,7 +531,7 @@ export function stageDurations(rows, funnel) {
         avgDays: days.length
           ? days.reduce((a, b) => a + b, 0) / days.length
           : 0,
-        medianDays: sorted.length ? sorted[Math.floor(sorted.length / 2)] : 0,
+        medianDays: median(days),
       };
     })
     .filter(s => s.label !== UNSTAGED_LABEL);
@@ -520,18 +559,12 @@ export function closing(rows, signedAt) {
     b.pct = pct(b.count, days.length);
   });
   const avg = days.length ? days.reduce((a, b) => a + b, 0) / days.length : 0;
-  const sorted = days.slice().sort((a, b) => a - b);
-  const median = sorted.length
-    ? (sorted[Math.floor((sorted.length - 1) / 2)] +
-        sorted[Math.ceil((sorted.length - 1) / 2)]) /
-      2
-    : 0;
   return {
     n: days.length,
     missing: signed.length - days.length,
     avgDays: avg,
     avgHours: avg * 24,
-    medianDays: median,
+    medianDays: median(days),
     buckets,
   };
 }

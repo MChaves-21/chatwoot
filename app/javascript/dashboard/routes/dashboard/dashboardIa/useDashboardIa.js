@@ -33,6 +33,7 @@ import {
   filterRange,
   filterScope,
   funnelSteps,
+  isBusinessHour,
   kpis,
   monthlyGoal,
   newChats,
@@ -243,11 +244,20 @@ export function useDashboardIa(accountId) {
 
   const closingTime = computed(() => closing(periodRows.value, signedAt));
 
+  // A meta conta contrato, inclusive de conversa importada em lote.
   const goalData = computed(() =>
-    monthlyGoal(scopeRows.value, signedAt, {
-      goal: goal.value,
-      todayYmd: todayYmd.value,
-    })
+    monthlyGoal(
+      filterScope(rows.value, {
+        funnelId: funnelId.value,
+        assigneeId: assigneeId.value,
+        withImported: true,
+      }),
+      signedAt,
+      {
+        goal: goal.value,
+        todayYmd: todayYmd.value,
+      }
+    )
   );
 
   const chats = computed(() =>
@@ -259,39 +269,68 @@ export function useDashboardIa(accountId) {
 
   const states = computed(() => byState(periodRows.value));
 
-  // Fechamentos do periodo e do funil escolhidos: quem fechou (IA ou equipe)
-  // e se foi fora do horario. A data e a da assinatura, nao a da conversa.
+  // Fechamentos do periodo e do funil escolhidos: quem fechou (IA ou equipe),
+  // se foi fora do horario e se o lead veio do Chatwoot. A data e a da
+  // assinatura, nao a da conversa.
+  //
+  // A faixa (Comercial / Fora do horario / Fim de semana) e recalculada aqui
+  // com BUSINESS_HOURS em vez de usar a que o n8n grava: o fluxo gravou ate
+  // 26/10/2026 com corte as 18h.
+  //
+  // "Veio do Chatwoot": a conversa ja existia antes da assinatura e nao e de
+  // importacao em lote. "Fora do Chatwoot" do n8n e o contrario: a conversa
+  // foi aberta depois de assinado (26/10/2026: os 6 casos, 1 dia depois).
   const closings = computed(() => {
     const inboxes = new Set(funnels.value.map(f => f.inboxId));
     const range = periodRange(period.value, todayYmd.value, {
       from: customFrom.value,
       to: customTo.value,
     });
-    // Sem o atributo do n8n (etapa movida a mao): vale a data em que a
-    // conversa recebeu a etiqueta de contrato assinado, e conta como equipe.
+    const byId = new Map(rows.value.map(r => [r.id, r]));
+    const slotOf = (ymd, hour) => {
+      const wd = weekdayOf(ymd);
+      if (wd === 0 || wd === 6) return 'Fim de semana';
+      return isBusinessHour(wd, hour) ? 'Comercial' : 'Fora do horário';
+    };
     const filled = closingsAll.value
       .map(c => {
-        if (c.by) return c;
+        // Gravado pelo n8n: data e hora (HH:MM) da assinatura, no fuso do escritorio.
+        if (c.by) {
+          const hour = Number(String(c.time).slice(0, 2));
+          return {
+            ...c,
+            at: Date.parse(`${c.date}T${c.time}:00-03:00`),
+            slot: slotOf(c.date, hour),
+          };
+        }
+        // Sem o atributo do n8n (etapa movida a mao): vale a data em que a
+        // conversa recebeu a etiqueta de contrato assinado. Quem fechou nao
+        // da para saber — fica "Sem origem", nunca presumido como equipe.
         const at = signedAt[c.id];
         if (!at) return null;
         const p = spParts(at);
         const hh = String(p.hour).padStart(2, '0');
-        const wd = weekdayOf(p.ymd);
-        const slot =
-          wd === 0 || wd === 6
-            ? 'Fim de semana'
-            : p.hour < 8 || p.hour >= 18
-              ? 'Fora do horário'
-              : 'Comercial';
-        return { ...c, by: 'Equipe', manual: true, date: p.ymd, time: `${hh}h`, slot };
+        return {
+          ...c,
+          by: 'Sem origem',
+          at,
+          date: p.ymd,
+          time: `${hh}h`,
+          slot: slotOf(p.ymd, p.hour),
+        };
       })
-      .filter(Boolean);
+      .filter(Boolean)
+      .map(c => {
+        const row = byId.get(c.id);
+        return {
+          ...c,
+          fromChatwoot: !!row && !row.imported && c.at >= row.createdMs,
+        };
+      });
     const list = filled
       .filter(c => inboxes.has(c.inboxId))
       .filter(c => !range || (c.date >= range.from && c.date <= range.to))
-      .sort((a, b) =>
-        `${b.date} ${b.time}`.localeCompare(`${a.date} ${a.time}`)
-      );
+      .sort((a, b) => b.at - a.at);
     const count = by => list.filter(c => c.by === by).length;
     return {
       list,
@@ -299,7 +338,9 @@ export function useDashboardIa(accountId) {
       ia: count('IA'),
       equipe: count('Equipe'),
       fora: count('Fora do Chatwoot'),
-      foraHorario: list.filter(c => c.slot && c.slot !== 'Comercial').length,
+      semOrigem: count('Sem origem'),
+      fromChatwoot: list.filter(c => c.fromChatwoot).length,
+      foraHorario: list.filter(c => c.slot !== 'Comercial').length,
     };
   });
 

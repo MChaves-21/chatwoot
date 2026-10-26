@@ -156,6 +156,7 @@ const CLOSING_FILTERS = [
   { key: 'todos', label: 'Todos' },
   { key: 'IA', label: 'Pela IA' },
   { key: 'Equipe', label: 'Pela equipe' },
+  { key: 'Sem origem', label: 'Sem origem' },
 ];
 const closingFilter = ref('todos');
 const closingList = computed(() => {
@@ -172,10 +173,17 @@ const CLOSING_BADGE = {
   IA: 'bg-n-teal-3 text-n-teal-11',
   Equipe: 'bg-n-blue-3 text-n-blue-11',
   'Fora do Chatwoot': 'bg-n-alpha-2 text-n-slate-11',
+  'Sem origem': 'bg-n-amber-3 text-n-amber-11',
 };
 const brDate = ymd => (ymd ? ymd.split('-').reverse().join('/') : '—');
-const closingLabel = by =>
-  by === 'Equipe' ? 'Equipe' : by === 'IA' ? 'IA' : 'Fora do Chatwoot';
+const CLOSING_HINT = {
+  IA: 'Contrato fechado pela IA, pelo fluxo automático da ZapSign',
+  Equipe: 'Contrato fechado pela equipe, pelo fluxo automático da ZapSign',
+  'Fora do Chatwoot':
+    'A conversa foi aberta depois da assinatura: o lead não veio pelo Chatwoot',
+  'Sem origem':
+    'Etapa movida à mão para contrato assinado, sem passar pelo fluxo automático da ZapSign: não dá para saber quem fechou',
+};
 
 /** Abre a conversa do contrato no Chatwoot. */
 function openConversation(id) {
@@ -245,7 +253,8 @@ const kpis = computed(() => {
       key: 'total',
       label: 'Conversas',
       value: int(s.total),
-      sub: 'no filtro',
+      sub: `${pct(s.offHoursPct)} fora do horário`,
+      hint: `${int(s.offHours)} chegaram fora do horário comercial (seg. a sex., 8h às 17h). Conversas importadas em lote não entram`,
       delta: p ? rel(s.total, p.total) : null,
       values: w.total,
     },
@@ -254,7 +263,7 @@ const kpis = computed(() => {
       label: 'Contratos assinados',
       value: int(s.signed),
       sub: 'em contrato assinado ou além',
-      hint: 'Conversas que hoje estão em Contrato assinado ou em qualquer etapa depois dela',
+      hint: 'Conversas que chegaram, em algum momento, em Contrato assinado ou em qualquer etapa depois dela',
       delta: p ? rel(s.signed, p.signed) : null,
       values: w.signed,
     },
@@ -964,7 +973,9 @@ const stateCount = computed(
               </span>
             </template>
 
-            <div class="grid grid-cols-2 gap-6 sm:grid-cols-4">
+            <div
+              class="grid grid-cols-2 gap-6 sm:grid-cols-3 xl:grid-cols-6 dia-g3"
+            >
               <div :class="STAT">
                 <span :class="STAT_LABEL">Assinados</span>
                 <span :class="STAT_VALUE">
@@ -986,7 +997,22 @@ const stateCount = computed(
                   {{ int(dash.closings.value.equipe) }}
                 </span>
               </div>
-              <div :class="STAT">
+              <div :class="STAT" :title="CLOSING_HINT['Sem origem']">
+                <span :class="STAT_LABEL">Sem origem</span>
+                <span :class="STAT_VALUE">
+                  {{ int(dash.closings.value.semOrigem) }}
+                </span>
+              </div>
+              <div
+                :class="STAT"
+                title="A conversa já existia no Chatwoot antes da assinatura e não é de importação em lote"
+              >
+                <span :class="STAT_LABEL">Vieram do Chatwoot</span>
+                <span :class="STAT_VALUE">
+                  {{ int(dash.closings.value.fromChatwoot) }}
+                </span>
+              </div>
+              <div :class="STAT" title="Seg. a sex., das 8h às 17h">
                 <span :class="STAT_LABEL">Fora do horário comercial</span>
                 <span :class="STAT_VALUE">
                   {{ int(dash.closings.value.foraHorario) }}
@@ -1025,16 +1051,10 @@ const stateCount = computed(
                     <td class="px-3 py-2">
                       <span
                         class="px-2 py-0.5 text-xs font-medium rounded-full"
-                        :class="CLOSING_BADGE[c.by] || CLOSING_BADGE['Fora do Chatwoot']"
+                        :class="CLOSING_BADGE[c.by]"
+                        :title="CLOSING_HINT[c.by]"
                       >
-                        {{ closingLabel(c.by) }}
-                      </span>
-                      <span
-                        v-if="c.manual"
-                        class="ml-1 text-xs text-n-slate-10"
-                        title="Etapa movida à mão para contrato assinado, sem passar pelo fluxo automático da ZapSign"
-                      >
-                        (etapa manual)
+                        {{ c.by }}
                       </span>
                     </td>
                   </tr>

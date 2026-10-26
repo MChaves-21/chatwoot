@@ -1,10 +1,11 @@
 import { frontendURL } from '../../../helper/URLHelper';
 import DashboardIaIndex from './Index.vue';
 
-// Mesma regra dos Relatorios do Chatwoot: administrador ou cargo com
-// report_manage. O painel mostra numeros comerciais do escritorio inteiro.
+// So administrador: o endpoint do fork (controller) so responde a
+// administrador. Com `report_manage` aqui, a tela abria, o endpoint negava e
+// o painel caia calado no plano B, com outros numeros (26/10/2026).
 const meta = {
-  permissions: ['administrator', 'report_manage'],
+  permissions: ['administrator'],
 };
 
 export const routes = [

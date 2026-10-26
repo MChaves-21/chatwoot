@@ -53,12 +53,18 @@ class Api::V1::Accounts::DashboardIaController < Api::V1::Accounts::BaseControll
     Current.account.inboxes.where(id: asked).pluck(:id)
   end
 
+  # O "id" que sai daqui e sempre o display_id: e o numero que a API e as
+  # rotas do Chatwoot usam (/conversations/:id). O id do banco so coincide com
+  # ele enquanto a conta 1 era a unica com conversas; desde as contas 2 e 3
+  # (out/2026) os dois divergem e o link "Abrir a conversa" abria outra
+  # conversa (26/10/2026).
+  #
   # [id, inbox_id, etiquetas, criada, ultima atividade, responsavel, ddd]
   def conversation_rows(ids)
     Current.account.conversations
            .where(inbox_id: ids)
            .left_joins(:contact)
-           .pluck(:id, :inbox_id, :cached_label_list, :created_at, :last_activity_at, :assignee_id, 'contacts.phone_number')
+           .pluck(:display_id, :inbox_id, :cached_label_list, :created_at, :last_activity_at, :assignee_id, 'contacts.phone_number')
            .map do |id, inbox_id, labels, created_at, last_activity_at, assignee_id, phone|
       [
         id,
@@ -87,7 +93,7 @@ class Api::V1::Accounts::DashboardIaController < Api::V1::Accounts::BaseControll
            .where(inbox_id: ids)
            .where("conversations.custom_attributes ->> 'fechado_por' IS NOT NULL OR conversations.cached_label_list ~ ?", SIGNED_LABELS_REGEX)
            .left_joins(:contact)
-           .pluck(:id, :inbox_id, 'contacts.name', 'conversations.custom_attributes')
+           .pluck(:display_id, :inbox_id, 'contacts.name', 'conversations.custom_attributes')
            .map do |id, inbox_id, name, attrs|
       attrs ||= {}
       [id, inbox_id, name, attrs['fechado_por'], attrs['assinado_em'], attrs['assinado_hora'], attrs['horario_assinatura']]
@@ -99,12 +105,13 @@ class Api::V1::Accounts::DashboardIaController < Api::V1::Accounts::BaseControll
     User.where(id: ids).pluck(:id, :name).to_h
   end
 
-  # { id da conversa => { etiqueta => epoch da primeira vez } }
+  # { display_id da conversa => { etiqueta => epoch da primeira vez } }
   def stage_history(ids)
+    display_ids = Current.account.conversations.where(inbox_id: ids).pluck(:id, :display_id).to_h
     events = Message.unscoped.where(account_id: Current.account.id, inbox_id: ids, message_type: :activity)
                     .where('content ~* ?', '\\s(adicionou|added)\\s')
                     .pluck(:conversation_id, :content, :created_at)
-                    .map { |conversation_id, content, created_at| [conversation_id, content, created_at.to_i] }
+                    .map { |conversation_id, content, created_at| [display_ids[conversation_id], content, created_at.to_i] }
     DashboardIa::HistoryParser.first_seen(events)
   end
 

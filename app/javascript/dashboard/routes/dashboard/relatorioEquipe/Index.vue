@@ -507,6 +507,11 @@ const BTN =
           respondeu no período.
         </p>
 
+        <p v-if="label" class="-mt-3 text-xs text-n-slate-10">
+          A etapa ou etiqueta é a que a conversa tem hoje, não a que tinha no
+          período: quem já mudou de etapa entra na etapa atual.
+        </p>
+
         <p
           v-if="error"
           class="px-3 py-2 text-sm rounded-lg bg-n-ruby-3 text-n-ruby-11"

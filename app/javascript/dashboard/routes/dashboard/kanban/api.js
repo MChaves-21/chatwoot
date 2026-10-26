@@ -16,7 +16,6 @@
 
 import Cookies from 'js-cookie';
 import ApiClient from '../../../api/ApiClient';
-import { MAX_PAGES_UNSTAGED } from './constants';
 
 class KanbanAPI extends ApiClient {
   constructor() {
@@ -57,52 +56,48 @@ class KanbanAPI extends ApiClient {
   }
 
   /**
-   * Conversas da caixa que NAO tem nenhuma das etiquetas de etapa do funil.
+   * Uma pagina das conversas da caixa que NAO tem nenhuma etiqueta de etapa
+   * do funil — a coluna "Sem etapa".
    *
-   * A API do Chatwoot nao sabe filtrar por ausencia de etiqueta, entao aqui se
-   * le a caixa inteira e filtra no cliente. Consequencias que quem mexer nisso
-   * precisa saber:
-   *
-   *   - o custo e proporcional ao tamanho da caixa, nao ao da coluna;
-   *   - por isso a coluna carrega de uma vez so (done = true no fim) em vez de
-   *     paginar com "Ver mais": paginar aqui daria contagem errada, ja que o
-   *     meta.all_count conta a caixa toda e nao o que sobrou do filtro.
-   *
-   * Se a caixa passar de alguns milhares de conversas, isto precisa virar um
-   * endpoint no servidor. MAX_PAGES_UNSTAGED e o freio ate la.
+   * 26/10/2026: passou a usar o filtro do proprio Chatwoot
+   * (POST /conversations/filter, `labels` com `not_equal_to`, que vira NOT
+   * EXISTS na tabela de etiquetas). Antes lia a caixa inteira e filtrava aqui,
+   * com teto de 40 paginas: a caixa 15 (BPC, 1.174 conversas) ja passava do
+   * teto e a coluna truncava calada, e a caixa 6 nem tinha a coluna. Agora
+   * pagina como as outras colunas e o all_count ja vem filtrado.
    */
-  async listWithoutStage({ inboxId, status = 'all', stageLabels = [] }) {
-    const stage = new Set(stageLabels);
-    const out = [];
-    let fetched = 0;
-
-    for (let page = 1; page <= MAX_PAGES_UNSTAGED; page += 1) {
-      const params = new URLSearchParams();
-      params.set('status', status || 'all');
-      params.set('page', String(page));
-      if (inboxId) params.set('inbox_id', String(inboxId));
-
-      // eslint-disable-next-line no-await-in-loop
-      const res = await axios.get(`${this.url}?${params.toString()}`);
-      const body = res.data || {};
-      const data = body.data || body;
-      const payload = data.payload || [];
-      if (!payload.length) break;
-
-      payload.forEach(c => {
-        const labels = c.labels || (c.meta && c.meta.labels) || [];
-        if (!labels.some(l => stage.has(l))) out.push(c);
+  async listWithoutStage({ inboxId, page = 1, status = 'all', stageLabels }) {
+    const payload = [
+      {
+        attribute_key: 'inbox_id',
+        filter_operator: 'equal_to',
+        values: [inboxId],
+        query_operator: 'and',
+      },
+      {
+        attribute_key: 'labels',
+        filter_operator: 'not_equal_to',
+        values: stageLabels,
+        query_operator: status && status !== 'all' ? 'and' : null,
+      },
+    ];
+    if (status && status !== 'all') {
+      payload.push({
+        attribute_key: 'status',
+        filter_operator: 'equal_to',
+        values: [status],
+        query_operator: null,
       });
-
-      // Contar o acumulado, e nao page * tamanho da pagina: a ultima pagina vem
-      // curta e a multiplicacao pararia cedo, escondendo conversas.
-      fetched += payload.length;
-      const meta = data.meta || {};
-      const all = meta.all_count;
-      if (all !== undefined && all !== null && fetched >= all) break;
     }
-
-    return { payload: out, total: out.length };
+    const res = await axios.post(`${this.url}/filter?page=${page}`, {
+      payload,
+    });
+    const body = res.data || {};
+    const data = body.data || body;
+    return {
+      payload: data.payload || [],
+      total: (data.meta || {}).all_count,
+    };
   }
 
   /** Conversa completa, com labels e assignee atualizados. */

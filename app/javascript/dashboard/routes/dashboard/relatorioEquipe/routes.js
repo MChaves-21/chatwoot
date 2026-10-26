@@ -1,10 +1,10 @@
 import { frontendURL } from '../../../helper/URLHelper';
 import RelatorioEquipeIndex from './Index.vue';
 
-// Mesma regra do Dashboard IA. O backend so aceita administrador, porque o
-// CSV traz o texto das mensagens dos clientes.
+// So administrador, igual ao backend: o CSV traz o texto das mensagens dos
+// clientes. Com `report_manage` aqui, a tela abria e o endpoint negava.
 const meta = {
-  permissions: ['administrator', 'report_manage'],
+  permissions: ['administrator'],
 };
 
 export const routes = [

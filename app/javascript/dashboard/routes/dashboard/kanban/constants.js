@@ -47,10 +47,8 @@ export const BPC_FUNNEL_ID = 'bpc';
  * 7 conversas passaram para `aguardando_assinatura`). Ela continua existindo
  * no Chatwoot, mas sem conversa e sem coluna.
  *
- * ATENCAO se algum fluxo do n8n voltar a aplicar `contrato_enviado`: este
- * funil NAO tem a coluna sintetica "Sem etapa" (so o BPC tem), entao a
- * conversa ficaria INVISIVEL no quadro — nao cairia em lugar nenhum. Se isso
- * acontecer, o conserto e o n8n passar a aplicar `aguardando_assinatura`.
+ * Se algum fluxo do n8n voltar a aplicar `contrato_enviado`, a conversa cai
+ * em "Sem etapa"; o conserto e o n8n passar a aplicar `aguardando_assinatura`.
  *
  * 12/08/2026 — "Lead potencial" SAIU pelo mesmo motivo, fundida em
  * "Comercial". As duas descrevem o mesmo momento do processo ("o SDR passou
@@ -59,12 +57,16 @@ export const BPC_FUNNEL_ID = 'bpc';
  * estagio so davam ao agente uma decisao a mais para tomar, sem consequencia.
  *
  * A etiqueta `lead_potencial` foi migrada para `comercial` na base junto com
- * esta mudanca. Vale aqui o MESMO aviso do paragrafo acima: sem coluna e sem
- * "Sem etapa" neste funil, uma conversa que volte a receber `lead_potencial`
- * some do quadro. Se algum fluxo do n8n aplicar essa etiqueta, o conserto e
- * no n8n — trocar por `comercial`.
+ * esta mudanca. Conversa que volte a receber `lead_potencial` cai em "Sem
+ * etapa"; se for o n8n aplicando, o conserto e no n8n — trocar por `comercial`.
+ *
+ * 26/10/2026 — "Sem etapa" ENTROU neste funil. Sem ela, 120 conversas da
+ * caixa 6 sem etiqueta de etapa estavam invisiveis no quadro (110 do lote de
+ * 12/08, com `lead_potencial`) — e o Dashboard IA contava todas. A coluna e
+ * a mesma do BPC; no Ferreira & Paiva ela nao aparece (FP_STAGE_LABELS).
  */
 export const AUXILIO_COLUMNS = [
+  { title: 'Sem etapa', label: UNSTAGED_LABEL, color: '#94a3b8' },
   { title: 'SDR', label: 'sdr', color: '#3b82f6' },
   { title: 'Comercial', label: 'comercial', color: '#8b5cf6' },
   {
@@ -497,25 +499,6 @@ export const MAX_PAGES_PER_COLUMN = 200;
  * depois de saber o total da pagina 1.
  */
 export const COLUMN_CONCURRENCY = 3;
-
-/**
- * Teto de paginas da coluna "Sem etapa". Ela nao da para pedir por etiqueta —
- * a API do Chatwoot nao tem "NOT label" — entao le a caixa inteira e filtra
- * aqui.
- *
- * O numero desatualiza sozinho, entao vale escrever a CONTA e nao o resultado:
- * o custo e ceil(conversas da caixa / CONVERSATION_RESULTS_PER_PAGE), e o teto
- * de 40 paginas aguenta 40 x 25 = 1.000 conversas na caixa.
- *
- * 14/08/2026 — a caixa 9 tem 593 conversas, ou seja 24 requisicoes. O
- * comentario anterior dizia 121 conversas = 5 requisicoes, de quando o quadro
- * nasceu: a migracao do ChatGuru quintuplicou a caixa e a folga caiu de 8x para
- * 1,7x. Quem encostar em 1.000 conversas na caixa 9 vai ver a coluna "Sem
- * etapa" truncar EM SILENCIO — o laco de api.js simplesmente para no teto. Se
- * chegar perto, o conserto nao e subir este numero (sao 40 requisicoes ja
- * hoje): e um endpoint no servidor que saiba filtrar por ausencia de etiqueta.
- */
-export const MAX_PAGES_UNSTAGED = 40;
 
 /**
  * Preferencias locais. Depois de 07/08/2026 guarda SO o funil aberto por

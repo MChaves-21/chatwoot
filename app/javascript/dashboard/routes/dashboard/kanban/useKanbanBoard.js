@@ -91,7 +91,14 @@ export function useKanbanBoard(accountId) {
   function resetColumns() {
     Object.keys(columns).forEach(k => delete columns[k]);
     columnDefs.value.forEach(col => {
-      columns[col.label] = { page: 0, total: null, done: false, loaded: [] };
+      columns[col.label] = {
+        page: 0,
+        total: null,
+        done: false,
+        loaded: [],
+        // Cards que estao tambem numa coluna de descarte (ver loadColumn).
+        skipped: 0,
+      };
     });
   }
 
@@ -105,15 +112,11 @@ export function useKanbanBoard(accountId) {
   /**
    * A coluna ainda nao recebeu resposta da API — 14/08/2026.
    *
-   * Existe por causa da propria mudanca de ordem de carga: como "Sem etapa"
-   * passou a carregar por ULTIMO, ela fica varios segundos com a lista vazia
-   * enquanto as outras 17 enchem. Sem isto ela exibe "Nenhuma conversa", que e
-   * uma afirmacao FALSA sobre a caixa — e a mais confusa possivel, porque e
-   * justamente a coluna que costuma ter mais card.
+   * Sem isto a coluna exibe "Nenhuma conversa" enquanto espera a vez na fila
+   * de carga, o que e uma afirmacao FALSA sobre a caixa.
    *
    * E DERIVADO, nao armazenado: `total` comeca em null e vira numero na
-   * primeira resposta (listByLabel sempre devolve numero — cai em
-   * payload.length se o meta nao vier), e `done` fecha a coluna sintetica.
+   * primeira resposta (listByLabel e listWithoutStage devolvem o all_count).
    * Guardar um `loading` proprio seria um segundo lugar para a mesma verdade,
    * que e como as duas listas de descarte divergiram em 12/08.
    *
@@ -148,77 +151,56 @@ export function useKanbanBoard(accountId) {
     const st = columns[label];
     if (!st || st.done) return;
 
-    // A coluna sintetica le a caixa inteira de uma vez e filtra no cliente.
-    // Nao pagina: ver o comentario de listWithoutStage em api.js.
-    if (label === UNSTAGED_LABEL) {
-      try {
-        const { payload, total } = await KanbanAPI.listWithoutStage({
-          inboxId: activeFunnel.value.inboxId,
-          status: prefs.status,
-          stageLabels: stageLabels.value,
-        });
-        st.loaded = payload;
-        st.total = total;
-        st.page = 1;
-        st.done = true;
-        delete errors[label];
-      } catch (err) {
-        errors[label] = err.message || 'Falha ao carregar';
-        throw err;
-      }
-      return;
-    }
-
     st.page += 1;
     try {
-      const { payload, total } = await KanbanAPI.listByLabel({
-        label,
-        page: st.page,
-        status: prefs.status,
-        inboxId: activeFunnel.value.inboxId,
-      });
-      st.total = total;
+      const { payload, total } =
+        label === UNSTAGED_LABEL
+          ? await KanbanAPI.listWithoutStage({
+              inboxId: activeFunnel.value.inboxId,
+              page: st.page,
+              status: prefs.status,
+              stageLabels: stageLabels.value,
+            })
+          : await KanbanAPI.listByLabel({
+              label,
+              page: st.page,
+              status: prefs.status,
+              inboxId: activeFunnel.value.inboxId,
+            });
+
+      /*
+       * 26/10/2026 - descarte vence, como no Dashboard IA. Conversa com duas
+       * etapas (ex.: `sdr` + `desqualificado`, que o Kanban Sync deixa quando
+       * desqualifica sem tirar a etapa anterior) aparecia nas duas colunas e
+       * contava duas vezes. Fica so na coluna de descarte; o total da coluna
+       * de origem desconta o card tirado.
+       */
+      const dropped = DISQUALIFIED_LABELS.includes(label)
+        ? []
+        : payload.filter(c =>
+            convLabels(c).some(
+              l =>
+                DISQUALIFIED_LABELS.includes(l) && stageLabels.value.includes(l)
+            )
+          );
+      st.skipped += dropped.length;
       const seen = new Set(st.loaded.map(c => c.id));
       payload.forEach(c => {
-        if (!seen.has(c.id)) st.loaded.push(c);
+        if (!seen.has(c.id) && !dropped.includes(c)) st.loaded.push(c);
       });
       // Nao comparar com um tamanho de pagina fixo: o Chatwoot pagina com
       // CONVERSATION_RESULTS_PER_PAGE, que e 25 por padrao mas e variavel de
       // ambiente. Se ela ficar abaixo de 25, uma pagina cheia seria lida como
       // "acabou" e a coluna truncaria em silencio. O total do meta.all_count e
-      // confiavel: o finder aplica o filtro de etiqueta antes de contar.
-      st.done =
-        payload.length === 0 ||
-        (st.total !== null && st.loaded.length >= st.total);
+      // confiavel: o finder aplica o filtro antes de contar.
+      st.done = payload.length === 0 || st.loaded.length + st.skipped >= total;
+      st.total = total - st.skipped;
       delete errors[label];
     } catch (err) {
       st.page -= 1;
       errors[label] = err.message || 'Falha ao carregar';
       throw err;
     }
-  }
-
-  /**
-   * A ordem em que as colunas sao CARREGADAS, que nao e a ordem em que elas
-   * aparecem na tela — 14/08/2026.
-   *
-   * A coluna sintetica "Sem etapa" vai por ultimo. Ela nao da para pedir por
-   * etiqueta (a API do Chatwoot nao sabe filtrar por ausencia), entao le a
-   * CAIXA INTEIRA e filtra no cliente: na caixa 9 sao 593 conversas = 24
-   * requisicoes, contra 1 de cada coluna de etiqueta.
-   *
-   * Ela e a PRIMEIRA coluna do funil BPC. Carregar na ordem da tela significava
-   * segurar as outras 16 colunas ate ela terminar — o quadro passava a maior
-   * parte do tempo de carga sem mostrar card nenhum, gastando esse tempo na
-   * coluna que menos card tem. Trocar a ordem nao economiza uma requisicao
-   * sequer; muda so QUANDO a tela comeca a ficar util, que era a reclamacao.
-   */
-  function loadOrder() {
-    const defs = columnDefs.value;
-    return [
-      ...defs.filter(c => c.label !== UNSTAGED_LABEL),
-      ...defs.filter(c => c.label === UNSTAGED_LABEL),
-    ];
   }
 
   /**
@@ -252,7 +234,7 @@ export function useKanbanBoard(accountId) {
     isLoading.value = true;
     resetColumns();
 
-    const queue = loadOrder();
+    const queue = columnDefs.value;
     // Contador em vez de "Carregando...": com 17 colunas, saber que faltam 3 e
     // a diferenca entre esperar e achar que travou.
     statusText.value = `Carregando 0/${queue.length}...`;
@@ -273,7 +255,7 @@ export function useKanbanBoard(accountId) {
    * E caro: ate MAX_PAGES_PER_COLUMN requisicoes por coluna.
    */
   async function loadEverything() {
-    const queue = loadOrder();
+    const queue = columnDefs.value;
     statusText.value = `Carregando todas as conversas 0/${queue.length}...`;
 
     // Colunas em paralelo (ate COLUMN_CONCURRENCY), paginas de cada coluna em

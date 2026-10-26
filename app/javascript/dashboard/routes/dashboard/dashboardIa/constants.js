@@ -195,10 +195,27 @@ export const CHAT_RANGES = [
 ];
 
 /**
- * Meta mensal de contratos assinados do escritorio (todos os funis). Quem
- * quiser outra meta troca na propria tela; o valor fica so naquele navegador.
+ * Meta mensal de contratos assinados do escritorio (todos os funis), usada
+ * enquanto ninguem grava outra na tela. A meta gravada fica no servidor
+ * (accounts.custom_attributes) e vale para todos.
  */
 export const DEFAULT_MONTHLY_GOAL = 60;
+
+/**
+ * Horario comercial da Goncalves & Silva: segunda a sexta, das 8h as 17h
+ * (`to` e exclusivo: 17:00 ja e fora). Regra de 22/10/2026 para todo numero
+ * de "fora do horario" — leads que chegam e contratos que assinam.
+ */
+export const BUSINESS_HOURS = { from: 8, to: 17 };
+
+/**
+ * Conversas criadas em lote por importacao, nao por lead chegando: migracao
+ * do ChatGuru no BPC (12-13/08/2026) e o lote do Auxilio de 12/08/2026. A
+ * data de criacao delas e a da importacao, entao entrariam como lead novo do
+ * dia e distorceriam chegada por hora, pico e conversao. Ficam fora das
+ * contas de lead; os contratos delas continuam contando.
+ */
+export const IMPORTED_LABEL = 'importado';
 
 export const LS_KEY = 'cw_dashboard_ia_v1';
 
@@ -231,6 +248,10 @@ export const CLOSING_BUCKETS = [
   { key: 'mais', title: 'Acima de 10 dias', max: Infinity },
 ];
 
+/**
+ * Periodos do dia, so descritivos (grafico "Periodo do dia"). O que conta
+ * como fora do horario comercial e BUSINESS_HOURS, nao esta divisao.
+ */
 export const DAY_PARTS = [
   { key: 'manha', title: 'Manhã', from: 6, to: 12 },
   { key: 'tarde', title: 'Tarde', from: 12, to: 18 },
