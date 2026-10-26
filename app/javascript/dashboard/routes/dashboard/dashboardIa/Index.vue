@@ -1167,11 +1167,11 @@ const stateCount = computed(
               <table class="w-full text-sm">
                 <thead>
                   <tr class="text-[11px] text-n-slate-10">
-                    <th class="pb-2 font-medium text-left">Responsável</th>
-                    <th class="pb-2 font-medium text-right">Leads</th>
-                    <th class="pb-2 font-medium text-right">Qualif.</th>
-                    <th class="pb-2 pl-4 font-medium text-left">Contratos</th>
-                    <th class="pb-2 font-medium text-right">Conv.</th>
+                    <th class="pb-2 pr-3 font-medium text-left">Responsável</th>
+                    <th class="pb-2 pl-3 font-medium text-right whitespace-nowrap">Leads</th>
+                    <th class="pb-2 pl-3 font-medium text-right whitespace-nowrap">Qualif.</th>
+                    <th class="pb-2 pl-4 font-medium text-left whitespace-nowrap">Contratos</th>
+                    <th class="pb-2 pl-4 font-medium text-right whitespace-nowrap">Conv.</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1180,7 +1180,7 @@ const stateCount = computed(
                     :key="a.id"
                     class="border-t border-n-weak"
                   >
-                    <td class="py-2.5">
+                    <td class="py-2.5 pr-3 w-full max-w-0">
                       <span class="flex gap-2 items-center min-w-0">
                         <span
                           class="flex flex-shrink-0 justify-center items-center text-[11px] font-semibold rounded-full size-5"
@@ -1205,13 +1205,13 @@ const stateCount = computed(
                         </span>
                       </span>
                     </td>
-                    <td class="py-2.5 text-right tabular-nums text-n-slate-12">
+                    <td class="py-2.5 pl-3 text-right whitespace-nowrap tabular-nums text-n-slate-12">
                       {{ int(a.total) }}
                     </td>
-                    <td class="py-2.5 text-right tabular-nums text-n-slate-12">
+                    <td class="py-2.5 pl-3 text-right whitespace-nowrap tabular-nums text-n-slate-12">
                       {{ int(a.qualified) }}
                     </td>
-                    <td class="py-2.5 pl-4 w-2/5">
+                    <td class="py-2.5 pl-4 w-32 min-w-[7rem]">
                       <span class="flex gap-2 items-center">
                         <span
                           class="overflow-hidden flex-1 h-1.5 rounded-full bg-n-alpha-2"
@@ -1230,7 +1230,7 @@ const stateCount = computed(
                         </span>
                       </span>
                     </td>
-                    <td class="py-2.5 text-right tabular-nums text-n-slate-11">
+                    <td class="py-2.5 pl-4 text-right whitespace-nowrap tabular-nums text-n-slate-11">
                       {{ pct(a.conversion) }}
                     </td>
                   </tr>
