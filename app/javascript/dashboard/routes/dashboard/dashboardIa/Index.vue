@@ -1071,7 +1071,7 @@ const stateCount = computed(
             <p :class="NOTE">
               “IA” = assinou sem nenhum atendente entrar na conversa (sem
               responsável, nota, mensagem de agente ou etiqueta manual). Horário
-              comercial: segunda a sexta, das 8h às 18h. Este bloco conta pela
+              comercial: segunda a sexta, das 8h às 17h. Este bloco conta pela
               data da assinatura; o indicador “Contratos assinados”, acima, conta
               as conversas criadas no período que hoje estão em contrato
               assinado ou depois — por isso os números podem diferir. Clique
