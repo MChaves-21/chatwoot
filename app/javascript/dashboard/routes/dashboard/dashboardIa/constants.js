@@ -14,6 +14,7 @@ import {
   FP_FUNNEL_ID,
   FUNNELS,
   HOME_ACCOUNT_ID,
+  LAWCHAT_FUNNEL_ID,
   PARTNER_FUNNELS,
   UNSTAGED_LABEL,
 } from '../kanban/constants';
@@ -107,6 +108,12 @@ export const FUNNEL_READING = {
     signedFrom: null,
   },
 };
+
+/*
+ * LawChat 0300 (caixa 11) — 28/10/2026. Mesmas etiquetas e mesmo caminho do
+ * Auxilio, entao a mesma leitura.
+ */
+FUNNEL_READING[LAWCHAT_FUNNEL_ID] = FUNNEL_READING.auxilio_acidente;
 
 /** Funis de etiqueta do Kanban que o painel sabe ler (o "Por estado" fica fora). */
 const toDashFunnel = f => ({

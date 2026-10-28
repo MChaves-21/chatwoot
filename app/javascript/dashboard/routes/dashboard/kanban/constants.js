@@ -275,6 +275,20 @@ export const TRABALHISTA_COLUMNS = [
 ];
 
 /**
+ * Funil do numero (85) 98641-0300 — 28/10/2026, pedido do Dr. Flavio: "um
+ * kanban so pra operacao do 0300".
+ *
+ * O numero saiu do LawChat e foi ligado a caixa 11 ("LawChat 98641-0300") em
+ * 27/10/2026. A importacao do LawChat grava as MESMAS etiquetas de etapa do
+ * Auxilio (sdr, comercial, contrato_em_elaboracao...), entao as colunas sao as
+ * do Auxilio. Nao precisa de prefixo como o bpc_/trab_: o quadro filtra pela
+ * caixa, e moveToStage apaga as etapas deste funil — que sao as mesmas.
+ */
+export const LAWCHAT_FUNNEL_ID = 'lawchat_0300';
+
+export const LAWCHAT_INBOX_ID = 11;
+
+/**
  * Os funis disponiveis. Acrescentar um terceiro e acrescentar um item aqui —
  * o seletor do cabecalho e o resto do quadro leem desta lista.
  *
@@ -286,6 +300,12 @@ export const FUNNELS = [
     id: 'auxilio_acidente',
     title: 'Auxílio Acidente',
     inboxId: 6,
+    columns: AUXILIO_COLUMNS,
+  },
+  {
+    id: LAWCHAT_FUNNEL_ID,
+    title: 'LawChat 0300',
+    inboxId: LAWCHAT_INBOX_ID,
     columns: AUXILIO_COLUMNS,
   },
   {
