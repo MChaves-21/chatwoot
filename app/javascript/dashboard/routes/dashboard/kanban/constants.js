@@ -12,11 +12,7 @@
  * bagunca: um agente com preset antigo em cache misturaria etapas dos dois.
  */
 
-import {
-  CLOSED_LABELS,
-  STATE_FUNNEL_ID,
-  STATE_INBOX_IDS,
-} from './stateConstants';
+import { CLOSED_LABELS } from './stateConstants';
 
 /** Coluna sintetica: conversas da caixa que ainda nao tem etapa nenhuma. */
 export const UNSTAGED_LABEL = '__sem_etapa__';
@@ -298,19 +294,19 @@ export const LAWCHAT_INBOX_ID = 11;
 export const FUNNELS = [
   {
     id: 'auxilio_acidente',
-    title: 'Auxílio Acidente',
+    title: 'Auxílio Acidente 7035',
     inboxId: 6,
     columns: AUXILIO_COLUMNS,
   },
   {
     id: LAWCHAT_FUNNEL_ID,
-    title: 'LawChat 0300',
+    title: 'Auxílio Acidente 0300',
     inboxId: LAWCHAT_INBOX_ID,
     columns: AUXILIO_COLUMNS,
   },
   {
     id: BPC_FUNNEL_ID,
-    title: 'BPC',
+    title: 'Pedido em análise',
     // 13/10/2026: o numero do BPC foi para a API oficial (caixa 15, "BPC API
     // COEX") e as 1.109 conversas da caixa 9 foram migradas para ela.
     inboxId: 15,
@@ -322,21 +318,8 @@ export const FUNNELS = [
     inboxId: TRABALHISTA_INBOX_ID,
     columns: TRABALHISTA_COLUMNS,
   },
-  /**
-   * Quadro por estado da conversa — 10/08/2026.
-   *
-   * Nao tem `columns` nem `inboxId`, e nao e esquecimento: as colunas saem do
-   * status da conversa e do tempo parada (ver stateConstants.js), e o quadro
-   * cruza as DUAS caixas em vez de uma. O `mode` e o que faz o Index.vue
-   * renderizar StateBoard no lugar do quadro de etiquetas.
-   */
-  {
-    id: STATE_FUNNEL_ID,
-    title: 'Por estado',
-    mode: 'state',
-    inboxIds: STATE_INBOX_IDS,
-    columns: [],
-  },
+  // 30/10/2026: o quadro "Por estado" saiu do seletor a pedido do Flavio.
+  // O codigo dele (StateBoard, stateConstants) continua no repositorio.
 ];
 
 /**
