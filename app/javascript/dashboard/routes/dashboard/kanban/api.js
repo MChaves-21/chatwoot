@@ -33,7 +33,59 @@ class KanbanAPI extends ApiClient {
    * ja aceita inbox_id (set_inboxes) e aplica o filtro antes de contar, entao o
    * meta.all_count continua confiavel.
    */
-  async listByLabel({ label, page = 1, status = 'all', inboxId = null }) {
+  async listByLabel({
+    label,
+    page = 1,
+    status = 'all',
+    inboxId = null,
+    excludeLabels = [],
+  }) {
+    // Com etiquetas a esconder (ex.: importados do LawChat), a listagem simples
+    // nao serve: ela so sabe incluir etiquetas. O filtro do Chatwoot faz o
+    // EXISTS da etapa e o NOT EXISTS das excluidas, e o all_count ja vem certo.
+    if (excludeLabels.length) {
+      const payload = [
+        {
+          attribute_key: 'labels',
+          filter_operator: 'equal_to',
+          values: [label],
+          query_operator: 'and',
+        },
+        {
+          attribute_key: 'labels',
+          filter_operator: 'not_equal_to',
+          values: excludeLabels,
+          query_operator:
+            inboxId || (status && status !== 'all') ? 'and' : null,
+        },
+      ];
+      if (inboxId) {
+        payload.push({
+          attribute_key: 'inbox_id',
+          filter_operator: 'equal_to',
+          values: [inboxId],
+          query_operator: status && status !== 'all' ? 'and' : null,
+        });
+      }
+      if (status && status !== 'all') {
+        payload.push({
+          attribute_key: 'status',
+          filter_operator: 'equal_to',
+          values: [status],
+          query_operator: null,
+        });
+      }
+      const res = await axios.post(`${this.url}/filter?page=${page}`, {
+        payload,
+      });
+      const body = res.data || {};
+      const data = body.data || body;
+      return {
+        payload: data.payload || [],
+        total: (data.meta || {}).all_count,
+      };
+    }
+
     const params = new URLSearchParams();
     params.set('status', status || 'all');
     params.set('page', String(page));

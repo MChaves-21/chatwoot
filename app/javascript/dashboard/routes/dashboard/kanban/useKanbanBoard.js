@@ -11,6 +11,7 @@ import {
   COLUMN_CONCURRENCY,
   DEFAULT_PREFS,
   DISQUALIFIED_LABELS,
+  IMPORTED_LABELS,
   LS_KEY,
   MANUAL_LABEL,
   MAX_PAGES_PER_COLUMN,
@@ -79,6 +80,19 @@ export function useKanbanBoard(accountId) {
     columnDefs.value.map(c => c.label).filter(l => l !== UNSTAGED_LABEL)
   );
   const filtersActive = computed(() => calcFiltersActive(filters));
+
+  /**
+   * "So trafego" — 30/10/2026. Diferente dos filtros do modal, que atuam no
+   * que ja foi carregado, este vai para o SERVIDOR: no 0300 sao milhares de
+   * importadas, e filtrar no cliente obrigaria a paginar todas elas para
+   * achar os leads novos.
+   */
+  const hideImported = computed(
+    () => Boolean(prefs.hideImported && activeFunnel.value.canHideImported)
+  );
+  const excludeLabels = computed(() =>
+    hideImported.value ? IMPORTED_LABELS : []
+  );
 
   function savePrefs() {
     try {
@@ -159,13 +173,14 @@ export function useKanbanBoard(accountId) {
               inboxId: activeFunnel.value.inboxId,
               page: st.page,
               status: prefs.status,
-              stageLabels: stageLabels.value,
+              stageLabels: [...stageLabels.value, ...excludeLabels.value],
             })
           : await KanbanAPI.listByLabel({
               label,
               page: st.page,
               status: prefs.status,
               inboxId: activeFunnel.value.inboxId,
+              excludeLabels: excludeLabels.value,
             });
 
       /*
@@ -508,6 +523,12 @@ export function useKanbanBoard(accountId) {
     await loadAll();
   }
 
+  async function setHideImported(value) {
+    prefs.hideImported = Boolean(value);
+    savePrefs();
+    await loadAll();
+  }
+
   return {
     // estado
     prefs,
@@ -522,6 +543,8 @@ export function useKanbanBoard(accountId) {
     activeFunnelId,
     activeFunnel,
     setFunnel,
+    hideImported,
+    setHideImported,
     // derivados
     columnDefs,
     tagDefs,

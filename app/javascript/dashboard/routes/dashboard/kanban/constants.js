@@ -285,6 +285,16 @@ export const LAWCHAT_FUNNEL_ID = 'lawchat_0300';
 export const LAWCHAT_INBOX_ID = 11;
 
 /**
+ * Etiquetas que a importacao do LawChat grava nas conversas trazidas do
+ * historico — 30/10/2026. Com o filtro "So trafego" ligado, o quadro do 0300
+ * pede ao servidor so as conversas SEM nenhuma delas, ou seja, os leads que
+ * chegaram pelo fluxo normal (trafego pago). Pedido do Flavio: o relatorio de
+ * criados misturava trafego e importados porque as importadas tambem nasceram
+ * em 28 e 29/10.
+ */
+export const IMPORTED_LABELS = ['origem_lawchat', 'importado'];
+
+/**
  * Os funis disponiveis. Acrescentar um terceiro e acrescentar um item aqui —
  * o seletor do cabecalho e o resto do quadro leem desta lista.
  *
@@ -303,6 +313,8 @@ export const FUNNELS = [
     title: 'Auxílio Acidente 0300',
     inboxId: LAWCHAT_INBOX_ID,
     columns: AUXILIO_COLUMNS,
+    // Mostra o botao "So trafego" (esconde as conversas importadas).
+    canHideImported: true,
   },
   {
     id: BPC_FUNNEL_ID,
@@ -535,6 +547,8 @@ export const DEFAULT_PREFS = {
   funnelId: DEFAULT_FUNNEL_ID,
   tags: DEFAULT_TAGS,
   status: 'all',
+  // "So trafego" no funil 0300: esconde as conversas importadas do LawChat.
+  hideImported: false,
   // Webhooks n8n que NAO passam pela API do Chatwoot.
   leadUrl: '',
   summaryUrl: '',

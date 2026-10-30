@@ -53,6 +53,7 @@ const {
   funnels,
   activeFunnelId,
   activeFunnel,
+  hideImported,
 } = board;
 
 const isSwitchingFunnel = ref(false);
@@ -449,6 +450,26 @@ const BTN =
           {{ f.title }}
         </button>
       </div>
+
+      <!--
+        So trafego (30/10/2026): no 0300 esconde as conversas importadas do
+        LawChat e deixa so os leads que chegaram pelo fluxo normal. O filtro
+        vai para o servidor, entao trocar recarrega o quadro.
+      -->
+      <label
+        v-if="activeFunnel.canHideImported"
+        class="flex gap-1.5 items-center px-2.5 py-1.5 text-xs whitespace-nowrap rounded-lg border cursor-pointer shrink-0 border-n-weak text-n-slate-12"
+        title="Esconde as conversas importadas do LawChat e mostra só os leads que chegaram pelo tráfego"
+      >
+        <input
+          type="checkbox"
+          class="w-auto"
+          :checked="hideImported"
+          :disabled="isSwitchingFunnel || board.isLoading.value"
+          @change="board.setHideImported($event.target.checked)"
+        />
+        Só tráfego (sem importados)
+      </label>
 
       <!--
         Busca fixa: antes vivia dentro do modal de Filtros e so enxergava o que
