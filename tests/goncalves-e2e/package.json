@@ -1,0 +1,14 @@
+{
+  "name": "goncalves-e2e",
+  "private": true,
+  "type": "module",
+  "description": "Testes de ponta a ponta das telas do fork Goncalves & Silva (Kanban, Dashboard IA, Relatorio da Equipe, Disparador).",
+  "scripts": {
+    "test": "playwright test",
+    "test:headed": "playwright test --headed"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0",
+    "sass": "1.79.3"
+  }
+}

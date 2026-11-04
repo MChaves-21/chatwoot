@@ -72,9 +72,142 @@ jobs:
           ln -sfn "$RUNNER_TEMP/sfc/node_modules" node_modules
           node .github/scripts/verificar-goncalves.mjs
 
+  # ---------------------------------------------------------------------------
+  # Bateria de testes do fork (04/11/2026). Tres jobs em paralelo com o
+  # Verificar; o build so sai se TODOS passarem. So roda o que e do fork (mais
+  # os specs do upstream dos arquivos que o fork alterou) — a suite inteira do
+  # Chatwoot leva uma hora e nao e o que quebra aqui.
+  #
+  # Falha vira anotacao no PR/commit (::error), para dar para ler o motivo sem
+  # abrir o log.
+  # ---------------------------------------------------------------------------
+  testes-js:
+    name: Testes JS (unitarios e integracao)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - name: Instalar dependencias
+        run: pnpm install --frozen-lockfile
+      # Bateria do fork: app/javascript/goncalves-specs (unit + integration,
+      # com um Chatwoot falso em memoria no lugar do servidor).
+      - name: Bateria do fork
+        run: pnpm exec vitest --no-watch --no-cache --no-coverage --reporter=default --reporter=github-actions app/javascript/goncalves-specs
+        env:
+          TZ: UTC
+      # Specs do upstream dos arquivos que o fork alterou (filtro de conversas
+      # com as fases do Kanban).
+      - name: Regressao do upstream nos arquivos alterados pelo fork
+        run: >-
+          pnpm exec vitest --no-watch --no-cache --no-coverage --reporter=default --reporter=github-actions
+          app/javascript/dashboard/store/modules/conversations/helpers
+          app/javascript/dashboard/helper/specs/filterQueryGenerator.spec.js
+        env:
+          TZ: UTC
+
+  testes-e2e:
+    name: Testes de ponta a ponta (Playwright)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - name: Instalar dependencias do dashboard
+        run: pnpm install --frozen-lockfile
+      - name: Instalar Playwright
+        working-directory: tests/goncalves-e2e
+        run: |
+          npm ci --no-audit --no-fund
+          npx playwright install --with-deps chromium
+      # As telas reais do fork (Kanban, Dashboard IA, Relatorio, Disparador)
+      # num Chromium, com o Chatwoot falso servindo a API. Ver
+      # tests/goncalves-e2e/README.md.
+      - name: Rodar
+        working-directory: tests/goncalves-e2e
+        run: npx playwright test
+      - name: Relatorio do Playwright
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-relatorio
+          path: |
+            tests/goncalves-e2e/relatorio
+            tests/goncalves-e2e/test-results
+          retention-days: 7
+
+  testes-ruby:
+    name: Testes Ruby (unitarios e de API)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: ''
+          POSTGRES_DB: postgres
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --mount type=tmpfs,destination=/var/lib/postgresql/data
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:alpine
+        ports:
+          - 6379:6379
+        options: --entrypoint redis-server
+    env:
+      RAILS_ENV: test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with:
+          bundler-cache: true
+      - name: Banco de teste
+        run: |
+          bundle exec rake db:create
+          bundle exec rake db:schema:load
+      # Specs do fork: services (Dashboard IA, Relatorio, publico do disparo
+      # por etiqueta de conversa) e request specs dos dois endpoints do fork,
+      # inclusive a trava de administrador.
+      - name: Rodar
+        run: >-
+          bundle exec rspec --format progress --format json --out tmp/rspec_goncalves.json
+          spec/services/dashboard_ia
+          spec/services/relatorio_equipe
+          spec/services/whatsapp/oneoff_campaign_service_goncalves_spec.rb
+          spec/controllers/api/v1/accounts/dashboard_ia_controller_spec.rb
+          spec/controllers/api/v1/accounts/relatorio_equipe_controller_spec.rb
+      - name: Anotar falhas
+        if: failure()
+        run: |
+          [ -f tmp/rspec_goncalves.json ] || exit 0
+          jq -r '.examples[] | select(.status == "failed")
+            | "::error file=\(.file_path | sub("^\\./"; "")),line=\(.line_number)::\(.full_description): \(.exception.message | gsub("\n"; " ") | .[0:600])"' \
+            tmp/rspec_goncalves.json
+      - name: Log do Rails
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rspec-goncalves
+          path: |
+            tmp/rspec_goncalves.json
+            log/test.log
+          retention-days: 7
+
   build:
     name: Build e publicacao
-    needs: verificar
+    needs: [verificar, testes-js, testes-e2e, testes-ruby]
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     outputs:
