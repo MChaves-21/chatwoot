@@ -11,12 +11,13 @@ RSpec.describe RelatorioEquipe::Report do
   let(:contact) { create(:contact, account: account, name: 'Ana Cliente', phone_number: '+5585999990001') }
   let(:conversation) { create(:conversation, account: account, inbox: inbox, contact: contact) }
   let(:unanswered) { create(:conversation, account: account, inbox: other_inbox) }
-  let(:params) { { since: '2026-11-03', until: '2026-11-04' } }
+  # Janeiro de proposito: mensagens automaticas que o Chatwoot cria "agora" ficam fora.
+  let(:params) { { since: '2026-01-03', until: '2026-01-04' } }
   let(:report) { described_class.new(account: account, params: params.with_indifferent_access, ia_user_ids: [ia_user.id]) }
 
   # Hora de Fortaleza.
   def at(day, hour, min = 0)
-    Time.find_zone('America/Fortaleza').local(2026, 11, day, hour, min)
+    Time.find_zone('America/Fortaleza').local(2026, 1, day, hour, min)
   end
 
   def message(attrs)
@@ -51,14 +52,14 @@ RSpec.describe RelatorioEquipe::Report do
 
     it 'agrupa por dia no fuso de Fortaleza, com todos os dias do periodo' do
       expect(report.summary[:per_day]).to eq([
-                                               { date: '2026-11-03', 'recebida' => 1, 'humano' => 1, 'ia' => 0, 'sem_autor' => 0 },
-                                               { date: '2026-11-04', 'recebida' => 1, 'humano' => 0, 'ia' => 2, 'sem_autor' => 1 }
+                                               { date: '2026-01-03', 'recebida' => 1, 'humano' => 1, 'ia' => 0, 'sem_autor' => 0 },
+                                               { date: '2026-01-04', 'recebida' => 1, 'humano' => 0, 'ia' => 2, 'sem_autor' => 1 }
                                              ])
     end
 
     it 'mensagem das 22h de Fortaleza conta no proprio dia, nao no seguinte (UTC)' do
       message(conversation: conversation, message_type: :incoming, sender: contact, content: 'noite', created_at: at(3, 22))
-      day = report.summary[:per_day].find { |d| d[:date] == '2026-11-03' }
+      day = report.summary[:per_day].find { |d| d[:date] == '2026-01-03' }
       expect(day['recebida']).to eq(2)
     end
 
@@ -77,7 +78,7 @@ RSpec.describe RelatorioEquipe::Report do
     end
 
     it 'devolve o periodo e o fuso' do
-      expect(report.summary[:period]).to eq(since: '2026-11-03', until: '2026-11-04', tz: 'America/Fortaleza')
+      expect(report.summary[:period]).to eq(since: '2026-01-03', until: '2026-01-04', tz: 'America/Fortaleza')
     end
   end
 
@@ -152,7 +153,7 @@ RSpec.describe RelatorioEquipe::Report do
     it 'uma linha por mensagem, em ordem, com quem enviou' do
       body = lines.drop(1)
       expect(body.size).to eq(6)
-      expect(body.first).to start_with('03/11/2026 09:00:00;')
+      expect(body.first).to start_with('03/01/2026 09:00:00;')
       expect(body.first).to include(';Ana Cliente;+5585999990001;Ana Cliente;Cliente;sdr;oi')
       expect(body).to include(a_string_including(';Karol;Equipe;'))
       expect(body).to include(a_string_including(';Juliana IA;IA/automação;'))

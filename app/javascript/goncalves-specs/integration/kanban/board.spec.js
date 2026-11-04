@@ -164,6 +164,27 @@ describe('Kanban — carga das colunas', () => {
     expect(board.countLabel(UNSTAGED_LABEL)).toBe('1100');
   });
 
+  /*
+   * Achado 04/11/2026: loadEverything (Excel, "Criados", "Atualizados") para
+   * em MAX_PAGES_PER_COLUMN = 200 paginas = 5.000 cards por coluna. O SDR do
+   * 0300 tem ~5.270: o Excel exportado em 04/11 veio com 4.988 SDR e 268
+   * leads ficaram de fora da planilha LawChat x Chatwoot (#N/A). Quando
+   * corrigir, troque `it.fails` por `it`.
+   */
+  it.fails(
+    'Excel/loadEverything traz coluna com mais de 5.000 cards (achado)',
+    async () => {
+      const { fake } = useFakeChatwoot();
+      for (let i = 0; i < 5030; i += 1) {
+        fake.addConversation({ inboxId: 6, labels: ['sdr'] });
+      }
+      const board = useKanbanBoard(1);
+      await board.loadAll();
+      await board.loadEverything();
+      expect(board.visibleIn('sdr')).toHaveLength(5030);
+    }
+  );
+
   it('status escolhido vai para as duas rotas (lista e filtro)', async () => {
     const { fake } = useFakeChatwoot();
     seedAuxilio(fake);

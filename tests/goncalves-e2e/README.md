@@ -47,6 +47,11 @@ Comportamentos que hoje estão errados ficam marcados com `it.fails`: o teste
 passa enquanto o defeito existir e começa a falhar quando ele for corrigido —
 aí é só trocar `it.fails` por `it`.
 
+- **Campanha de WhatsApp por etiqueta quebra** (`Whatsapp::OneoffCampaignService#audience_contacts`,
+  alteração do fork de 08/10): `PG::SyntaxError: subquery has too many columns`. Em Ruby fica
+  marcado com `pending` (mesma ideia do `it.fails`).
+- Kanban: "Excel", "Criados" e "Atualizados" param em 5.000 cards por coluna
+  (`MAX_PAGES_PER_COLUMN` = 200 páginas). O SDR do 0300 já passa disso.
 - `formatPhone` do Disparador mostra telefone fixo com 9 na frente.
 - No Dashboard IA, contrato assinado e depois descartado conta em
   "Contratos" mas some de "Quem fechou" quando o n8n não gravou `fechado_por`.
