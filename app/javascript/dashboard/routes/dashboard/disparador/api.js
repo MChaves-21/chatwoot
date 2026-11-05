@@ -4,13 +4,12 @@
  *
  * Duas pontas:
  *
- *   1. callDisparador(acao, dados): o webhook do n8n. Autentica com a SESSAO
- *      de quem esta logado (cookie cw_d_session_info), o mesmo arranjo do botao
- *      Agendar e do Dashboard IA. Nao ha segredo no codigo.
+ *   1. callDisparador(acao, dados): o webhook do n8n. Autentica com o ticket
+ *      assinado de quem esta logado (n8nTicket.js, 05/11/2026), o mesmo arranjo
+ *      do botao Agendar e do Dashboard IA. O login da sessao nao vai ao n8n.
  *   2. loadAudience(): as conversas da caixa pela API do proprio Chatwoot, com
  *      o cliente axios do dashboard. So leitura.
  */
-import Cookies from 'js-cookie';
 import ApiClient from '../../../api/ApiClient';
 import { n8nTicket } from '../n8nTicket';
 import {
@@ -19,30 +18,21 @@ import {
   MAX_AUDIENCE_PAGES,
 } from './constants';
 
-function sessionAuth() {
-  const raw = JSON.parse(Cookies.get('cw_d_session_info') || '{}');
-  return {
-    'access-token': raw['access-token'],
-    client: raw.client,
-    uid: raw.uid,
-  };
-}
-
 /**
  * Devolve o JSON do n8n ou LANCA com a mensagem que o n8n mandou. Escrita que
  * falha em silencio aqui viraria "criei a campanha" sem campanha nenhuma.
  */
 export async function callDisparador(acao, dados = {}) {
-  const auth = sessionAuth();
-  if (!auth['access-token']) {
-    throw new Error('Sessão do Chatwoot não encontrada. Saia e entre de novo.');
+  const ticket = await n8nTicket();
+  if (!ticket) {
+    throw new Error('Não consegui confirmar seu login para o n8n. Recarregue a página.');
   }
   let res;
   try {
     res = await fetch(DISPARADOR_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ acao, auth, ticket: await n8nTicket(), ...dados }),
+      body: JSON.stringify({ acao, ticket, ...dados }),
     });
   } catch (e) {
     throw new Error('Não foi possível falar com o n8n. Confira a conexão.');

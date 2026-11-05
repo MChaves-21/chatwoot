@@ -17,7 +17,6 @@
  *                    estao em contrato assinado ou alem.
  */
 
-import Cookies from 'js-cookie';
 import ApiClient from '../../../api/ApiClient';
 import { n8nTicket } from '../n8nTicket';
 import {
@@ -222,22 +221,17 @@ export default new DashboardIaAPI();
  * ou null — o bloco e opcional, entao qualquer falha (n8n fora, usuario nao
  * administrador, sessao vencida) so esconde o bloco, nunca derruba o painel.
  *
- * O n8n autentica pela sessao do dashboard (devise_token_auth), a mesma que o
- * botao Agendar do Kanban manda. Nao ha segredo no codigo.
+ * O n8n autentica pelo ticket assinado (n8nTicket.js, 05/11/2026), o mesmo do
+ * botao Agendar do Kanban. O login da sessao nao vai ao n8n.
  */
 export async function fetchLossReasons() {
   try {
-    const raw = JSON.parse(Cookies.get('cw_d_session_info') || '{}');
-    const auth = {
-      'access-token': raw['access-token'],
-      client: raw.client,
-      uid: raw.uid,
-    };
-    if (!auth['access-token']) return null;
+    const ticket = await n8nTicket();
+    if (!ticket) return null;
     const res = await fetch(LOSS_REASONS_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ auth, ticket: await n8nTicket() }),
+      body: JSON.stringify({ ticket }),
     });
     if (!res.ok) return null;
     const data = await res.json();
