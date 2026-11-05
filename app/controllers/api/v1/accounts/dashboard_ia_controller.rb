@@ -15,20 +15,28 @@
 class Api::V1::Accounts::DashboardIaController < Api::V1::Accounts::BaseController
   GOALS_KEY = 'dashboard_ia_goals'.freeze
   MAX_INBOXES = 20
+  SNAPSHOT_TTL = 2.minutes
 
   before_action :ensure_administrator
 
+  # 05/11/2026: o retrato fica em cache por SNAPSHOT_TTL. Sem isso, cada
+  # abertura relia todas as conversas das caixas e varria todas as mensagens de
+  # atividade com regex, sem limite de data — custo que so cresce. As metas
+  # ficam fora do cache: quem salva quer ver a meta nova na hora.
+  # `?refresh=1` ignora o cache.
   def show
     ids = inbox_ids
-    conversations = conversation_rows(ids)
-    render json: {
-      rows: conversations,
-      agents: agent_names(conversations),
-      stages: stage_history(ids),
-      goals: stored_goals,
-      closings: closing_rows(ids),
-      generated_at: Time.current.to_i
-    }
+    snapshot = Rails.cache.fetch(snapshot_cache_key(ids), expires_in: SNAPSHOT_TTL, force: params[:refresh].present?) do
+      conversations = conversation_rows(ids)
+      {
+        rows: conversations,
+        agents: agent_names(conversations),
+        stages: stage_history(ids),
+        closings: closing_rows(ids),
+        generated_at: Time.current.to_i
+      }
+    end
+    render json: snapshot.merge(goals: stored_goals)
   end
 
   def goals
@@ -113,6 +121,10 @@ class Api::V1::Accounts::DashboardIaController < Api::V1::Accounts::BaseControll
                     .pluck(:conversation_id, :content, :created_at)
                     .map { |conversation_id, content, created_at| [display_ids[conversation_id], content, created_at.to_i] }
     DashboardIa::HistoryParser.first_seen(events)
+  end
+
+  def snapshot_cache_key(ids)
+    "dashboard_ia/snapshot/v1/#{Current.account.id}/#{ids.sort.join('-')}"
   end
 
   def stored_goals

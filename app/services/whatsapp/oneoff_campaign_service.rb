@@ -78,12 +78,20 @@ class Whatsapp::OneoffCampaignService
   # contato; sem isto, uma campanha para "comercial" nao alcancaria ninguem.
   # Contato com a etiqueta nele mesmo continua entrando, como no upstream.
   # Cada contato entra uma vez so, mesmo com varias conversas etiquetadas.
+  #
+  # 05/11/2026: le direto da tabela de taggings. O `tagged_with(any: true)`
+  # monta um SELECT com colunas a mais e nao serve de subconsulta
+  # (PG::SyntaxError: subquery has too many columns) — o mesmo erro que o
+  # Relatorio da Equipe ja tinha resolvido assim em 16/10/2026.
   def audience_contacts(audience_labels)
     contacts = campaign.account.contacts
     return contacts.none if audience_labels.blank?
 
-    by_contact = contacts.tagged_with(audience_labels, any: true).select(:id)
-    by_conversation = campaign.account.conversations.tagged_with(audience_labels, any: true).select(:contact_id)
+    taggings = ActsAsTaggableOn::Tagging.joins(:tag).where(context: 'labels', tags: { name: audience_labels })
+    by_contact = taggings.where(taggable_type: 'Contact').select(:taggable_id)
+    by_conversation = campaign.account.conversations
+                              .where(id: taggings.where(taggable_type: 'Conversation').select(:taggable_id))
+                              .select(:contact_id)
     contacts.where(id: by_contact).or(contacts.where(id: by_conversation))
   end
 

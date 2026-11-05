@@ -19,6 +19,7 @@
 
 import Cookies from 'js-cookie';
 import ApiClient from '../../../api/ApiClient';
+import { n8nTicket } from '../n8nTicket';
 import {
   LOSS_REASONS_URL,
   MAX_HISTORY_PAGES,
@@ -80,9 +81,11 @@ class DashboardIaAPI extends ApiClient {
    * for administrador ou se a resposta vier fora do formato — quem chama cai
    * no plano B (scan + signedDates).
    */
-  async snapshot({ inboxIds }) {
+  async snapshot({ inboxIds, refresh = false }) {
     const params = new URLSearchParams();
     inboxIds.forEach(id => params.append('inbox_ids[]', String(id)));
+    // O servidor guarda o retrato por 2 min; o botao Atualizar pula esse cache.
+    if (refresh) params.set('refresh', '1');
     const res = await axios.get(`${this.base}/dashboard_ia?${params.toString()}`);
     const data = res.data || {};
     if (!Array.isArray(data.rows)) {
@@ -234,7 +237,7 @@ export async function fetchLossReasons() {
     const res = await fetch(LOSS_REASONS_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ auth }),
+      body: JSON.stringify({ auth, ticket: await n8nTicket() }),
     });
     if (!res.ok) return null;
     const data = await res.json();

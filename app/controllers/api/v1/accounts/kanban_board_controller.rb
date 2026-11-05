@@ -28,10 +28,7 @@ class Api::V1::Accounts::KanbanBoardController < Api::V1::Accounts::BaseControll
     inbox = Current.user.assigned_inboxes.find_by(id: params[:inbox_id])
     return render json: { error: 'Caixa não encontrada' }, status: :not_found if inbox.nil?
 
-    base = filtered_by_status(accessible_conversations(inbox))
-    pages = stage_labels.index_with { |label| page_of(with_label(base, label)) }
-    pages[UNSTAGED_KEY] = page_of(base.tagged_with(stage_labels + exclude_labels, exclude: true)) if unstaged?
-
+    pages = column_pages(filtered_by_status(accessible_conversations(inbox)))
     unread = unread_counts(pages.values.flat_map { |page| page[:rows] })
     render json: {
       per_page: per_page,
@@ -41,6 +38,12 @@ class Api::V1::Accounts::KanbanBoardController < Api::V1::Accounts::BaseControll
   end
 
   private
+
+  def column_pages(base)
+    pages = stage_labels.index_with { |label| page_of(with_label(base, label)) }
+    pages[UNSTAGED_KEY] = page_of(base.tagged_with(stage_labels + exclude_labels, exclude: true)) if unstaged?
+    pages
+  end
 
   def accessible_conversations(inbox)
     Conversations::PermissionFilterService.new(Current.account.conversations.where(inbox_id: inbox.id), Current.user, Current.account).perform

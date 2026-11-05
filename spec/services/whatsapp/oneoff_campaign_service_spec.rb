@@ -107,6 +107,17 @@ describe Whatsapp::OneoffCampaignService do
         described_class.new(campaign: campaign).perform
       end
 
+      it 'ignores labels from another account' do
+        other_account = create(:account)
+        create(:label, account: other_account, title: label1.title)
+        other_contact = create(:contact, :with_phone_number, account: other_account)
+        other_contact.update_labels([label1.title])
+
+        expect(whatsapp_channel).not_to receive(:send_template)
+
+        described_class.new(campaign: campaign).perform
+      end
+
       it 'skips contacts without phone numbers' do
         contact_without_phone = create(:contact, account: account, phone_number: nil)
         contact_without_phone.update_labels([label1.title])

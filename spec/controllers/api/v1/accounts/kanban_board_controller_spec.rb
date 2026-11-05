@@ -1,0 +1,98 @@
+require 'rails_helper'
+
+RSpec.describe 'Kanban board API', type: :request do
+  let(:account) { create(:account) }
+  let(:inbox) { create(:inbox, account: account) }
+  let(:admin) { create(:user, account: account, role: :administrator) }
+  let(:agent) { create(:user, account: account, role: :agent) }
+  let(:url) { "/api/v1/accounts/#{account.id}/kanban_board" }
+
+  describe 'GET /api/v1/accounts/{account.id}/kanban_board' do
+    it 'returns unauthorized without a session' do
+      get url, params: { inbox_id: inbox.id, labels: ['sdr'] }
+
+      expect(response).to have_http_status(:unauthorized)
+    end
+
+    it 'returns not found for an agent outside the inbox' do
+      get url, params: { inbox_id: inbox.id, labels: ['sdr'] }, headers: agent.create_new_auth_token
+
+      expect(response).to have_http_status(:not_found)
+    end
+
+    it 'returns not found for an inbox of another account' do
+      other_inbox = create(:inbox, account: create(:account))
+
+      get url, params: { inbox_id: other_inbox.id, labels: ['sdr'] }, headers: admin.create_new_auth_token
+
+      expect(response).to have_http_status(:not_found)
+    end
+
+    it 'returns the first page and the total of each column, newest activity first' do
+      older = create(:conversation, account: account, inbox: inbox, last_activity_at: 2.hours.ago)
+      older.update_labels(['sdr'])
+      newer = create(:conversation, account: account, inbox: inbox, last_activity_at: 1.hour.ago)
+      newer.update_labels(['sdr'])
+      commercial = create(:conversation, account: account, inbox: inbox)
+      commercial.update_labels(['comercial'])
+
+      get url, params: { inbox_id: inbox.id, labels: %w[sdr comercial], status: 'all' }, headers: admin.create_new_auth_token
+
+      expect(response).to have_http_status(:success)
+      columns = response.parsed_body['columns']
+      expect(columns['sdr']['total']).to eq(2)
+      expect(columns['sdr']['payload'].pluck('id')).to eq([newer.display_id, older.display_id])
+      expect(columns['comercial']['payload'].first).to include(
+        'id' => commercial.display_id,
+        'labels' => ['comercial'],
+        'meta' => hash_including('sender' => hash_including('phone_number' => commercial.contact.phone_number))
+      )
+    end
+
+    it 'puts conversations without a stage label in the unstaged column and honours exclude_labels' do
+      unstaged = create(:conversation, account: account, inbox: inbox)
+      imported = create(:conversation, account: account, inbox: inbox)
+      imported.update_labels(%w[sdr importado])
+      kept = create(:conversation, account: account, inbox: inbox)
+      kept.update_labels(['sdr'])
+
+      get url, params: { inbox_id: inbox.id, labels: ['sdr'], exclude_labels: ['importado'], unstaged: '1', status: 'all' },
+               headers: admin.create_new_auth_token
+
+      body = response.parsed_body
+      expect(body['columns']['sdr']['payload'].pluck('id')).to eq([kept.display_id])
+      expect(body['columns'][body['unstaged_key']]['payload'].pluck('id')).to eq([unstaged.display_id])
+    end
+
+    it 'filters by status like the conversation list' do
+      open_conversation = create(:conversation, account: account, inbox: inbox, status: :open)
+      open_conversation.update_labels(['sdr'])
+      create(:conversation, account: account, inbox: inbox, status: :resolved).update_labels(['sdr'])
+
+      get url, params: { inbox_id: inbox.id, labels: ['sdr'], status: 'open' }, headers: admin.create_new_auth_token
+
+      expect(response.parsed_body['columns']['sdr']['payload'].pluck('id')).to eq([open_conversation.display_id])
+    end
+
+    it 'counts unread incoming messages since an agent last saw the conversation' do
+      conversation = create(:conversation, account: account, inbox: inbox, agent_last_seen_at: 1.hour.ago)
+      conversation.update_labels(['sdr'])
+      create_list(:message, 2, account: account, inbox: inbox, conversation: conversation, message_type: :incoming)
+      create(:message, account: account, inbox: inbox, conversation: conversation, message_type: :outgoing)
+
+      get url, params: { inbox_id: inbox.id, labels: ['sdr'], status: 'all' }, headers: admin.create_new_auth_token
+
+      expect(response.parsed_body['columns']['sdr']['payload'].first['unread_count']).to eq(2)
+    end
+
+    it 'lets an agent read an inbox they belong to' do
+      create(:inbox_member, user: agent, inbox: inbox)
+      create(:conversation, account: account, inbox: inbox).update_labels(['sdr'])
+
+      get url, params: { inbox_id: inbox.id, labels: ['sdr'], status: 'all' }, headers: agent.create_new_auth_token
+
+      expect(response).to have_http_status(:success)
+      expect(response.parsed_body['columns']['sdr']['total']).to eq(1)
+    end
+  end
+end

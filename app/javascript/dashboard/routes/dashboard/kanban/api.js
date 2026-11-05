@@ -16,6 +16,7 @@
 
 import Cookies from 'js-cookie';
 import ApiClient from '../../../api/ApiClient';
+import { n8nTicket } from '../n8nTicket';
 
 class KanbanAPI extends ApiClient {
   constructor() {
@@ -288,6 +289,7 @@ export async function fetchLead({ url, secret, phone }) {
       body: JSON.stringify({
         phone,
         auth: readSessionAuth(),
+        ticket: await n8nTicket(),
         secret: secret || undefined,
       }),
     });
@@ -358,6 +360,7 @@ export async function scheduleMessage({
       body: JSON.stringify({
         secret: secret || undefined,
         auth,
+        ticket: await n8nTicket(),
         conversation_id: conversationId,
         inbox_id: inboxId,
         phone,

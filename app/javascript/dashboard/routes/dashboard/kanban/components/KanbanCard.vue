@@ -56,23 +56,35 @@ const onClick = () => {
   if (justDragged) return;
   emit('open');
 };
+
+// 05/11/2026: o card recebe foco pelo Tab e abre com Enter ou espaco. Arrastar
+// continua so com o mouse; pelo teclado, a etapa muda dentro do popup.
+const unreadLabel = computed(() =>
+  unread.value === 1
+    ? '1 mensagem não lida'
+    : `${unread.value} mensagens não lidas`
+);
 </script>
 
 <template>
   <div
-    class="p-2.5 rounded-lg border transition-colors cursor-grab active:cursor-grabbing bg-n-background border-n-weak hover:border-n-brand"
+    class="p-2.5 rounded-lg border transition-colors cursor-grab active:cursor-grabbing bg-n-background border-n-weak hover:border-n-brand focus-visible:outline focus-visible:outline-2 focus-visible:outline-n-brand"
     :class="isDragging ? 'opacity-40' : ''"
+    role="button"
+    tabindex="0"
     draggable="true"
     @dragstart="onDragStart"
     @dragend="onDragEnd"
     @click="onClick"
+    @keydown.enter.prevent="onClick"
+    @keydown.space.prevent="onClick"
   >
     <div class="flex gap-1.5 items-center font-semibold text-n-slate-12">
       <span class="truncate">{{ name }}</span>
       <span
         v-if="unread"
-        class="px-1.5 ml-auto text-xs font-bold text-white rounded-full min-w-4 text-center"
-        style="background-color: #ef4444"
+        class="px-1.5 ml-auto text-xs font-bold text-white rounded-full min-w-4 text-center bg-n-ruby-9"
+        :aria-label="unreadLabel"
       >
         {{ unread }}
       </span>
@@ -91,7 +103,9 @@ const onClick = () => {
       </span>
     </div>
 
-    <div class="flex gap-1.5 justify-between mt-1.5 text-[11px] text-n-slate-11">
+    <div
+      class="flex gap-1.5 justify-between mt-1.5 text-[11px] text-n-slate-11"
+    >
       <span class="truncate">#{{ conversation.id }} - {{ createdAt }}</span>
       <a
         :href="conversationUrl"

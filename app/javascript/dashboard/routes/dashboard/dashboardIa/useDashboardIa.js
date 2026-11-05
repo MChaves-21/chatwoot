@@ -386,8 +386,8 @@ export function useDashboardIa(accountId) {
     }
   }
 
-  async function fetchFromServer(inboxIds) {
-    const d = await DashboardIaAPI.snapshot({ inboxIds });
+  async function fetchFromServer(inboxIds, { refresh = false } = {}) {
+    const d = await DashboardIaAPI.snapshot({ inboxIds, refresh });
     const agents = d.agents || {};
     const stages = d.stages || {};
     return {
@@ -442,7 +442,9 @@ export function useDashboardIa(accountId) {
     try {
       let data;
       try {
-        data = await fetchFromServer(inboxIds);
+        // Clique em Atualizar (force sem silent) quer o dado de agora; o Modo
+        // TV pode usar o retrato de ate 2 min do servidor.
+        data = await fetchFromServer(inboxIds, { refresh: force && !silent });
       } catch (e) {
         data = await fetchFromBrowser(inboxIds);
       }

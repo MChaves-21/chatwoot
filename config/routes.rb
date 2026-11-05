@@ -332,6 +332,9 @@ Rails.application.routes.draw do
           # Kanban (fork Goncalves & Silva): 1a pagina de todas as colunas numa chamada.
           resource :kanban_board, only: [:show], controller: 'kanban_board'
 
+          # Passe assinado para os webhooks do n8n (fork Goncalves & Silva), no lugar do login da sessao.
+          resource :n8n_ticket, only: [:show], controller: 'n8n_tickets'
+
           # Relatorio da Equipe (fork Goncalves & Silva): mensagens e conversas por usuario.
           resource :relatorio_equipe, only: [:show], controller: 'relatorio_equipe' do
             get :mensagens

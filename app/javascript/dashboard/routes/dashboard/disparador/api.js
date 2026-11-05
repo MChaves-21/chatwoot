@@ -12,6 +12,7 @@
  */
 import Cookies from 'js-cookie';
 import ApiClient from '../../../api/ApiClient';
+import { n8nTicket } from '../n8nTicket';
 import {
   AUDIENCE_CONCURRENCY,
   DISPARADOR_URL,
@@ -41,7 +42,7 @@ export async function callDisparador(acao, dados = {}) {
     res = await fetch(DISPARADOR_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ acao, auth, ...dados }),
+      body: JSON.stringify({ acao, auth, ticket: await n8nTicket(), ...dados }),
     });
   } catch (e) {
     throw new Error('Não foi possível falar com o n8n. Confira a conexão.');
