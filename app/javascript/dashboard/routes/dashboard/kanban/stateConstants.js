@@ -18,6 +18,24 @@ export const STATE_FUNNEL_ID = 'por_estado';
 export const STATE_INBOX_IDS = [6, 15];
 
 /**
+ * Etiquetas de descarte que nenhuma coluna usa mais, mas que conversas antigas
+ * ainda tem. Ficam no fechamento para o Disparador continuar excluindo esses
+ * leads e o Dashboard IA continuar contando como perda.
+ *
+ * Lista separada de proposito: a checagem da esteira
+ * (.github/scripts/verificar-goncalves.mjs) exige que toda etiqueta de
+ * CLOSED_LABELS tenha coluna, e aceita estas por estarem declaradas aqui.
+ * Sai quando as conversas forem migradas para trab_desqualificado/trab_descarte.
+ *
+ * Trabalhista ate 04/11/2026 (colunas antigas do agente de IA).
+ */
+export const LEGACY_CLOSED_LABELS = [
+  'trab_prescrito',
+  'trab_sem_direito',
+  'trab_desinteresse',
+];
+
+/**
  * Etiquetas que significam "nao deu certo". Mantidas pelo sync do n8n.
  *
  * FONTE UNICA DA VERDADE do descarte. `constants.js` importa daqui e reexporta
@@ -44,10 +62,7 @@ export const CLOSED_LABELS = [
   // Trabalhista (05/11/2026): desfechos de descarte do funil novo.
   'trab_desqualificado',
   'trab_descarte',
-  // Trabalhista ate 04/11: conversas antigas ainda podem ter estas.
-  'trab_prescrito',
-  'trab_sem_direito',
-  'trab_desinteresse',
+  ...LEGACY_CLOSED_LABELS,
 ];
 
 /**

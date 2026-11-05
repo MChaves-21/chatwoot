@@ -134,18 +134,26 @@ const lerLista = (arquivo, constante) => {
   const caminho = join(KANBAN_DIR, arquivo);
   if (!existsSync(caminho)) return null;
   const src = readFileSync(caminho, 'utf8');
-  const m = src.match(new RegExp(`${constante}\\s*=\\s*\\[([\\s\\S]*?)\\]`));
+  // \b: CLOSED_LABELS nao pode casar dentro de LEGACY_CLOSED_LABELS.
+  const m = src.match(new RegExp(`\\b${constante}\\s*=\\s*\\[([\\s\\S]*?)\\]`));
   return m ? [...m[1].matchAll(/'([^']+)'/g)].map(x => x[1]) : null;
 };
 
 const fechamento = lerLista('stateConstants.js', 'CLOSED_LABELS');
+// Antigas declaradas em LEGACY_CLOSED_LABELS: sem coluna de proposito (ver o
+// comentario em stateConstants.js). Entram em CLOSED_LABELS por spread.
+const legado = lerLista('stateConstants.js', 'LEGACY_CLOSED_LABELS') || [];
 if (!fechamento) {
   avisos.push('CLOSED_LABELS nao encontrada em stateConstants.js — pulei a 4.');
 } else {
   const constantes = existsSync(join(KANBAN_DIR, 'constants.js'))
     ? readFileSync(join(KANBAN_DIR, 'constants.js'), 'utf8')
     : '';
-  const orfas = fechamento.filter(l => !constantes.includes(`'${l}'`));
+  const orfas = fechamento.filter(
+    l => !legado.includes(l) && !constantes.includes(`'${l}'`)
+  );
+  if (legado.length)
+    avisos.push(`Etiquetas antigas sem coluna (LEGACY_CLOSED_LABELS): ${legado.join(', ')}.`);
   if (orfas.length) {
     erros.push(
       `Etiquetas em CLOSED_LABELS que nenhuma coluna de funil declara: ${orfas.join(
