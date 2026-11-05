@@ -154,7 +154,7 @@ RSpec.describe RelatorioEquipe::Report do
       body = lines.drop(1)
       expect(body.size).to eq(6)
       expect(body.first).to start_with('03/01/2026 09:00:00;')
-      expect(body.first).to include(';Ana Cliente;+5585999990001;Ana Cliente;Cliente;sdr;oi')
+      expect(body.first).to include(";Ana Cliente;'+5585999990001;Ana Cliente;Cliente;sdr;oi")
       expect(body).to include(a_string_including(';Karol;Equipe;'))
       expect(body).to include(a_string_including(';Juliana IA;IA/automação;'))
       expect(body).to include(a_string_including(';Sem autor (celular/integração);Sem autor (celular/integração);'))
