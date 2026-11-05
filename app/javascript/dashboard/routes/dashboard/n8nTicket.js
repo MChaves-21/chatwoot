@@ -2,11 +2,10 @@
  * Passe assinado para os webhooks do n8n (fork Goncalves & Silva) — 05/11/2026.
  *
  * Vem do endpoint do fork (n8n_tickets_controller.rb) e vale 5 minutos. Vai
- * no corpo das chamadas ao n8n como `ticket`, no lugar do login da sessao
- * (`auth`), que o n8n guardava nas execucoes.
- *
- * Transicao: enquanto os fluxos do n8n nao conferem o ticket, as telas mandam
- * os dois. Quando todos conferirem, tirar o `auth` dos corpos.
+ * no corpo das chamadas ao n8n como `ticket`. Substituiu o login da sessao
+ * (`auth`), que o n8n guardava nas execucoes: desde 05/11/2026 o `auth` nao
+ * vai mais. Os 4 fluxos (kanban-lead, kanban-agendar, disparador-api,
+ * dashboard-ia-motivos) conferem o ticket com a mesma N8N_TICKET_SECRET.
  *
  * Devolve '' se o servidor nao tiver N8N_TICKET_SECRET ou a chamada falhar.
  */

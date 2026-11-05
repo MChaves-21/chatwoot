@@ -14,7 +14,6 @@
  *     nao ha mais campo "Account ID" para alguem preencher errado.
  */
 
-import Cookies from 'js-cookie';
 import ApiClient from '../../../api/ApiClient';
 import { n8nTicket } from '../n8nTicket';
 
@@ -257,26 +256,9 @@ export default new KanbanAPI();
  * Ainda assim: use um segredo diferente do antigo e limite os workflows.
  */
 /**
- * Credenciais da sessao do dashboard (devise_token_auth). O n8n so as usa
- * para perguntar ao Chatwoot quem esta logado (GET /api/v1/profile) — mesmo
- * esquema do Agendar e do Disparador (22/10/2026).
- */
-export function readSessionAuth() {
-  try {
-    const raw = JSON.parse(Cookies.get('cw_d_session_info') || '{}');
-    return {
-      'access-token': raw['access-token'] || '',
-      client: raw.client || '',
-      uid: raw.uid || '',
-    };
-  } catch (e) {
-    return {};
-  }
-}
-
-/**
- * 22/10/2026: o kanban-lead autentica pela sessao do Chatwoot (`auth`) e so
- * responde a quem pertence a conta 1. O `secret` antigo vai junto apenas
+ * 05/11/2026: o kanban-lead autentica pelo ticket assinado (n8nTicket.js) e so
+ * responde a quem pertence a conta 1. O login da sessao nao vai mais ao n8n.
+ * (Antes, 22/10/2026: autenticava pela sessao do Chatwoot.) O `secret` antigo vai junto apenas
  * enquanto existir no localStorage, para a transicao; depois do deploy o n8n
  * deixa de aceita-lo.
  */
@@ -288,7 +270,6 @@ export async function fetchLead({ url, secret, phone }) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         phone,
-        auth: readSessionAuth(),
         ticket: await n8nTicket(),
         secret: secret || undefined,
       }),
@@ -342,7 +323,6 @@ export async function fetchSummary({ url, secret, conversationId, phone, message
 export async function scheduleMessage({
   url,
   secret,
-  auth,
   conversationId,
   inboxId,
   phone,
@@ -350,7 +330,7 @@ export async function scheduleMessage({
   scheduledAt,
   content,
 }) {
-  // 30/09/2026: o n8n autentica pela sessao do Chatwoot (`auth`). O `secret`
+  // 05/11/2026: o n8n autentica pelo ticket assinado (n8nTicket.js). O `secret`
   // antigo so vai junto se ainda estiver nas Configuracoes deste navegador.
   if (!url) return { ok: false, error: 'Webhook de agendamento não configurado.' };
   try {
@@ -359,7 +339,6 @@ export async function scheduleMessage({
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         secret: secret || undefined,
-        auth,
         ticket: await n8nTicket(),
         conversation_id: conversationId,
         inbox_id: inboxId,
