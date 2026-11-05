@@ -222,52 +222,53 @@ export const TRABALHISTA_FUNNEL_ID = 'trabalhista';
 export const TRABALHISTA_INBOX_ID = 10;
 
 /**
- * Funil Trabalhista — 25/09/2026. As colunas sao as ETAPAS do agente de IA
- * trabalhista (campo etapa_atual do json_estado no n8n), na mesma ordem do
- * roteiro. O pedido foi "kanban por estado de Trabalhista": uma coluna para
- * cada estado do atendimento.
+ * Funil Trabalhista — refeito em 05/11/2026 a pedido do Murilo, no mesmo
+ * formato do funil do Auxilio: SDR -> Comercial -> Contrato em elaboracao ->
+ * Aguardando assinatura -> Contrato enviado -> Contrato assinado -> Efetivado,
+ * mais os desfechos Desqualificado, Descarte e Aguardando sair do trabalho.
+ *
+ * Lead qualificado (criterio do Murilo, 05/11/2026): saiu do trabalho entre
+ * outubro de 2024 e abril de 2026 e trabalhou no local por pelo menos 6 meses.
+ * Quem ainda esta empregado vai para "Aguardando sair do trabalho".
+ *
+ * Ate 04/11 as colunas eram as etapas do agente de IA (trab_apresentacao ...
+ * trab_desinteresse). Conversa que ainda so tem essas etiquetas antigas nao
+ * aparece em coluna nenhuma ate ser movida.
  *
  * Prefixo trab_ obrigatorio, pelo mesmo motivo do bpc_: moveToStage apaga as
  * etiquetas de etapa do funil ativo antes de aplicar a nova.
- *
- * O estado `encerrado` do roteiro virou quatro colunas, uma por desfecho
- * (motivo_encerramento). Uma coluna so para "contrato enviado", "prescrito",
- * "sem direito" e "desistiu" misturaria quem virou cliente com quem foi
- * descartado. As tres de descarte entram em CLOSED_LABELS.
  */
 export const TRABALHISTA_COLUMNS = [
-  { title: 'Apresentacao', label: 'trab_apresentacao', color: '#3b82f6' },
-  { title: 'Qualificacao', label: 'trab_qualificacao', color: '#6366f1' },
+  { title: 'SDR', label: 'trab_sdr', color: '#3b82f6' },
+  { title: 'Comercial', label: 'trab_comercial', color: '#6366f1' },
   {
-    title: 'Coleta de informacoes',
-    label: 'trab_coleta_info',
+    title: 'Contrato em elaboracao',
+    label: 'trab_contrato_em_elaboracao',
     color: '#8b5cf6',
   },
   {
-    title: 'Explicacao do processo',
-    label: 'trab_explicacao_processo',
-    color: '#0ea5e9',
-  },
-  {
-    title: 'Condicoes financeiras',
-    label: 'trab_condicoes_financeiras',
-    color: '#06b6d4',
-  },
-  { title: 'Objecao', label: 'trab_objecao', color: '#f97316' },
-  { title: 'Fechamento', label: 'trab_fechamento', color: '#eab308' },
-  {
-    title: 'Coleta de dados do contrato',
-    label: 'trab_coleta_contrato',
+    title: 'Aguardando assinatura',
+    label: 'trab_aguardando_assinatura',
     color: '#f59e0b',
   },
   {
     title: 'Contrato enviado',
     label: 'trab_contrato_enviado',
+    color: '#eab308',
+  },
+  {
+    title: 'Contrato assinado',
+    label: 'trab_contrato_assinado',
     color: '#22c55e',
   },
-  { title: 'Prescrito', label: 'trab_prescrito', color: '#64748b' },
-  { title: 'Sem direito', label: 'trab_sem_direito', color: '#ef4444' },
-  { title: 'Desistiu', label: 'trab_desinteresse', color: '#dc2626' },
+  { title: 'Efetivado', label: 'trab_efetivado', color: '#16a34a' },
+  { title: 'Desqualificado', label: 'trab_desqualificado', color: '#ef4444' },
+  { title: 'Descarte', label: 'trab_descarte', color: '#64748b' },
+  {
+    title: 'Aguardando sair do trabalho',
+    label: 'trab_aguardando_sair_trabalho',
+    color: '#0ea5e9',
+  },
 ];
 
 /**
@@ -444,19 +445,17 @@ export const STAGE_EMOJI = {
   bpc_desqualificado: '❌',
   bpc_cancelado: '🚫',
   bpc_fechado_sem_resposta: '🔇',
-  // Trabalhista
-  trab_apresentacao: '👋',
-  trab_qualificacao: '📞',
-  trab_coleta_info: '🔎',
-  trab_explicacao_processo: '⚖️',
-  trab_condicoes_financeiras: '💰',
-  trab_objecao: '🤔',
-  trab_fechamento: '🤝',
-  trab_coleta_contrato: '📝',
+  // Trabalhista (05/11/2026)
+  trab_sdr: '📞',
+  trab_comercial: '💼',
+  trab_contrato_em_elaboracao: '📝',
+  trab_aguardando_assinatura: '⏳',
   trab_contrato_enviado: '✍️',
-  trab_prescrito: '⌛',
-  trab_sem_direito: '❌',
-  trab_desinteresse: '🚫',
+  trab_contrato_assinado: '✅',
+  trab_efetivado: '🎉',
+  trab_desqualificado: '❌',
+  trab_descarte: '🗑️',
+  trab_aguardando_sair_trabalho: '🏭',
 };
 
 /** Etiqueta que o quadro acrescenta ao mover um card na mao. */

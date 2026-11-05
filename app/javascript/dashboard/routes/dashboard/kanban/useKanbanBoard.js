@@ -161,6 +161,39 @@ export function useKanbanBoard(accountId) {
     return !st.done && (st.total === null || st.loaded.length < st.total);
   }
 
+  /** Junta uma pagina recebida a coluna (carga por coluna e carga unica). */
+  function applyPage(label, payload, total) {
+    const st = columns[label];
+    /*
+     * 26/10/2026 - descarte vence, como no Dashboard IA. Conversa com duas
+     * etapas (ex.: `sdr` + `desqualificado`, que o Kanban Sync deixa quando
+     * desqualifica sem tirar a etapa anterior) aparecia nas duas colunas e
+     * contava duas vezes. Fica so na coluna de descarte; o total da coluna
+     * de origem desconta o card tirado.
+     */
+    const dropped = DISQUALIFIED_LABELS.includes(label)
+      ? []
+      : payload.filter(c =>
+          convLabels(c).some(
+            l =>
+              DISQUALIFIED_LABELS.includes(l) && stageLabels.value.includes(l)
+          )
+        );
+    st.skipped += dropped.length;
+    const seen = new Set(st.loaded.map(c => c.id));
+    payload.forEach(c => {
+      if (!seen.has(c.id) && !dropped.includes(c)) st.loaded.push(c);
+    });
+    // Nao comparar com um tamanho de pagina fixo: o Chatwoot pagina com
+    // CONVERSATION_RESULTS_PER_PAGE, que e 25 por padrao mas e variavel de
+    // ambiente. Se ela ficar abaixo de 25, uma pagina cheia seria lida como
+    // "acabou" e a coluna truncaria em silencio. O total do meta.all_count e
+    // confiavel: o finder aplica o filtro antes de contar.
+    st.done = payload.length === 0 || st.loaded.length + st.skipped >= total;
+    st.total = total - st.skipped;
+    delete errors[label];
+  }
+
   async function loadColumn(label) {
     const st = columns[label];
     if (!st || st.done) return;
@@ -182,35 +215,7 @@ export function useKanbanBoard(accountId) {
               inboxId: activeFunnel.value.inboxId,
               excludeLabels: excludeLabels.value,
             });
-
-      /*
-       * 26/10/2026 - descarte vence, como no Dashboard IA. Conversa com duas
-       * etapas (ex.: `sdr` + `desqualificado`, que o Kanban Sync deixa quando
-       * desqualifica sem tirar a etapa anterior) aparecia nas duas colunas e
-       * contava duas vezes. Fica so na coluna de descarte; o total da coluna
-       * de origem desconta o card tirado.
-       */
-      const dropped = DISQUALIFIED_LABELS.includes(label)
-        ? []
-        : payload.filter(c =>
-            convLabels(c).some(
-              l =>
-                DISQUALIFIED_LABELS.includes(l) && stageLabels.value.includes(l)
-            )
-          );
-      st.skipped += dropped.length;
-      const seen = new Set(st.loaded.map(c => c.id));
-      payload.forEach(c => {
-        if (!seen.has(c.id) && !dropped.includes(c)) st.loaded.push(c);
-      });
-      // Nao comparar com um tamanho de pagina fixo: o Chatwoot pagina com
-      // CONVERSATION_RESULTS_PER_PAGE, que e 25 por padrao mas e variavel de
-      // ambiente. Se ela ficar abaixo de 25, uma pagina cheia seria lida como
-      // "acabou" e a coluna truncaria em silencio. O total do meta.all_count e
-      // confiavel: o finder aplica o filtro antes de contar.
-      st.done = payload.length === 0 || st.loaded.length + st.skipped >= total;
-      st.total = total - st.skipped;
-      delete errors[label];
+      applyPage(label, payload, total);
     } catch (err) {
       st.page -= 1;
       errors[label] = err.message || 'Falha ao carregar';
@@ -245,11 +250,51 @@ export function useKanbanBoard(accountId) {
     await Promise.all(Array.from({ length: width }, () => worker()));
   }
 
+  /**
+   * 1a pagina de todas as colunas numa chamada so (kanban_board_controller.rb)
+   * — 05/11/2026. Medido antes: 1,2 a 1,9 s por coluna, 8 a 10 s para abrir o
+   * 0300. Devolve false se o funil nao tem caixa ou se o endpoint falhar; ai
+   * loadAll faz como antes, uma requisicao por coluna.
+   */
+  async function loadAllAtOnce() {
+    const { inboxId } = activeFunnel.value;
+    if (!inboxId) return false;
+    const labels = stageLabels.value;
+    const unstaged = columnDefs.value.some(c => c.label === UNSTAGED_LABEL);
+    let data;
+    try {
+      data = await KanbanAPI.board({
+        inboxId,
+        labels,
+        excludeLabels: excludeLabels.value,
+        status: prefs.status,
+        unstaged,
+      });
+    } catch (e) {
+      return false;
+    }
+    columnDefs.value.forEach(col => {
+      const key = col.label === UNSTAGED_LABEL ? data.unstaged_key : col.label;
+      const page = data.columns[key];
+      // Coluna sem resposta ou funil trocado no meio da carga: fica para a
+      // carga por coluna.
+      if (!page || !columns[col.label]) return;
+      columns[col.label].page = 1;
+      applyPage(col.label, page.payload || [], page.total || 0);
+    });
+    return true;
+  }
+
   async function loadAll() {
     isLoading.value = true;
     resetColumns();
 
-    const queue = columnDefs.value;
+    statusText.value = 'Carregando...';
+    await loadAllAtOnce();
+    // So o que a carga unica nao trouxe (endpoint ausente, funil sem caixa).
+    const queue = columnDefs.value.filter(
+      col => columns[col.label] && columns[col.label].page === 0
+    );
     // Contador em vez de "Carregando...": com 17 colunas, saber que faltam 3 e
     // a diferenca entre esperar e achar que travou.
     statusText.value = `Carregando 0/${queue.length}...`;

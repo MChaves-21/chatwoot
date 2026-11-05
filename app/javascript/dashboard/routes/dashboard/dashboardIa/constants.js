@@ -94,18 +94,16 @@ export const FUNNEL_READING = {
   },
   trabalhista: {
     path: [
-      'trab_apresentacao',
-      'trab_qualificacao',
-      'trab_coleta_info',
-      'trab_explicacao_processo',
-      'trab_condicoes_financeiras',
-      'trab_objecao',
-      'trab_fechamento',
-      'trab_coleta_contrato',
+      'trab_sdr',
+      'trab_comercial',
+      'trab_contrato_em_elaboracao',
+      'trab_aguardando_assinatura',
       'trab_contrato_enviado',
+      'trab_contrato_assinado',
+      'trab_efetivado',
     ],
-    qualifiedFrom: 'trab_coleta_info',
-    signedFrom: null,
+    qualifiedFrom: 'trab_comercial',
+    signedFrom: 'trab_contrato_assinado',
   },
 };
 

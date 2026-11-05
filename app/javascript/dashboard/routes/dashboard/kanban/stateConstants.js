@@ -41,7 +41,10 @@ export const CLOSED_LABELS = [
   'bpc_desqualificado',
   'bpc_cancelado',
   'bpc_fechado_sem_resposta',
-  // Trabalhista (25/09/2026): os tres desfechos de descarte do roteiro.
+  // Trabalhista (05/11/2026): desfechos de descarte do funil novo.
+  'trab_desqualificado',
+  'trab_descarte',
+  // Trabalhista ate 04/11: conversas antigas ainda podem ter estas.
   'trab_prescrito',
   'trab_sem_direito',
   'trab_desinteresse',

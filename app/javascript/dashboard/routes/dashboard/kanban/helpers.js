@@ -424,20 +424,19 @@ export function nextSteps(label) {
     bpc_fechado_sem_resposta:
       'Nunca respondeu - candidato a campanha de reativacao, nao a cobranca.',
 
-    // ------------------------------------------------ Trabalhista (25/09/2026)
-    trab_apresentacao: 'Lead acabou de chegar - a IA faz a apresentacao.',
-    trab_qualificacao: 'Confirmar se trabalhou com ou sem carteira.',
-    trab_coleta_info:
-      'Coletar funcao, dias/horario, tempo, salario, pagamento e testemunhas.',
-    trab_explicacao_processo: 'Explicar como funciona a acao.',
-    trab_condicoes_financeiras: 'Explicar os honorarios (so recebe se ganhar).',
-    trab_objecao: 'Tratar a objecao (medo, lealdade ao patrao, demora).',
-    trab_fechamento: 'Confirmar se o cliente quer entrar com o processo.',
-    trab_coleta_contrato: 'Coletar os dados e gerar o contrato.',
+    // ------------------------------------------------ Trabalhista (05/11/2026)
+    trab_sdr:
+      'Confirmar se saiu do trabalho entre 10/2024 e 04/2026 e ficou 6 meses ou mais.',
+    trab_comercial: 'Lead qualificado - explicar a acao e os honorarios.',
+    trab_contrato_em_elaboracao: 'Coletar os dados e gerar o contrato.',
+    trab_aguardando_assinatura: 'Mandar o contrato para assinatura.',
     trab_contrato_enviado: 'Cobrar a assinatura do contrato.',
-    trab_prescrito: 'Desligado ha mais de 2 anos - sem acao.',
-    trab_sem_direito: 'Nao preenche o minimo de dias/horas - sem acao.',
-    trab_desinteresse: 'Cliente desistiu - retomar so se ele procurar.',
+    trab_contrato_assinado: 'Contrato assinado - seguir para o protocolo.',
+    trab_efetivado: 'Caso efetivado - acompanhar o andamento.',
+    trab_desqualificado: 'Fora do criterio (periodo ou tempo de trabalho) - sem acao.',
+    trab_descarte: 'Sem resposta ou desistiu - retomar so se ele procurar.',
+    trab_aguardando_sair_trabalho:
+      'Ainda trabalha no local - retomar quando sair do emprego.',
   };
   return m[label] || '';
 }

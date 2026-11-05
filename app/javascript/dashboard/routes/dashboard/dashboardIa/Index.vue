@@ -400,15 +400,13 @@ const STAGE_ICONS = {
   bpc_analise_juridica: 'i-lucide-scale',
   bpc_pos_juridica: 'i-lucide-hourglass',
   bpc_efetivado: 'i-lucide-party-popper',
-  trab_apresentacao: 'i-lucide-hand',
-  trab_qualificacao: 'i-lucide-users',
-  trab_coleta_info: 'i-lucide-search',
-  trab_explicacao_processo: 'i-lucide-scale',
-  trab_condicoes_financeiras: 'i-lucide-banknote',
-  trab_objecao: 'i-lucide-message-circle-question',
-  trab_fechamento: 'i-lucide-handshake',
-  trab_coleta_contrato: 'i-lucide-file-text',
+  trab_sdr: 'i-lucide-phone',
+  trab_comercial: 'i-lucide-briefcase',
+  trab_contrato_em_elaboracao: 'i-lucide-file-text',
+  trab_aguardando_assinatura: 'i-lucide-pen-line',
   trab_contrato_enviado: 'i-lucide-send',
+  trab_contrato_assinado: 'i-lucide-trophy',
+  trab_efetivado: 'i-lucide-party-popper',
 };
 
 const flowSteps = computed(() => {

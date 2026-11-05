@@ -22,6 +22,45 @@ class KanbanAPI extends ApiClient {
     super('conversations', { accountScoped: true });
   }
 
+  /** Prefixo da conta: /api/v1/accounts/:id */
+  get base() {
+    return this.url.replace(/\/conversations$/, '');
+  }
+
+  /**
+   * 1a pagina de todas as colunas numa chamada so — 05/11/2026.
+   *
+   * Endpoint do fork (kanban_board_controller.rb). Devolve
+   * { columns: { etiqueta: { total, payload } } } e, com `unstaged`, a coluna
+   * "Sem etapa" na chave `unstaged_key`. Os cards vem enxutos: so os campos
+   * que o quadro le.
+   *
+   * Lanca erro se o endpoint nao existir (imagem antiga) ou se a resposta vier
+   * fora do formato; quem chama volta para uma requisicao por coluna.
+   */
+  async board({
+    inboxId,
+    labels,
+    excludeLabels = [],
+    status = 'all',
+    unstaged,
+  }) {
+    const params = new URLSearchParams();
+    params.set('inbox_id', String(inboxId));
+    params.set('status', status || 'all');
+    labels.forEach(l => params.append('labels[]', l));
+    excludeLabels.forEach(l => params.append('exclude_labels[]', l));
+    if (unstaged) params.set('unstaged', '1');
+    const res = await axios.get(
+      `${this.base}/kanban_board?${params.toString()}`
+    );
+    const data = res.data || {};
+    if (!data.columns || typeof data.columns !== 'object') {
+      throw new Error('Resposta inesperada do endpoint do Kanban.');
+    }
+    return data;
+  }
+
   /**
    * Uma pagina de conversas de uma etiqueta. O tamanho da pagina vem de
    * CONVERSATION_RESULTS_PER_PAGE no servidor (25 por padrao), entao nao ha

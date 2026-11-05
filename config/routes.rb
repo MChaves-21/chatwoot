@@ -329,6 +329,9 @@ Rails.application.routes.draw do
             patch :goals
           end
 
+          # Kanban (fork Goncalves & Silva): 1a pagina de todas as colunas numa chamada.
+          resource :kanban_board, only: [:show], controller: 'kanban_board'
+
           # Relatorio da Equipe (fork Goncalves & Silva): mensagens e conversas por usuario.
           resource :relatorio_equipe, only: [:show], controller: 'relatorio_equipe' do
             get :mensagens
