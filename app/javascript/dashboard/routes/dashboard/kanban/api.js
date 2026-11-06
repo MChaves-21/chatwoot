@@ -16,6 +16,7 @@
 
 import ApiClient from '../../../api/ApiClient';
 import { n8nTicket } from '../n8nTicket';
+import { SUMMARY_WEBHOOK_URL } from './constants';
 
 class KanbanAPI extends ApiClient {
   constructor() {
@@ -284,18 +285,29 @@ export async function fetchLead({ url, secret, phone }) {
   }
 }
 
-export async function fetchSummary({ url, secret, conversationId, phone, messages }) {
-  if (!url || !secret) return null;
+/**
+ * Resumo do card por IA — 06/11/2026.
+ *
+ * Quem le a conversa e o n8n (todas as paginas + transcricao dos audios na
+ * memoria da IA comercial); aqui so vai o ticket e o id. Sem `secret` e sem
+ * `messages`. `force` pula o cache guardado na conversa (botao de refazer).
+ *
+ * Devolve o texto ou null. null = o popup cai na ficha local, como antes.
+ */
+export async function fetchSummary({ conversationId, force = false }) {
+  if (!conversationId) return null;
+  const ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+  const timer = ctrl ? setTimeout(() => ctrl.abort(), 30000) : null;
   try {
-    const r = await fetch(url, {
+    const r = await fetch(SUMMARY_WEBHOOK_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
+        ticket: await n8nTicket(),
         conversation_id: conversationId,
-        phone,
-        secret,
-        messages,
+        force: force || undefined,
       }),
+      signal: ctrl ? ctrl.signal : undefined,
     });
     if (!r.ok) return null;
     let d = await r.json();
@@ -305,6 +317,8 @@ export async function fetchSummary({ url, secret, conversationId, phone, message
     );
   } catch (e) {
     return null;
+  } finally {
+    if (timer) clearTimeout(timer);
   }
 }
 

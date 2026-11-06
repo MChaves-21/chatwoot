@@ -542,6 +542,18 @@ export const HOME_ACCOUNT_ID = 1;
 export const SCHEDULE_WEBHOOK_URL =
   'https://n8n.goncalvesesilva.cloud/webhook/kanban-agendar';
 
+/**
+ * Resumo do card por IA — 06/11/2026 (pedido da Karol).
+ *
+ * URL fixa: antes o resumo por IA so rodava se o navegador tivesse URL e
+ * segredo preenchidos em Configuracoes, entao todo mundo via a ficha local.
+ * O workflow `Kanban - Resumo do card (IA)` le a conversa inteira no Chatwoot
+ * (o front so mandava a ultima pagina), autentica pelo ticket assinado e
+ * guarda o resumo na conversa (custom_attributes.resumo_kanban).
+ */
+export const SUMMARY_WEBHOOK_URL =
+  'https://n8n.goncalvesesilva.cloud/webhook/kanban-resumo';
+
 export const DEFAULT_PREFS = {
   funnelId: DEFAULT_FUNNEL_ID,
   tags: DEFAULT_TAGS,
@@ -550,7 +562,6 @@ export const DEFAULT_PREFS = {
   hideImported: false,
   // Webhooks n8n que NAO passam pela API do Chatwoot.
   leadUrl: '',
-  summaryUrl: '',
   // Agendar mensagem — 14/08/2026. Enquanto vazio, o botao "Agendar" NAO
   // aparece no cabecalho da conversa: botao que abre painel e falha ao salvar
   // e pior que botao ausente. Ver ScheduleMessageButton.vue.

@@ -16,7 +16,6 @@ const LABEL = 'block mt-3 mb-1 text-xs font-semibold text-n-slate-11';
 // Rascunho local: nada e aplicado enquanto o usuario nao salvar.
 const status = ref(props.prefs.status || 'all');
 const leadUrl = ref(props.prefs.leadUrl || '');
-const summaryUrl = ref(props.prefs.summaryUrl || '');
 const scheduleUrl = ref(props.prefs.scheduleUrl || '');
 const secret = ref(props.prefs.secret || '');
 const tagsText = ref(JSON.stringify(props.prefs.tags || [], null, 2));
@@ -35,7 +34,6 @@ const save = () => {
   emit('save', {
     status: status.value.trim() || 'all',
     leadUrl: leadUrl.value.trim(),
-    summaryUrl: summaryUrl.value.trim(),
     scheduleUrl: scheduleUrl.value.trim(),
     secret: secret.value.trim(),
     tags,
@@ -87,13 +85,6 @@ const save = () => {
         v-model="leadUrl"
         :class="INPUT"
         placeholder="https://n8n.goncalvesesilva.cloud/webhook/kanban-lead"
-      />
-
-      <label :class="LABEL">Resumo por IA (se vazio, usa o resumo automático)</label>
-      <input
-        v-model="summaryUrl"
-        :class="INPUT"
-        placeholder="https://n8n.goncalvesesilva.cloud/webhook/kanban-resumo"
       />
 
       <!--

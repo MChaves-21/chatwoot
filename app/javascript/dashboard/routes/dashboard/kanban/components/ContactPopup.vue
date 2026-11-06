@@ -13,7 +13,6 @@ import {
   fmtDate,
   isTrue,
   msgItems,
-  msgsToArr,
   situacaoBR,
   suggestTags,
 } from '../helpers';
@@ -134,20 +133,24 @@ const tagTitle = label =>
 
 // ------------------------------------------------------------------ resumo
 
-async function renderSummary({ forceLocal = false } = {}) {
+/**
+ * 06/11/2026: o resumo por IA roda sempre (URL fixa, ticket assinado) — antes
+ * dependia de URL e segredo nas Configuracoes deste navegador e quase ninguem
+ * os tinha, entao a Karol via so a ficha local, cheia de "Nao informado".
+ * Se o n8n falhar, a ficha local continua como plano B, com o aviso.
+ * `force` pula o cache que o n8n guarda na conversa (botao de refazer).
+ */
+async function renderSummary({ forceLocal = false, force = false } = {}) {
   // Sair cedo e o que de fato economiza: sem isto, o BPC continuaria pagando a
   // chamada de IA no onMounted para montar um texto que ninguem ve.
   if (!props.showSummary) return;
   isSummarizing.value = true;
   summaryText.value = '';
 
-  if (!forceLocal && props.prefs.summaryUrl && props.prefs.secret) {
+  if (!forceLocal) {
     const txt = await fetchSummary({
-      url: props.prefs.summaryUrl,
-      secret: props.prefs.secret,
       conversationId: props.conversation.id,
-      phone: phone.value,
-      messages: msgsToArr(messages.value),
+      force,
     });
     if (txt) {
       summaryText.value = txt;
@@ -435,18 +438,21 @@ const SEC =
                 <p class="text-sm leading-relaxed whitespace-pre-wrap text-n-slate-12">
                   {{ summaryText }}
                 </p>
-                <button
-                  class="px-3 py-1.5 mt-3 text-xs rounded-lg border border-n-weak text-n-slate-12"
-                  @click="renderSummary({ forceLocal: summaryFromAI })"
-                >
-                  {{
-                    summaryFromAI
-                      ? 'Montar ficha localmente'
-                      : prefs.summaryUrl
-                        ? 'Tentar resumo por IA'
-                        : 'Recalcular'
-                  }}
-                </button>
+                <div class="flex flex-wrap gap-2 mt-3">
+                  <button
+                    class="px-3 py-1.5 text-xs rounded-lg border border-n-weak text-n-slate-12"
+                    @click="renderSummary({ force: true })"
+                  >
+                    {{ summaryFromAI ? 'Refazer resumo por IA' : 'Tentar resumo por IA' }}
+                  </button>
+                  <button
+                    v-if="summaryFromAI"
+                    class="px-3 py-1.5 text-xs rounded-lg border border-n-weak text-n-slate-11"
+                    @click="renderSummary({ forceLocal: true })"
+                  >
+                    Ver ficha local
+                  </button>
+                </div>
               </template>
             </template>
 
