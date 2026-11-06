@@ -415,31 +415,52 @@ const exportDay = async ({ list, mode, date }) => {
  * largura util e o botao Configuracoes quebrava para uma segunda linha sozinho.
  * Os rotulos foram encurtados e o title= carrega o texto completo.
  */
+// !border !border-solid: o reset global de `button` do Chatwoot (largura 0 e
+// estilo none) vem depois das utilidades do Tailwind e apagava a borda.
 const BTN =
-  'shrink-0 px-2.5 py-1.5 text-xs whitespace-nowrap rounded-lg border transition-colors border-n-weak text-n-slate-12 hover:bg-n-alpha-2 disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-n-brand';
+  'shrink-0 px-2.5 py-1.5 text-xs whitespace-nowrap rounded-lg !border !border-solid transition-colors border-n-weak text-n-slate-12 hover:bg-n-alpha-2 disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-n-brand';
 
 // Botao dentro de um grupo: a borda e do grupo, nao do botao.
 const SEG_BTN =
   'px-2.5 py-1.5 text-xs whitespace-nowrap transition-colors text-n-slate-12 hover:bg-n-alpha-2 focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-n-brand';
 
+// Recarregar com a hora da ultima carga. Mesma altura do BTN (30px).
+const REFRESH_BTN =
+  'shrink-0 flex gap-1.5 items-center px-2.5 h-[30px] text-xs whitespace-nowrap rounded-lg !border !border-solid transition-colors border-n-weak text-n-slate-11 hover:text-n-slate-12 hover:bg-n-alpha-2 disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-n-brand';
+
+const updatedText = computed(() => {
+  const at = board.loadedAt.value;
+  if (!at) return '';
+  return new Date(at).toLocaleTimeString('pt-BR', {
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+});
+const refreshTitle = computed(() => {
+  const at = board.loadedAt.value;
+  if (!at) return 'Recarregar';
+  return `Atualizado às ${new Date(at).toLocaleTimeString('pt-BR')}. Clique para recarregar`;
+});
+
 // Mesma altura do BTN (py-1.5 + text-xs ~ 30px) para a fila nao ficar torta.
 const ICON_BTN =
-  'shrink-0 flex justify-center items-center size-[30px] rounded-lg border transition-colors border-n-weak text-n-slate-12 hover:bg-n-alpha-2 disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-n-brand';
+  'shrink-0 flex justify-center items-center size-[30px] rounded-lg !border !border-solid transition-colors border-n-weak text-n-slate-12 hover:bg-n-alpha-2 disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-n-brand';
 </script>
 
 <template>
   <div class="flex flex-col w-full h-full bg-n-background">
     <!--
-      Uma linha so a partir de 1280px (xl): o status absorve a sobra e trunca,
-      e Recarregar/Configuracoes viraram icones. Abaixo disso a quebra volta a
-      ser permitida, para nada sumir em tela estreita.
+      06/11/2026: sem o titulo visivel "Kanban" (o menu lateral ja diz onde se
+      esta; o h1 fica so para leitor de tela) e sem o "Atualizado hh:mm:ss".
+      O flex-nowrap a partir de xl saiu: o breakpoint olha a janela, nao a area
+      util, e com o menu lateral aberto o fim da fila (Configuracoes) era
+      cortado. Agora, se nao couber, quebra para a segunda linha em vez de
+      esconder botao.
     -->
     <header
-      class="flex flex-wrap gap-2 items-center px-4 py-2.5 border-b xl:flex-nowrap border-n-weak"
+      class="flex flex-wrap gap-2 items-center px-4 py-2.5 border-b border-n-weak"
     >
-      <h1 class="text-base font-bold whitespace-nowrap text-n-slate-12">
-        Kanban
-      </h1>
+      <h1 class="sr-only">Kanban</h1>
 
       <div
         class="flex overflow-hidden rounded-lg border shrink-0 border-n-weak"
@@ -488,6 +509,10 @@ const ICON_BTN =
         Busca fixa: antes vivia dentro do modal de Filtros e so enxergava o que
         ja estava carregado. Aqui ela consulta o servidor e varre os dois funis.
 
+        Classes com ! porque o estilo global do Chatwoot para input[type]
+        (width 100%, height 2.5rem, margin-bottom 1rem, text-sm) tem mais
+        especificidade e deixava o cabecalho com 77px de altura.
+
         Largura: 176px em repouso e 224px com foco. O espaco extra do foco sai
         do status (que trunca), entao a fila nao quebra ao digitar.
       -->
@@ -495,7 +520,7 @@ const ICON_BTN =
         <input
           v-model="searchText"
           type="search"
-          class="w-[176px] focus:w-[224px] transition-[width] duration-150 px-2.5 py-1.5 text-xs rounded-lg border bg-n-background border-n-weak text-n-slate-12 placeholder:text-n-slate-10"
+          class="!w-[176px] focus:!w-[224px] transition-[width] duration-150 !h-[30px] !mb-0 !px-2.5 !py-1.5 !text-xs !rounded-lg !border !border-solid !border-n-weak !bg-n-background text-n-slate-12 placeholder:text-n-slate-10"
           placeholder="Buscar ou estado…"
           aria-label="Buscar conversa por nome, telefone, #id ou estado"
           autocomplete="off"
@@ -516,7 +541,8 @@ const ICON_BTN =
       <!--
         Espacador e status sao o mesmo elemento: ocupa so a largura que sobra e
         trunca, em vez de reservar 150px fixos que empurravam os botoes para a
-        segunda linha. O texto inteiro fica no title.
+        segunda linha. O texto inteiro fica no title. Parado, fica vazio: so
+        mostra o progresso enquanto carrega.
       -->
       <span
         class="flex-1 min-w-0 text-xs text-right truncate text-n-slate-11"
@@ -569,15 +595,20 @@ const ICON_BTN =
             Atualizados
           </button>
         </div>
+        <!--
+          Mesmo desenho do Dashboard IA: hora da ultima carga (HH:MM) + icone. Substitui o "Atualizado hh:mm:ss" em texto, que ocupava o
+          meio do cabecalho.
+        -->
         <button
-          :class="ICON_BTN"
+          :class="REFRESH_BTN"
           :disabled="board.isLoading.value"
-          title="Recarregar"
-          aria-label="Recarregar"
+          :title="refreshTitle"
+          :aria-label="refreshTitle"
           @click="board.loadAll()"
         >
+          <span v-if="updatedText" class="tabular-nums">{{ updatedText }}</span>
           <span
-            class="i-lucide-refresh-cw size-4"
+            class="i-lucide-refresh-cw size-3.5"
             :class="{ 'animate-spin motion-reduce:animate-none': board.isLoading.value }"
             aria-hidden="true"
           />

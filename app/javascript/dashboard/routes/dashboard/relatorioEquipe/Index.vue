@@ -105,6 +105,8 @@ const filters = computed(() => ({
 
 const data = ref(null);
 const loading = ref(false);
+// Hora da ultima carga certa — aparece (HH:MM) no botao Atualizar.
+const loadedAt = ref(null);
 const error = ref('');
 let seq = 0;
 
@@ -115,7 +117,10 @@ async function load() {
   error.value = '';
   try {
     const res = await RelatorioEquipeAPI.summary(filters.value);
-    if (mine === seq) data.value = res;
+    if (mine === seq) {
+      data.value = res;
+      loadedAt.value = Date.now();
+    }
   } catch (e) {
     if (mine !== seq) return;
     const status = e && e.response && e.response.status;
@@ -136,6 +141,20 @@ onMounted(() => {
   store.dispatch('labels/get');
   load();
 });
+
+const updatedText = computed(() =>
+  loadedAt.value
+    ? new Date(loadedAt.value).toLocaleTimeString('pt-BR', {
+        hour: '2-digit',
+        minute: '2-digit',
+      })
+    : ''
+);
+const refreshTitle = computed(() =>
+  loadedAt.value
+    ? `Atualizado às ${new Date(loadedAt.value).toLocaleTimeString('pt-BR')}. Clique para atualizar`
+    : 'Atualizar'
+);
 
 const exporting = ref(false);
 const exportNote = ref('');
@@ -319,7 +338,7 @@ const SELECT =
   '!w-auto !min-w-[10rem] !max-w-[16rem] !mb-0 !h-8 !py-0 !text-xs !rounded-lg !bg-n-solid-1';
 const DATE = '!w-36 !mb-0 !h-8 !py-0 !text-xs !rounded-lg !bg-n-solid-1';
 const BTN =
-  'flex gap-1.5 items-center px-2.5 h-8 text-xs rounded-lg border transition-colors border-n-weak bg-n-solid-1 text-n-slate-11 hover:text-n-slate-12 hover:bg-n-alpha-1 disabled:opacity-60 focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-n-brand';
+  'flex gap-1.5 items-center px-2.5 h-8 text-xs rounded-lg !border !border-solid transition-colors border-n-weak bg-n-solid-1 text-n-slate-11 hover:text-n-slate-12 hover:bg-n-alpha-1 disabled:opacity-60 focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-n-brand';
 </script>
 
 <template>
@@ -349,13 +368,25 @@ const BTN =
               <span class="i-lucide-bot size-3.5" aria-hidden="true" />
               Quem conta como IA
             </button>
-            <button :class="BTN" :disabled="loading" @click="load">
+            <!--
+              06/11/2026: mesmo desenho do Kanban e do Dashboard IA — hora da
+              ultima carga + icone, sem a palavra "Atualizar".
+            -->
+            <button
+              :class="BTN"
+              :disabled="loading"
+              :title="refreshTitle"
+              :aria-label="refreshTitle"
+              @click="load"
+            >
+              <span v-if="updatedText" class="tabular-nums">{{
+                updatedText
+              }}</span>
               <span
                 class="i-lucide-refresh-cw size-3.5"
                 :class="{ 'animate-spin motion-reduce:animate-none': loading }"
                 aria-hidden="true"
               />
-              Atualizar
             </button>
             <button
               :class="BTN"

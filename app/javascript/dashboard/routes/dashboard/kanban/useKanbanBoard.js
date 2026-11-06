@@ -63,6 +63,8 @@ export function useKanbanBoard(accountId) {
 
   const isLoading = ref(false);
   const statusText = ref('');
+  // Hora da ultima carga completa — o cabecalho mostra HH:MM no botao Recarregar.
+  const loadedAt = ref(null);
   const errors = reactive({});
 
   const columnDefs = computed(() => activeFunnel.value.columns || []);
@@ -307,7 +309,10 @@ export function useKanbanBoard(accountId) {
     );
 
     isLoading.value = false;
-    statusText.value = `Atualizado ${new Date().toLocaleTimeString('pt-BR')}`;
+    // 06/11/2026: o "Atualizado hh:mm:ss" em texto saiu do status; a hora
+    // aparece compacta (HH:MM) no botao Recarregar, como no Dashboard IA.
+    statusText.value = '';
+    loadedAt.value = Date.now();
   }
 
   /**
@@ -582,6 +587,7 @@ export function useKanbanBoard(accountId) {
     leadCache,
     isLoading,
     statusText,
+    loadedAt,
     errors,
     // funis
     funnels: accountFunnels,

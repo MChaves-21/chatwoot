@@ -139,8 +139,9 @@ const SEG_OFF = 'text-n-slate-11 hover:text-n-slate-12';
 const SELECT =
   '!w-auto !min-w-[10rem] !mb-0 !h-8 !py-0 !text-xs !rounded-lg !bg-n-solid-1';
 const DATE = '!w-36 !mb-0 !h-8 !py-0 !text-xs !rounded-lg !bg-n-solid-1';
+// !border !border-solid: o reset global de `button` do Chatwoot apagava a borda.
 const ICON_BTN =
-  'flex gap-1.5 items-center px-2.5 h-8 text-xs rounded-lg border transition-colors dia-no-print border-n-weak bg-n-solid-1 text-n-slate-11 hover:text-n-slate-12 hover:bg-n-alpha-1 disabled:opacity-60 focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-n-brand';
+  'flex gap-1.5 items-center px-2.5 h-8 text-xs rounded-lg !border !border-solid transition-colors dia-no-print border-n-weak bg-n-solid-1 text-n-slate-11 hover:text-n-slate-12 hover:bg-n-alpha-1 disabled:opacity-60 focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-n-brand';
 // 06/11/2026: titulo de secao em caixa de frase e tamanho de titulo. O rotulo
 // pequeno em caixa alta e espacado era enfeite de modelo e lia pior.
 const SECTION =
@@ -636,16 +637,13 @@ const stateCount = computed(
               :aria-label="`Atualizar agora. ${sourceHint}`"
               @click="dash.load({ force: true })"
             >
-              <span
-                class="rounded-full size-1.5"
-                aria-hidden="true"
-                :class="
-                  dash.source.value === 'navegador'
-                    ? 'bg-n-amber-9'
-                    : 'bg-n-teal-9'
-                "
-              />
-              <span v-if="updatedText">{{ updatedText }}</span>
+              <!--
+                06/11/2026: sem a bolinha de cor (verde servidor / amarela
+                navegador). A fonte dos dados continua no title (sourceHint).
+              -->
+              <span v-if="updatedText" class="tabular-nums">{{
+                updatedText
+              }}</span>
               <span
                 class="i-lucide-refresh-cw size-3.5"
                 aria-hidden="true"
@@ -680,8 +678,15 @@ const stateCount = computed(
           INTEIRO — indicadores, meta, funil, conversas, equipe e mapa — e
           nao so para o bloco do funil.
         -->
+        <!--
+          06/11/2026: overflow-x-auto faz o navegador tratar o eixo Y como auto
+          tambem; o -mb-px das abas (sublinhado sobre a borda) deixava o
+          conteudo 1px mais alto que a barra e aparecia a rolagem de subir e
+          descer. overflow-y-hidden corta isso; o seletor webkit esconde a barra
+          no Chrome/Edge que ignoram scrollbar-width.
+        -->
         <nav
-          class="flex overflow-x-auto gap-1 border-b dia-no-print border-n-weak [scrollbar-width:none]"
+          class="flex overflow-x-auto overflow-y-hidden gap-1 border-b dia-no-print border-n-weak [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
           aria-label="Funil"
         >
           <button
