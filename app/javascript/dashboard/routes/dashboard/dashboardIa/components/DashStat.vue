@@ -36,7 +36,7 @@ defineProps({
           class="flex flex-shrink-0 justify-center items-center rounded-lg size-8"
           :style="{ background: tint(color, 16), color }"
         >
-          <span class="size-4" :class="icon" />
+          <span class="size-4" :class="icon" aria-hidden="true" />
         </span>
       </div>
       <span

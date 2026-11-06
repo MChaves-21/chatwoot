@@ -8,10 +8,10 @@
  * valido aqui.
  */
 
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import KanbanCard from './KanbanCard.vue';
 
-defineProps({
+const props = defineProps({
   column: { type: Object, required: true },
   conversations: { type: Array, default: () => [] },
   countLabel: { type: String, default: '' },
@@ -26,6 +26,12 @@ defineProps({
 });
 
 const emit = defineEmits(['drop', 'load-more', 'open-card', 'drag-start', 'drag-end']);
+
+// Tom da cor da etapa no fundo do cabecalho. color-mix mantem a cor do
+// constants.js como unica fonte; sem suporte, o navegador ignora e fica neutro.
+const headerStyle = computed(() => ({
+  backgroundColor: `color-mix(in srgb, ${props.column.color} 14%, transparent)`,
+}));
 
 /**
  * Contador em vez de booleano.
@@ -69,26 +75,42 @@ const onDrop = () => {
     @drop.prevent="onDrop"
   >
     <!--
-      Faixa fina da cor da etapa no topo. Antes a cor era so uma bolinha de
-      10px ao lado do titulo; com 13-15 colunas lado a lado, achar a etapa
-      certa pela bolinha exigia ler todos os titulos.
+      Cor da etapa no cabecalho inteiro — 06/11/2026. Antes era so uma faixa de
+      4px no topo; com 13-17 colunas lado a lado, a faixa sumia ao rolar na
+      horizontal e achar a etapa ainda pedia ler os titulos. Agora a faixa
+      continua e o fundo do cabecalho leva um tom da mesma cor (14%), forte o
+      bastante para reconhecer de relance e fraco o bastante para o titulo
+      manter contraste.
     -->
-    <div class="h-1 flex-shrink-0" :style="{ backgroundColor: column.color }" />
-
     <div
-      class="flex gap-2 items-center px-3 py-2.5 text-sm font-semibold border-b border-n-weak text-n-slate-12"
+      class="flex flex-col flex-shrink-0 border-b border-n-weak"
+      :style="headerStyle"
     >
-      <span class="truncate" :title="column.title">{{ column.title }}</span>
-      <span
-        class="px-2 py-0.5 ml-auto text-[11px] font-bold leading-none rounded-full text-n-slate-12 bg-n-alpha-2"
-      >
-        {{ countLabel }}
-      </span>
+      <div class="h-[3px]" :style="{ backgroundColor: column.color }" />
+      <div class="flex gap-2 items-center px-3 py-2">
+        <h2
+          class="m-0 min-w-0 text-sm font-semibold leading-5 truncate text-n-slate-12"
+          :title="column.title"
+        >
+          {{ column.title }}
+        </h2>
+        <span
+          class="px-2 py-0.5 ml-auto text-[11px] font-semibold leading-none rounded-full tabular-nums shrink-0 text-n-slate-12 bg-n-alpha-2"
+        >
+          {{ countLabel }}
+        </span>
+      </div>
     </div>
 
-    <div class="flex overflow-y-auto flex-col flex-1 gap-2 p-2">
-      <p v-if="error" class="py-3.5 text-xs text-center" style="color: #ef4444">
-        Erro: {{ error }}
+    <!--
+      Barra de rolagem fina e da cor do tema: a nativa do Windows (larga, com
+      setas) ocupava 17px de cada coluna e destoava do resto.
+    -->
+    <div
+      class="flex overflow-y-auto overscroll-contain flex-col flex-1 gap-1.5 p-1.5 [scrollbar-width:thin] [scrollbar-color:rgb(var(--slate-7))_transparent]"
+    >
+      <p v-if="error" class="py-3.5 text-xs text-center text-n-ruby-11">
+        Não carregou: {{ error }}. Use o botão recarregar no topo.
       </p>
 
       <!--
@@ -100,9 +122,10 @@ const onDrop = () => {
       -->
       <div
         v-else-if="isPending && !conversations.length"
-        class="flex justify-center items-center py-6 text-xs text-center rounded-lg border border-dashed animate-pulse border-n-weak text-n-slate-10"
+        class="flex justify-center items-center py-6 text-xs text-center rounded-lg border border-dashed animate-pulse motion-reduce:animate-none border-n-weak text-n-slate-10"
+        aria-busy="true"
       >
-        Carregando...
+        Carregando…
       </div>
 
       <!--
@@ -112,9 +135,13 @@ const onDrop = () => {
       -->
       <div
         v-else-if="!conversations.length"
-        class="flex justify-center items-center py-6 text-xs text-center rounded-lg border border-dashed border-n-weak text-n-slate-10"
+        class="flex justify-center items-center px-3 py-6 text-xs text-center rounded-lg border border-dashed border-n-weak text-n-slate-10"
       >
-        {{ isFiltered ? 'Nenhum resultado' : 'Nenhuma conversa' }}
+        {{
+          isFiltered
+            ? 'Nenhuma conversa com esses filtros'
+            : 'Nenhuma conversa. Arraste um card para cá.'
+        }}
       </div>
 
       <KanbanCard
@@ -136,7 +163,8 @@ const onDrop = () => {
 
       <button
         v-if="hasMore"
-        class="py-1.5 text-xs text-n-brand hover:underline"
+        type="button"
+        class="py-1.5 text-xs rounded-lg transition-colors text-n-brand hover:bg-n-alpha-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-n-brand"
         @click="emit('load-more')"
       >
         {{ isFiltered ? 'Carregar mais (para filtrar)' : 'Ver mais' }}

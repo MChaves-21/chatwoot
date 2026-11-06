@@ -305,15 +305,21 @@ const periodText = computed(() => {
 
 // ---------------------------------------------------------------- estilos
 
+// Cores das categorias vindas de constants.js, para a tabela bater com o
+// grafico e a legenda (antes eram hex soltos aqui).
+const COLOR_IA = CATEGORIES.find(c => c.key === 'ia').color;
+const COLOR_EQUIPE = CATEGORIES.find(c => c.key === 'humano').color;
+
 const SEG_BOX = 'flex p-0.5 gap-0.5 rounded-lg bg-n-alpha-2';
-const SEG = 'px-2.5 py-1 text-xs rounded-md transition-colors whitespace-nowrap';
+const SEG =
+  'px-2.5 py-1 text-xs rounded-md transition-colors whitespace-nowrap focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-n-brand';
 const SEG_ON = 'bg-n-solid-1 text-n-slate-12 font-semibold shadow-sm';
 const SEG_OFF = 'text-n-slate-11 hover:text-n-slate-12';
 const SELECT =
   '!w-auto !min-w-[10rem] !max-w-[16rem] !mb-0 !h-8 !py-0 !text-xs !rounded-lg !bg-n-solid-1';
 const DATE = '!w-36 !mb-0 !h-8 !py-0 !text-xs !rounded-lg !bg-n-solid-1';
 const BTN =
-  'flex gap-1.5 items-center px-2.5 h-8 text-xs rounded-lg border transition-colors border-n-weak bg-n-solid-1 text-n-slate-11 hover:text-n-slate-12 hover:bg-n-alpha-1 disabled:opacity-60';
+  'flex gap-1.5 items-center px-2.5 h-8 text-xs rounded-lg border transition-colors border-n-weak bg-n-solid-1 text-n-slate-11 hover:text-n-slate-12 hover:bg-n-alpha-1 disabled:opacity-60 focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-n-brand';
 </script>
 
 <template>
@@ -322,29 +328,32 @@ const BTN =
       <div class="flex flex-col gap-5 px-6 py-5 mx-auto max-w-[1200px]">
         <header class="flex flex-wrap gap-4 justify-between items-end">
           <div>
-            <p
-              class="text-[11px] font-semibold tracking-[0.14em] uppercase text-n-brand"
-            >
-              Relatório da Equipe
-            </p>
+            <!--
+              06/11/2026: o nome da tela virou o titulo (antes era um rotulo
+              pequeno em caixa alta acima dele) e o que ela mostra virou a
+              linha de baixo, junto com o periodo.
+            -->
             <h1
-              class="mt-1 text-2xl font-semibold tracking-tight text-n-slate-12"
+              class="text-2xl font-semibold tracking-tight text-n-slate-12"
             >
-              Mensagens e conversas por usuário
+              Relatório da equipe
             </h1>
-            <p v-if="periodText" class="mt-1 text-xs text-n-slate-10">
-              {{ periodText }}
+            <p class="mt-1 text-sm text-n-slate-11">
+              Mensagens e conversas por usuário<template v-if="periodText"
+                >, {{ periodText }}</template
+              >
             </p>
           </div>
           <div class="flex flex-wrap gap-2">
             <button :class="BTN" @click="showIaConfig = !showIaConfig">
-              <span class="i-lucide-bot size-3.5" />
+              <span class="i-lucide-bot size-3.5" aria-hidden="true" />
               Quem conta como IA
             </button>
             <button :class="BTN" :disabled="loading" @click="load">
               <span
                 class="i-lucide-refresh-cw size-3.5"
-                :class="{ 'animate-spin': loading }"
+                :class="{ 'animate-spin motion-reduce:animate-none': loading }"
+                aria-hidden="true"
               />
               Atualizar
             </button>
@@ -357,9 +366,10 @@ const BTN =
                 class="size-3.5"
                 :class="
                   exporting
-                    ? 'i-lucide-loader-circle animate-spin'
+                    ? 'i-lucide-loader-circle animate-spin motion-reduce:animate-none'
                     : 'i-lucide-download'
                 "
+                aria-hidden="true"
               />
               Exportar mensagens (CSV)
             </button>
@@ -376,6 +386,7 @@ const BTN =
         <!-- Quem conta como IA -->
         <DashPanel
           v-if="showIaConfig"
+          :level="2"
           title="Quem conta como IA"
           subtitle="O n8n responde pela Juliana usando o login de um usuário. Marque esse usuário para as mensagens dele contarem como IA, e não como equipe. Vale para todos que abrem o relatório."
           icon="i-lucide-bot"
@@ -515,6 +526,7 @@ const BTN =
         <p
           v-if="error"
           class="px-3 py-2 text-sm rounded-lg bg-n-ruby-3 text-n-ruby-11"
+          role="alert"
         >
           {{ error }}
         </p>
@@ -523,7 +535,10 @@ const BTN =
           v-if="loading && !data"
           class="flex gap-3 justify-center items-center h-60 rounded-xl border border-n-weak bg-n-solid-1"
         >
-          <span class="i-lucide-loader-circle size-6 animate-spin text-n-brand" />
+          <span
+            class="i-lucide-loader-circle size-6 animate-spin motion-reduce:animate-none text-n-brand"
+            aria-hidden="true"
+          />
           <span class="text-sm text-n-slate-11">Montando o relatório…</span>
         </div>
 
@@ -556,6 +571,7 @@ const BTN =
           >
             <DashPanel
               class="lg:col-span-2"
+              :level="2"
               title="Mensagens por dia"
               subtitle="Coluna cinza: o que o cliente mandou. Coluna colorida: o que saiu do escritório. Passe o mouse para ver os números."
               icon="i-lucide-messages-square"
@@ -565,6 +581,7 @@ const BTN =
 
             <DashPanel
               title="Quem enviou"
+              :level="2"
               subtitle="Mensagens enviadas no período, sem notas privadas."
               icon="i-lucide-split"
             >
@@ -580,12 +597,14 @@ const BTN =
           <!-- 2. Conversas por usuario -->
           <DashPanel
             title="Conversas por usuário"
+            :level="2"
             subtitle="Conversas em que o usuário enviou pelo menos uma mensagem no período, mesmo sem ser o responsável."
             icon="i-lucide-users"
             :class="{ 'opacity-60': loading }"
           >
             <p v-if="!userRows.length" class="text-xs text-n-slate-10">
-              Ninguém enviou mensagem no filtro.
+              Ninguém enviou mensagem com esses filtros. Tente outro período
+              ou tire o filtro de usuário.
             </p>
             <div v-else class="overflow-x-auto -mx-1">
               <table class="w-full text-sm">
@@ -595,7 +614,9 @@ const BTN =
                     <th class="px-2 py-1.5 font-medium text-right">
                       Conversas
                     </th>
-                    <th class="px-2 py-1.5 font-medium w-1/3" />
+                    <th class="px-2 py-1.5 font-medium w-1/3">
+                      <span class="sr-only">Proporção de conversas</span>
+                    </th>
                     <th class="px-2 py-1.5 font-medium text-right">
                       Mensagens enviadas
                     </th>
@@ -619,7 +640,11 @@ const BTN =
                       </span>
                       <span
                         v-if="r.ia"
-                        class="ml-1.5 px-1.5 py-0.5 text-[10px] font-semibold rounded bg-[#8b5cf6]/15 text-[#7c3aed]"
+                        class="ml-1.5 px-1.5 py-0.5 text-[10px] font-semibold rounded"
+                        :style="{
+                          background: `color-mix(in srgb, ${COLOR_IA} 15%, transparent)`,
+                          color: COLOR_IA,
+                        }"
                       >
                         IA
                       </span>
@@ -637,7 +662,7 @@ const BTN =
                           class="block h-full rounded-full"
                           :style="{
                             width: `${(r.conversas / maxConversas) * 100}%`,
-                            background: r.ia ? '#8b5cf6' : '#2781F6',
+                            background: r.ia ? COLOR_IA : COLOR_EQUIPE,
                           }"
                         />
                       </span>

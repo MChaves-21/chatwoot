@@ -146,10 +146,10 @@ export function useKanbanBoard(accountId) {
 
   function countLabel(label) {
     const st = columns[label];
-    if (!st) return '...';
+    if (!st) return '…';
     // Sem resposta ainda, o contador diria "0" — a mesma mentira do "Nenhuma
     // conversa", so que em numero.
-    if (isPending(label)) return '...';
+    if (isPending(label)) return '…';
     const total = st.total === null ? st.loaded.length : st.total;
     if (!filtersActive.value) return String(total);
     return `${visibleIn(label).length}/${total}`;
@@ -289,7 +289,7 @@ export function useKanbanBoard(accountId) {
     isLoading.value = true;
     resetColumns();
 
-    statusText.value = 'Carregando...';
+    statusText.value = 'Carregando…';
     await loadAllAtOnce();
     // So o que a carga unica nao trouxe (endpoint ausente, funil sem caixa).
     const queue = columnDefs.value.filter(
@@ -297,12 +297,12 @@ export function useKanbanBoard(accountId) {
     );
     // Contador em vez de "Carregando...": com 17 colunas, saber que faltam 3 e
     // a diferenca entre esperar e achar que travou.
-    statusText.value = `Carregando 0/${queue.length}...`;
+    statusText.value = `Carregando 0/${queue.length}…`;
     await runPool(
       queue,
       col => loadColumn(col.label),
       (done, total) => {
-        statusText.value = `Carregando ${done}/${total}...`;
+        statusText.value = `Carregando ${done}/${total}…`;
       }
     );
 
@@ -316,7 +316,7 @@ export function useKanbanBoard(accountId) {
    */
   async function loadEverything() {
     const queue = columnDefs.value;
-    statusText.value = `Carregando todas as conversas 0/${queue.length}...`;
+    statusText.value = `Carregando todas as conversas 0/${queue.length}…`;
 
     // Colunas em paralelo (ate COLUMN_CONCURRENCY), paginas de cada coluna em
     // sequencia. E a operacao mais cara do quadro — ate MAX_PAGES_PER_COLUMN
@@ -340,7 +340,7 @@ export function useKanbanBoard(accountId) {
         }
       },
       (done, total) => {
-        statusText.value = `Carregando todas as conversas ${done}/${total}...`;
+        statusText.value = `Carregando todas as conversas ${done}/${total}…`;
       }
     );
 
@@ -389,7 +389,7 @@ export function useKanbanBoard(accountId) {
     ];
     if (!pending.length) return;
 
-    statusText.value = `Buscando dados dos leads (${pending.length})...`;
+    statusText.value = `Buscando dados dos leads (${pending.length})…`;
     let i = 0;
     const worker = async () => {
       while (i < pending.length) {

@@ -66,17 +66,17 @@ export const AUXILIO_COLUMNS = [
   { title: 'SDR', label: 'sdr', color: '#3b82f6' },
   { title: 'Comercial', label: 'comercial', color: '#8b5cf6' },
   {
-    title: 'Contrato em Elaboracao',
+    title: 'Contrato em elaboração',
     label: 'contrato_em_elaboracao',
     color: '#0ea5e9',
   },
   {
-    title: 'Aguardando Assinatura',
+    title: 'Aguardando assinatura',
     label: 'aguardando_assinatura',
     color: '#f59e0b',
   },
-  { title: 'Contrato Assinado', label: 'contrato_assinado', color: '#22c55e' },
-  { title: 'Analise medica', label: 'analise_medica', color: '#14b8a6' },
+  { title: 'Contrato assinado', label: 'contrato_assinado', color: '#22c55e' },
+  { title: 'Análise médica', label: 'analise_medica', color: '#14b8a6' },
   /*
    * 09/10/2026 — pedido do Goncalves: duas colunas entre a analise medica e a
    * juridica, para o caso que o Dr. Gerardo reprova e que pode voltar na
@@ -100,7 +100,7 @@ export const AUXILIO_COLUMNS = [
     label: 'aprovado_repescagem',
     color: '#84cc16',
   },
-  { title: 'Analise juridica', label: 'analise_juridica', color: '#a855f7' },
+  { title: 'Análise jurídica', label: 'analise_juridica', color: '#a855f7' },
   { title: 'Efetivado', label: 'efetivado', color: '#16a34a' },
   { title: 'Desqualificado', label: 'desqualificado', color: '#ef4444' },
   { title: 'Descarte (SDR)', label: 'descarte_sdr', color: '#64748b' },
@@ -143,17 +143,17 @@ export const BPC_COLUMNS = [
     color: '#ec4899',
   },
   {
-    title: 'Aguardando requisito de qualificacao',
+    title: 'Aguardando requisito de qualificação',
     label: 'bpc_aguardando_requisito',
     color: '#6366f1',
   },
   {
-    title: 'Lead qualificado / Negociacao',
+    title: 'Lead qualificado / Negociação',
     label: 'bpc_qualificado',
     color: '#8b5cf6',
   },
   {
-    title: 'Solicitacao de documentos iniciais',
+    title: 'Solicitação de documentos iniciais',
     label: 'bpc_documentos_iniciais',
     color: '#0ea5e9',
   },
@@ -168,10 +168,10 @@ export const BPC_COLUMNS = [
     color: '#22c55e',
   },
   { title: 'Pegar senha', label: 'bpc_pegar_senha', color: '#06b6d4' },
-  { title: 'Analise medica', label: 'bpc_analise_medica', color: '#14b8a6' },
-  { title: 'Analise juridica', label: 'bpc_analise_juridica', color: '#a855f7' },
+  { title: 'Análise médica', label: 'bpc_analise_medica', color: '#14b8a6' },
+  { title: 'Análise jurídica', label: 'bpc_analise_juridica', color: '#a855f7' },
   {
-    title: 'Pos analise juridica - aguarda tempo ou docs',
+    title: 'Pós-análise jurídica – aguarda tempo ou docs',
     label: 'bpc_pos_juridica',
     color: '#eab308',
   },
@@ -242,7 +242,7 @@ export const TRABALHISTA_COLUMNS = [
   { title: 'SDR', label: 'trab_sdr', color: '#3b82f6' },
   { title: 'Comercial', label: 'trab_comercial', color: '#6366f1' },
   {
-    title: 'Contrato em elaboracao',
+    title: 'Contrato em elaboração',
     label: 'trab_contrato_em_elaboracao',
     color: '#8b5cf6',
   },
@@ -395,13 +395,13 @@ export function findFunnel(id, accountId) {
 }
 
 export const DEFAULT_TAGS = [
-  { title: 'Recebendo beneficio', label: 'recebendo_beneficio', color: '#22c55e' },
-  { title: 'Ja tem advogado', label: 'ja_tem_advogado', color: '#ef4444' },
+  { title: 'Recebendo benefício', label: 'recebendo_beneficio', color: '#22c55e' },
+  { title: 'Já tem advogado', label: 'ja_tem_advogado', color: '#ef4444' },
   { title: 'Sem advogado', label: 'sem_advogado', color: '#3b82f6' },
   { title: 'Acidente de trabalho', label: 'acidente_trabalho', color: '#f59e0b' },
-  { title: 'Tem laudo medico', label: 'tem_laudo_medico', color: '#14b8a6' },
-  { title: 'Auxilio negado', label: 'auxilio_negado', color: '#a855f7' },
-  { title: 'Pericia agendada', label: 'pericia_agendada', color: '#0ea5e9' },
+  { title: 'Tem laudo médico', label: 'tem_laudo_medico', color: '#14b8a6' },
+  { title: 'Auxílio negado', label: 'auxilio_negado', color: '#a855f7' },
+  { title: 'Perícia agendada', label: 'pericia_agendada', color: '#0ea5e9' },
   { title: 'Contribuinte INSS', label: 'contribuinte_inss', color: '#8b5cf6' },
   {
     title: 'Documentos pendentes',

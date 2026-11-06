@@ -131,7 +131,7 @@ const pct = n => `${dec(n)}%`;
 
 const SEG_BOX = 'flex p-0.5 gap-0.5 rounded-lg bg-n-alpha-2';
 const SEG =
-  'px-2.5 py-1 text-xs rounded-md transition-colors whitespace-nowrap';
+  'px-2.5 py-1 text-xs rounded-md transition-colors whitespace-nowrap focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-n-brand';
 const SEG_ON = 'bg-n-solid-1 text-n-slate-12 font-semibold shadow-sm';
 const SEG_OFF = 'text-n-slate-11 hover:text-n-slate-12';
 // O `select` global do Chatwoot (assets/scss/_base.scss) e bloco de largura
@@ -140,9 +140,11 @@ const SELECT =
   '!w-auto !min-w-[10rem] !mb-0 !h-8 !py-0 !text-xs !rounded-lg !bg-n-solid-1';
 const DATE = '!w-36 !mb-0 !h-8 !py-0 !text-xs !rounded-lg !bg-n-solid-1';
 const ICON_BTN =
-  'flex gap-1.5 items-center px-2.5 h-8 text-xs rounded-lg border transition-colors dia-no-print border-n-weak bg-n-solid-1 text-n-slate-11 hover:text-n-slate-12 hover:bg-n-alpha-1 disabled:opacity-60';
+  'flex gap-1.5 items-center px-2.5 h-8 text-xs rounded-lg border transition-colors dia-no-print border-n-weak bg-n-solid-1 text-n-slate-11 hover:text-n-slate-12 hover:bg-n-alpha-1 disabled:opacity-60 focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-n-brand';
+// 06/11/2026: titulo de secao em caixa de frase e tamanho de titulo. O rotulo
+// pequeno em caixa alta e espacado era enfeite de modelo e lia pior.
 const SECTION =
-  'flex gap-3 items-center pt-2 text-[11px] font-semibold tracking-[0.14em] uppercase text-n-slate-10';
+  'flex gap-3 items-center pt-3 text-base font-semibold text-n-slate-12';
 const STAT = 'flex flex-col gap-1 min-w-0';
 const STAT_LABEL = 'text-xs text-n-slate-11';
 const STAT_VALUE =
@@ -596,20 +598,20 @@ const stateCount = computed(
         <!-- Cabecalho -->
         <header class="flex flex-wrap gap-4 justify-between items-end">
           <div class="min-w-0">
-            <p
-              class="text-[11px] font-semibold tracking-[0.14em] uppercase text-n-brand"
-            >
-              Relatório comercial
-            </p>
+            <!--
+              06/11/2026: saiu o rotulo "RELATORIO COMERCIAL" em caixa alta
+              acima do titulo; o assunto foi para a linha de contexto, e os
+              pontos medios viraram virgulas.
+            -->
             <h1
-              class="mt-1 text-2xl font-semibold tracking-tight text-n-slate-12"
+              class="text-2xl font-semibold tracking-tight text-n-slate-12"
             >
               Dashboard IA
             </h1>
             <p class="mt-1 text-sm text-n-slate-11">
-              {{ funnelTitle }} · {{ periodTitle }}
+              Relatório comercial: {{ funnelTitle }}, {{ periodTitle }}
               <template v-if="dash.assigneeId.value !== null">
-                ·
+                ,
                 {{
                   (
                     dash.assignees.value.find(
@@ -631,10 +633,12 @@ const stateCount = computed(
               :class="ICON_BTN"
               :disabled="dash.loading.value || dash.refreshing.value"
               :title="sourceHint"
+              :aria-label="`Atualizar agora. ${sourceHint}`"
               @click="dash.load({ force: true })"
             >
               <span
                 class="rounded-full size-1.5"
+                aria-hidden="true"
                 :class="
                   dash.source.value === 'navegador'
                     ? 'bg-n-amber-9'
@@ -644,9 +648,10 @@ const stateCount = computed(
               <span v-if="updatedText">{{ updatedText }}</span>
               <span
                 class="i-lucide-refresh-cw size-3.5"
+                aria-hidden="true"
                 :class="
                   dash.loading.value || dash.refreshing.value
-                    ? 'animate-spin'
+                    ? 'animate-spin motion-reduce:animate-none'
                     : ''
                 "
               />
@@ -656,7 +661,7 @@ const stateCount = computed(
               title="Tela cheia, com atualização automática a cada 5 minutos"
               @click="toggleTv"
             >
-              <span class="i-lucide-monitor size-3.5" />
+              <span class="i-lucide-monitor size-3.5" aria-hidden="true" />
               {{ tvMode ? 'Sair' : 'TV' }}
             </button>
             <button
@@ -664,7 +669,7 @@ const stateCount = computed(
               title="Gerar PDF (use “Salvar como PDF” na janela de impressão)"
               @click="printPdf"
             >
-              <span class="i-lucide-file-down size-3.5" />
+              <span class="i-lucide-file-down size-3.5" aria-hidden="true" />
               PDF
             </button>
           </div>
@@ -676,13 +681,14 @@ const stateCount = computed(
           nao so para o bloco do funil.
         -->
         <nav
-          class="flex overflow-x-auto gap-1 border-b dia-no-print border-n-weak"
+          class="flex overflow-x-auto gap-1 border-b dia-no-print border-n-weak [scrollbar-width:none]"
           aria-label="Funil"
         >
           <button
             v-for="f in funnelOptions"
             :key="f.id"
-            class="px-4 pt-1 pb-2.5 -mb-px text-sm whitespace-nowrap border-b-2 transition-colors"
+            class="px-4 pt-1 pb-2.5 -mb-px text-sm whitespace-nowrap border-b-2 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-n-brand"
+            :aria-current="dash.funnelId.value === f.id ? 'page' : undefined"
             :class="
               dash.funnelId.value === f.id
                 ? 'font-semibold border-n-brand text-n-slate-12'
@@ -773,8 +779,11 @@ const stateCount = computed(
           v-if="dash.loading.value"
           class="flex flex-col gap-3 justify-center items-center h-72 rounded-xl border border-n-weak bg-n-solid-1"
         >
-          <span class="i-lucide-loader-circle size-6 animate-spin text-n-brand" />
-          <span class="text-sm text-n-slate-11">
+          <span
+            class="i-lucide-loader-circle size-6 animate-spin motion-reduce:animate-none text-n-brand"
+            aria-hidden="true"
+          />
+          <span class="text-sm text-n-slate-11" aria-live="polite">
             Lendo conversas… {{ int(dash.progress.fetched) }}
             <template v-if="dash.progress.total">
               de {{ int(dash.progress.total) }}
@@ -782,7 +791,7 @@ const stateCount = computed(
           </span>
           <span class="overflow-hidden w-72 h-1 rounded-full bg-n-alpha-2">
             <span
-              class="block h-full rounded-full transition-all bg-n-brand"
+              class="block h-full rounded-full transition-[width] bg-n-brand"
               :style="{ width: `${progressPct}%` }"
             />
           </span>
@@ -811,7 +820,7 @@ const stateCount = computed(
               <div class="flex justify-between items-start">
                 <div>
                   <p class="text-xs text-n-slate-11">
-                    Meta {{ goalScope }} · {{ goalMonth }}
+                    Meta {{ goalScope }} de {{ goalMonth }}
                   </p>
                   <p
                     v-if="goalStatus"
@@ -851,7 +860,7 @@ const stateCount = computed(
                   aria-label="Alterar a meta"
                   @click="startGoalEdit"
                 >
-                  <span class="i-lucide-pencil size-3.5" />
+                  <span class="i-lucide-pencil size-3.5" aria-hidden="true" />
                 </button>
               </div>
 
@@ -894,7 +903,7 @@ const stateCount = computed(
                     <dd class="font-semibold tabular-nums text-n-slate-12">
                       {{ int(dash.goalData.value.left) }}
                       <span class="font-normal text-n-slate-10">
-                        · {{ dec(dash.goalData.value.neededPerDay, 2) }}/dia
+                        ({{ dec(dash.goalData.value.neededPerDay, 2) }}/dia)
                       </span>
                     </dd>
                   </div>
@@ -950,12 +959,12 @@ const stateCount = computed(
           <!-- Fechamentos: IA x equipe -->
           <h2 :class="SECTION">
             Fechamentos
-            <span class="flex-1 h-px bg-n-weak" />
+            <span class="flex-1 h-px bg-n-weak" aria-hidden="true" />
           </h2>
 
           <DashPanel
             title="Quem fechou os contratos"
-            :subtitle="`Pela data da assinatura · ${funnelTitle} · ${periodTitle}`"
+            subtitle="Pela data da assinatura"
             icon="i-lucide-handshake"
           >
             <template #actions>
@@ -1020,7 +1029,7 @@ const stateCount = computed(
 
             <div
               v-if="closingList.length"
-              class="overflow-auto max-h-96 rounded-lg border border-n-weak"
+              class="overflow-auto overscroll-contain max-h-96 rounded-lg border border-n-weak [scrollbar-width:thin] [scrollbar-color:rgb(var(--slate-7))_transparent]"
             >
               <table class="w-full text-sm">
                 <thead class="sticky top-0 bg-n-solid-2">
@@ -1080,7 +1089,7 @@ const stateCount = computed(
           <!-- Funil -->
           <h2 :class="SECTION">
             Funil
-            <span class="flex-1 h-px bg-n-weak" />
+            <span class="flex-1 h-px bg-n-weak" aria-hidden="true" />
             <span
               v-if="dash.byFunnel.value.length > 1"
               :class="SEG_BOX"
@@ -1104,7 +1113,7 @@ const stateCount = computed(
 
           <template v-if="activeBlock">
             <DashPanel
-              :title="`Caminho do lead · ${activeBlock.funnel.title}`"
+              :title="`Caminho do lead: ${activeBlock.funnel.title}`"
               subtitle="Leads que chegaram em cada etapa ou além, com a passagem entre uma e outra. Clique numa faixa para abrir as conversas."
             >
               <template #actions>
@@ -1157,7 +1166,7 @@ const stateCount = computed(
                 <template v-if="dash.showLossReasons.value">
                   <div class="pt-3 border-t border-n-weak">
                     <p class="mb-3 text-xs font-semibold text-n-slate-12">
-                      Por que perdemos · Auxílio Acidente
+                      Por que perdemos no Auxílio Acidente
                       <span class="font-normal text-n-slate-10">
                         ({{ int(dash.lossReasons.value.total) }}
                         desqualificados, base inteira)
@@ -1173,7 +1182,7 @@ const stateCount = computed(
           <!-- Equipe e ritmo -->
           <h2 :class="SECTION">
             Equipe e ritmo
-            <span class="flex-1 h-px bg-n-weak" />
+            <span class="flex-1 h-px bg-n-weak" aria-hidden="true" />
           </h2>
 
           <div class="grid gap-4 lg:grid-cols-2 dia-g2">
@@ -1257,7 +1266,7 @@ const stateCount = computed(
             </DashPanel>
 
             <DashPanel
-              :title="`Tempo em cada etapa${activeBlock ? ' · ' + activeBlock.funnel.title : ''}`"
+              :title="`Tempo em cada etapa${activeBlock ? ': ' + activeBlock.funnel.title : ''}`"
               subtitle="Dias, em média, entre entrar na etapa e passar para a seguinte"
               icon="i-lucide-hourglass"
             >
@@ -1299,8 +1308,8 @@ const stateCount = computed(
 
           <!-- Fechamento -->
           <h2 :class="SECTION">
-            Fechamento
-            <span class="flex-1 h-px bg-n-weak" />
+            Prazo e meta
+            <span class="flex-1 h-px bg-n-weak" aria-hidden="true" />
           </h2>
 
           <div class="grid gap-4 lg:grid-cols-2 dia-g2">
@@ -1353,7 +1362,7 @@ const stateCount = computed(
           <!-- Entrada de leads -->
           <h2 :class="SECTION">
             Entrada de leads
-            <span class="flex-1 h-px bg-n-weak" />
+            <span class="flex-1 h-px bg-n-weak" aria-hidden="true" />
             <span :class="SEG_BOX" class="tracking-normal normal-case">
               <button
                 v-for="r in CHAT_RANGES"
@@ -1442,7 +1451,7 @@ const stateCount = computed(
           <!-- Geografia -->
           <h2 :class="SECTION">
             Geografia
-            <span class="flex-1 h-px bg-n-weak" />
+            <span class="flex-1 h-px bg-n-weak" aria-hidden="true" />
             <span :class="SEG_BOX" class="tracking-normal normal-case">
               <button
                 :class="[SEG, stateMetric === 'leads' ? SEG_ON : SEG_OFF]"
@@ -1468,9 +1477,9 @@ const stateCount = computed(
               />
               <div class="flex flex-col gap-4">
                 <p class="text-xs text-n-slate-10">
-                  Estado pelo DDD do telefone ·
+                  Estado pelo DDD do telefone.
                   {{ int(dash.states.value.unknown) }} sem DDD brasileiro
-                  identificável
+                  identificável.
                 </p>
                 <DashBars :items="stateItems" narrow />
                 <button
@@ -1486,6 +1495,7 @@ const stateCount = computed(
                   <span
                     class="i-lucide-chevron-down size-4 transition-transform"
                     :class="showAllStates ? 'rotate-180' : ''"
+                    aria-hidden="true"
                   />
                 </button>
               </div>

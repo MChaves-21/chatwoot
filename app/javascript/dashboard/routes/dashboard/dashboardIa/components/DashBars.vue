@@ -46,11 +46,12 @@ const MEDALS = ['#f59e0b', '#94a3b8', '#f97316'];
         v-else-if="item.color"
         class="flex-shrink-0 rounded-full size-2"
         :style="{ background: item.color }"
+        aria-hidden="true"
       />
       <span
         class="flex-shrink-0 truncate"
         :class="[
-          narrow ? 'w-10 font-semibold' : wide ? 'w-1/2 min-w-0' : 'w-36',
+          narrow ? 'w-10 font-semibold' : wide ? 'w-1/2 min-w-0' : 'w-44',
           item.muted ? 'text-n-slate-10' : 'text-n-slate-12',
         ]"
       >

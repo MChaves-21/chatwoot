@@ -32,10 +32,21 @@ const fmt = v =>
         :title="`${s.title}: ${s.value} (${fmt(s.value)})`"
       />
     </div>
-    <ul class="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
+    <!--
+      Uma linha por fatia — 06/11/2026. Em duas colunas, num painel estreito
+      como "Quem enviou", o rotulo quebrava em tres linhas e numero e
+      porcentagem ficavam desalinhados entre as colunas.
+    -->
+    <ul class="flex flex-col gap-1.5 text-xs">
       <li v-for="s in segments" :key="s.key" class="flex gap-2 items-center">
-        <span class="rounded-sm size-2.5" :style="{ background: s.color }" />
-        <span class="flex-1 text-n-slate-11">{{ s.title }}</span>
+        <span
+          class="rounded-sm shrink-0 size-2.5"
+          :style="{ background: s.color }"
+          aria-hidden="true"
+        />
+        <span class="flex-1 min-w-0 truncate text-n-slate-11" :title="s.title">
+          {{ s.title }}
+        </span>
         <span class="font-semibold tabular-nums text-n-slate-12">
           {{ s.value.toLocaleString('pt-BR') }}
         </span>

@@ -416,13 +416,26 @@ const exportDay = async ({ list, mode, date }) => {
  * Os rotulos foram encurtados e o title= carrega o texto completo.
  */
 const BTN =
-  'px-2.5 py-1.5 text-xs whitespace-nowrap rounded-lg border transition-colors border-n-weak text-n-slate-12 hover:bg-n-alpha-2 disabled:opacity-50';
+  'shrink-0 px-2.5 py-1.5 text-xs whitespace-nowrap rounded-lg border transition-colors border-n-weak text-n-slate-12 hover:bg-n-alpha-2 disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-n-brand';
+
+// Botao dentro de um grupo: a borda e do grupo, nao do botao.
+const SEG_BTN =
+  'px-2.5 py-1.5 text-xs whitespace-nowrap transition-colors text-n-slate-12 hover:bg-n-alpha-2 focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-n-brand';
+
+// Mesma altura do BTN (py-1.5 + text-xs ~ 30px) para a fila nao ficar torta.
+const ICON_BTN =
+  'shrink-0 flex justify-center items-center size-[30px] rounded-lg border transition-colors border-n-weak text-n-slate-12 hover:bg-n-alpha-2 disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-n-brand';
 </script>
 
 <template>
   <div class="flex flex-col w-full h-full bg-n-background">
+    <!--
+      Uma linha so a partir de 1280px (xl): o status absorve a sobra e trunca,
+      e Recarregar/Configuracoes viraram icones. Abaixo disso a quebra volta a
+      ser permitida, para nada sumir em tela estreita.
+    -->
     <header
-      class="flex flex-wrap gap-2 items-center px-4 py-2.5 border-b border-n-weak"
+      class="flex flex-wrap gap-2 items-center px-4 py-2.5 border-b xl:flex-nowrap border-n-weak"
     >
       <h1 class="text-base font-bold whitespace-nowrap text-n-slate-12">
         Kanban
@@ -440,7 +453,7 @@ const BTN =
           :disabled="isSwitchingFunnel"
           :aria-pressed="f.id === activeFunnelId"
           :class="[
-            'px-2.5 py-1.5 text-xs whitespace-nowrap transition-colors disabled:opacity-50',
+            'px-2 py-1.5 text-xs whitespace-nowrap transition-colors disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-n-brand',
             f.id === activeFunnelId
               ? 'bg-n-brand text-white'
               : 'text-n-slate-12 hover:bg-n-alpha-2',
@@ -468,25 +481,25 @@ const BTN =
           :disabled="isSwitchingFunnel || board.isLoading.value"
           @change="board.setHideImported($event.target.checked)"
         />
-        Só tráfego (sem importados)
+        Só tráfego
       </label>
 
       <!--
         Busca fixa: antes vivia dentro do modal de Filtros e so enxergava o que
         ja estava carregado. Aqui ela consulta o servidor e varre os dois funis.
 
-        Largura: 176px em repouso e 248px com foco. Fixar em 230px empurrava
-        "Recarregar" e "Configuracoes" para uma segunda linha — o mesmo aperto
-        de largura que ja tinha obrigado a encurtar os rotulos dos botoes.
-        Encolhida ela cabe na fila; o espaco extra so aparece quando alguem
-        esta de fato digitando.
+        Largura: 176px em repouso e 224px com foco. O espaco extra do foco sai
+        do status (que trunca), entao a fila nao quebra ao digitar.
       -->
       <div class="relative shrink-0">
         <input
           v-model="searchText"
           type="search"
-          class="w-[176px] focus:w-[248px] transition-[width] duration-150 px-2.5 py-1.5 text-xs rounded-lg border bg-n-background border-n-weak text-n-slate-12 placeholder:text-n-slate-10"
+          class="w-[176px] focus:w-[224px] transition-[width] duration-150 px-2.5 py-1.5 text-xs rounded-lg border bg-n-background border-n-weak text-n-slate-12 placeholder:text-n-slate-10"
           placeholder="Buscar ou estado…"
+          aria-label="Buscar conversa por nome, telefone, #id ou estado"
+          autocomplete="off"
+          spellcheck="false"
           title="Nome, telefone, #id — ou um estado: aguardando, atendimento, fechado, desqualificado"
           @focus="searchText.trim().length >= 3 && (searchOpen = true)"
           @keydown.esc="clearSearch"
@@ -494,16 +507,21 @@ const BTN =
         <span
           v-if="searchBusy"
           class="absolute right-2 top-1/2 text-xs -translate-y-1/2 text-n-slate-10"
+          aria-hidden="true"
         >
-          ...
+          …
         </span>
       </div>
 
-      <span class="flex-1 min-w-0" />
-
+      <!--
+        Espacador e status sao o mesmo elemento: ocupa so a largura que sobra e
+        trunca, em vez de reservar 150px fixos que empurravam os botoes para a
+        segunda linha. O texto inteiro fica no title.
+      -->
       <span
-        class="overflow-hidden text-xs whitespace-nowrap text-ellipsis text-n-slate-11 max-w-[150px]"
+        class="flex-1 min-w-0 text-xs text-right truncate text-n-slate-11"
         :title="statusText"
+        aria-live="polite"
       >
         {{ statusText }}
       </span>
@@ -522,25 +540,57 @@ const BTN =
           title="Exportar para Excel"
           @click="exportBoard"
         >
-          {{ isExporting ? 'Gerando...' : 'Excel' }}
+          {{ isExporting ? 'Gerando…' : 'Excel' }}
         </button>
-        <button
-          :class="BTN"
-          title="Conversas criadas em um dia"
-          @click="openDayView('created')"
+        <!--
+          Criados e Atualizados abrem a mesma tela do dia, so mudando o recorte.
+          Juntos num grupo (mesmo desenho do seletor de funil) a relacao fica
+          visivel e a fila ganha largura.
+        -->
+        <div
+          class="flex overflow-hidden rounded-lg border divide-x shrink-0 border-n-weak divide-n-weak"
+          role="group"
+          aria-label="Conversas do dia"
         >
-          Criados
-        </button>
+          <button
+            type="button"
+            :class="SEG_BTN"
+            title="Conversas criadas em um dia"
+            @click="openDayView('created')"
+          >
+            Criados
+          </button>
+          <button
+            type="button"
+            :class="SEG_BTN"
+            title="Conversas atualizadas em um dia"
+            @click="openDayView('updated')"
+          >
+            Atualizados
+          </button>
+        </div>
         <button
-          :class="BTN"
-          title="Conversas atualizadas em um dia"
-          @click="openDayView('updated')"
+          :class="ICON_BTN"
+          :disabled="board.isLoading.value"
+          title="Recarregar"
+          aria-label="Recarregar"
+          @click="board.loadAll()"
         >
-          Atualizados
+          <span
+            class="i-lucide-refresh-cw size-4"
+            :class="{ 'animate-spin motion-reduce:animate-none': board.isLoading.value }"
+            aria-hidden="true"
+          />
         </button>
-        <button :class="BTN" @click="board.loadAll()">Recarregar</button>
       </template>
-      <button :class="BTN" @click="showSettings = true">Configurações</button>
+      <button
+        :class="ICON_BTN"
+        title="Configurações"
+        aria-label="Configurações"
+        @click="showSettings = true"
+      >
+        <span class="i-lucide-settings size-4" aria-hidden="true" />
+      </button>
     </header>
 
     <!-- Resultados da busca. Some ao limpar o campo ou apertar Esc. -->
@@ -553,7 +603,7 @@ const BTN =
           <template v-if="searchKind === 'state'">
             {{ searchTermTitle }} — {{ searchHits.length }} no quadro carregado
           </template>
-          <template v-else-if="searchBusy">Buscando no servidor...</template>
+          <template v-else-if="searchBusy">Buscando no servidor…</template>
           <template v-else>
             {{ searchHits.length }} resultado(s) nos dois funis
           </template>
@@ -620,22 +670,24 @@ const BTN =
         v-if="canScrollLeft"
         class="flex absolute left-1 top-1/2 z-20 justify-center items-center -translate-y-1/2 rounded-full border shadow-md size-8 bg-n-background border-n-weak text-n-slate-12 hover:bg-n-alpha-2"
         title="Coluna anterior"
+        aria-label="Coluna anterior"
         @click="scrollColumns(-1)"
       >
-        ‹
+        <span class="i-lucide-chevron-left size-4" aria-hidden="true" />
       </button>
       <button
         v-if="canScrollRight"
         class="flex absolute right-1 top-1/2 z-20 justify-center items-center -translate-y-1/2 rounded-full border shadow-md size-8 bg-n-background border-n-weak text-n-slate-12 hover:bg-n-alpha-2"
         title="Próxima coluna"
+        aria-label="Próxima coluna"
         @click="scrollColumns(1)"
       >
-        ›
+        <span class="i-lucide-chevron-right size-4" aria-hidden="true" />
       </button>
 
       <div
         ref="boardScroller"
-        class="flex overflow-x-auto overflow-y-hidden flex-1 gap-3 items-start p-3.5"
+        class="flex overflow-x-auto overflow-y-hidden flex-1 gap-3 items-start p-3.5 [scrollbar-width:thin] [scrollbar-color:rgb(var(--slate-7))_transparent]"
         @scroll.passive="syncScrollState"
       >
         <KanbanColumn

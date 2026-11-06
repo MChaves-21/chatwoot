@@ -35,6 +35,13 @@ const weekday = ymd =>
   });
 const int = n => Number(n || 0).toLocaleString('pt-BR');
 
+// Resumo para leitor de tela: as colunas sao divs com title, que ele nao le.
+const summary = computed(() => {
+  const rec = props.days.reduce((a, d) => a + (d.recebida || 0), 0);
+  const sent = props.days.reduce((a, d) => a + sentOf(d), 0);
+  return `Mensagens por dia em ${props.days.length} dias: ${int(rec)} recebidas do cliente e ${int(sent)} enviadas pelo escritório.`;
+});
+
 const tooltip = d =>
   [
     `${dayLabel(d.date)} (${weekday(d.date)})`,
@@ -46,7 +53,11 @@ const tooltip = d =>
 
 <template>
   <div class="flex flex-col gap-3">
-    <div class="flex gap-px items-end h-48">
+    <div
+      class="flex gap-px items-end h-48"
+      role="img"
+      :aria-label="summary"
+    >
       <div
         v-for="d in days"
         :key="d.date"
@@ -54,11 +65,11 @@ const tooltip = d =>
         :title="tooltip(d)"
       >
         <span
-          class="block w-1/2 max-w-3 rounded-t-sm"
+          class="block w-1/2 max-w-5 rounded-t-sm"
           :style="{ height: pct(d.recebida || 0), background: COLOR.recebida }"
         />
         <span
-          class="flex flex-col-reverse w-1/2 max-w-3 h-full justify-start"
+          class="flex flex-col-reverse w-1/2 max-w-5 h-full justify-start"
         >
           <span
             v-for="k in SENT_KEYS"
@@ -80,7 +91,11 @@ const tooltip = d =>
     </div>
     <ul class="flex flex-wrap gap-x-4 gap-y-1 text-xs text-n-slate-11">
       <li v-for="c in CATEGORIES" :key="c.key" class="flex gap-1.5 items-center">
-        <span class="rounded-sm size-2.5" :style="{ background: c.color }" />
+        <span
+          class="rounded-sm size-2.5"
+          :style="{ background: c.color }"
+          aria-hidden="true"
+        />
         {{ c.title }}
       </li>
     </ul>
