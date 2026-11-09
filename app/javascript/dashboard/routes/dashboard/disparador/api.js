@@ -23,7 +23,7 @@ import {
  * falha em silencio aqui viraria "criei a campanha" sem campanha nenhuma.
  */
 export async function callDisparador(acao, dados = {}) {
-  const ticket = await n8nTicket();
+  const ticket = await n8nTicket('disparador');
   if (!ticket) {
     throw new Error('Não consegui confirmar seu login para o n8n. Recarregue a página.');
   }

@@ -330,7 +330,10 @@ Rails.application.routes.draw do
           end
 
           # Kanban (fork Goncalves & Silva): 1a pagina de todas as colunas numa chamada.
-          resource :kanban_board, only: [:show], controller: 'kanban_board'
+          resource :kanban_board, only: [:show], controller: 'kanban_board' do
+            # Telas Criados/Atualizados do dia numa consulta so (09/11/2026).
+            get :day
+          end
 
           # Passe assinado para os webhooks do n8n (fork Goncalves & Silva), no lugar do login da sessao.
           resource :n8n_ticket, only: [:show], controller: 'n8n_tickets'

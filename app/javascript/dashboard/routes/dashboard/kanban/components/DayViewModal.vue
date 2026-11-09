@@ -38,7 +38,7 @@ const props = defineProps({
   conversationUrl: { type: Function, required: true },
 });
 
-const emit = defineEmits(['close', 'export']);
+const emit = defineEmits(['close', 'export', 'load']);
 
 const mode = ref(props.initialMode);
 const date = ref(todaySP());
@@ -53,6 +53,14 @@ watch(
     selectAllStages();
   }
 );
+
+/*
+ * 09/11/2026: o pai busca so o dia pedido no servidor (kanban_board/day) em vez
+ * de carregar o quadro inteiro. Cada troca de modo ou de dia pede de novo.
+ */
+watch([mode, date], ([m, d]) => emit('load', { mode: m, date: d }), {
+  immediate: true,
+});
 
 const stageLabels = computed(() => props.columns.map(c => c.label));
 

@@ -8,7 +8,12 @@
  * dashboard-ia-motivos) conferem o ticket com a mesma N8N_TICKET_SECRET.
  *
  * Devolve '' se o servidor nao tiver N8N_TICKET_SECRET ou a chamada falhar.
+ *
+ * `purpose` (09/11/2026) vai dentro do ticket assinado (campo `p`), para o
+ * fluxo do n8n poder recusar ticket emitido para outra tela. Valores aceitos:
+ * PURPOSES em n8n_tickets_controller.rb. O cache e por finalidade.
  */
+/* global axios */
 import ApiClient from '../../api/ApiClient';
 
 class N8nTicketAPI extends ApiClient {
@@ -20,23 +25,23 @@ class N8nTicketAPI extends ApiClient {
 const api = new N8nTicketAPI();
 // Margem para o ticket nao vencer no caminho ate o n8n.
 const MARGIN_SECONDS = 30;
-let cached = null;
+const cache = {};
 
-export async function n8nTicket() {
+export async function n8nTicket(purpose = '') {
   const now = Math.floor(Date.now() / 1000);
-  // Chave pela URL: trocar de conta no painel nao reaproveita o ticket da outra.
-  if (
-    cached &&
-    cached.url === api.url &&
-    cached.expiresAt - MARGIN_SECONDS > now
-  )
-    return cached.ticket;
+  // Chave pela URL e pela finalidade: trocar de conta no painel nao
+  // reaproveita o ticket da outra, e cada tela usa o ticket dela.
+  const key = `${api.url}|${purpose}`;
+  const hit = cache[key];
+  if (hit && hit.expiresAt - MARGIN_SECONDS > now) return hit.ticket;
   try {
-    const { data } = await api.get();
-    cached = { url: api.url, ticket: data.ticket, expiresAt: data.expires_at };
-    return cached.ticket;
+    const { data } = await axios.get(api.url, {
+      params: purpose ? { purpose } : {},
+    });
+    cache[key] = { ticket: data.ticket, expiresAt: data.expires_at };
+    return data.ticket;
   } catch (e) {
-    cached = null;
+    delete cache[key];
     return '';
   }
 }

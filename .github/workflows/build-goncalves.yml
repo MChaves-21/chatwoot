@@ -72,9 +72,62 @@ jobs:
           ln -sfn "$RUNNER_TEMP/sfc/node_modules" node_modules
           node .github/scripts/verificar-goncalves.mjs
 
+  # 09/11/2026: os specs do fork nao rodavam em lugar nenhum (o upstream so
+  # roda os dele em develop/master). Aqui rodam so os arquivos do fork — poucos
+  # minutos, em vez da suite inteira — e o build depende deles.
+  testes:
+    name: Testes do fork (rspec)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: ''
+          POSTGRES_DB: postgres
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --mount type=tmpfs,destination=/var/lib/postgresql/data
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:alpine
+        ports:
+          - 6379:6379
+        options: --entrypoint redis-server
+    env:
+      RAILS_ENV: test
+      POSTGRES_HOST: localhost
+      REDIS_URL: redis://localhost:6379
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Ruby e gems
+        uses: ruby/setup-ruby@v1
+        with:
+          bundler-cache: true
+
+      - name: Banco de teste
+        run: bundle exec rake db:create db:schema:load
+
+      # Lista explicita: arquivo novo do fork entra aqui.
+      - name: Specs do fork
+        run: |
+          bundle exec rspec --format progress \
+            spec/controllers/api/v1/accounts/dashboard_ia_controller_spec.rb \
+            spec/controllers/api/v1/accounts/kanban_board_controller_spec.rb \
+            spec/controllers/api/v1/accounts/n8n_tickets_controller_spec.rb \
+            spec/controllers/api/v1/accounts/relatorio_equipe_controller_spec.rb \
+            spec/services/whatsapp/oneoff_campaign_service_spec.rb
+
   build:
     name: Build e publicacao
-    needs: verificar
+    needs: [verificar, testes]
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     outputs:

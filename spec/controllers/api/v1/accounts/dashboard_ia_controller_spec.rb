@@ -33,6 +33,26 @@ RSpec.describe 'Dashboard IA API', type: :request do
       expect(row[2]).to eq(['sdr'])
     end
 
+    it 'lists as closings the conversations in the signed stages sent by the screen' do
+      signed = create(:conversation, account: account, inbox: inbox)
+      signed.update_labels(['trab_contrato_assinado'])
+      create(:conversation, account: account, inbox: inbox).update_labels(['trab_comercial'])
+
+      get url, params: { inbox_ids: [inbox.id], signed_labels: %w[trab_contrato_assinado trab_efetivado], refresh: '1' },
+               headers: admin.create_new_auth_token
+
+      expect(response.parsed_body['closings'].map(&:first)).to eq([signed.display_id])
+    end
+
+    it 'ignores signed labels with an invalid format and uses the default list' do
+      signed = create(:conversation, account: account, inbox: inbox)
+      signed.update_labels(['contrato_assinado'])
+
+      get url, params: { inbox_ids: [inbox.id], signed_labels: ["x') OR 1=1 --"], refresh: '1' }, headers: admin.create_new_auth_token
+
+      expect(response.parsed_body['closings'].map(&:first)).to eq([signed.display_id])
+    end
+
     it 'ignores inboxes of another account' do
       other_inbox = create(:inbox, account: create(:account))
       create(:conversation, account: other_inbox.account, inbox: other_inbox)
@@ -57,6 +77,19 @@ RSpec.describe 'Dashboard IA API', type: :request do
 
       get url, params: { inbox_ids: [inbox.id] }, headers: admin.create_new_auth_token
       expect(response.parsed_body['goals']).to eq('comercial' => 10)
+    end
+  end
+
+  describe 'account settings' do
+    it 'keeps the team report IA users when saving goals' do
+      account.update!(custom_attributes: { 'relatorio_equipe_ia_users' => [admin.id] })
+
+      patch "#{url}/goals", params: { goals: { auxilio_acidente: 40 } }, headers: admin.create_new_auth_token, as: :json
+
+      expect(account.reload.custom_attributes).to include(
+        'relatorio_equipe_ia_users' => [admin.id],
+        'dashboard_ia_goals' => { 'auxilio_acidente' => 40 }
+      )
     end
   end
 end

@@ -51,6 +51,45 @@ RSpec.describe 'Relatorio da Equipe API', type: :request do
       expect(response.headers['X-Relatorio-Truncado']).to eq('0')
       expect(response.body).to include("'=HYPERLINK")
     end
+
+    it 'identifies the conversation by its display id' do
+      other_account = create(:account)
+      create_list(:conversation, 2, account: other_account)
+      conversation = create(:conversation, account: account, inbox: inbox)
+      create(:message, account: account, inbox: inbox, conversation: conversation, message_type: :incoming, content: 'oi')
+      expect(conversation.id).not_to eq(conversation.display_id)
+
+      get "#{url}/mensagens", params: { inbox_ids: [inbox.id] }, headers: admin.create_new_auth_token
+
+      expect(response.body.lines.second.split(';')[2]).to eq(conversation.display_id.to_s)
+    end
+
+    it 'sends every message across batches, oldest first' do
+      stub_const('RelatorioEquipe::Report::CSV_BATCH', 1)
+      conversation = create(:conversation, account: account, inbox: inbox)
+      %w[primeira segunda terceira].each_with_index do |text, index|
+        create(:message, account: account, inbox: inbox, conversation: conversation, message_type: :incoming,
+                         content: text, created_at: (3 - index).minutes.ago)
+      end
+
+      get "#{url}/mensagens", params: { inbox_ids: [inbox.id] }, headers: admin.create_new_auth_token
+
+      body = response.body
+      expect(body.index('primeira')).to be < body.index('segunda')
+      expect(body.index('segunda')).to be < body.index('terceira')
+      expect(response.headers['X-Relatorio-Truncado']).to eq('0')
+    end
+
+    it 'flags the export as truncated only when it passes the limit' do
+      stub_const('RelatorioEquipe::Report::CSV_LIMIT', 2)
+      conversation = create(:conversation, account: account, inbox: inbox)
+      create_list(:message, 3, account: account, inbox: inbox, conversation: conversation, message_type: :incoming)
+
+      get "#{url}/mensagens", params: { inbox_ids: [inbox.id] }, headers: admin.create_new_auth_token
+
+      expect(response.headers['X-Relatorio-Truncado']).to eq('1')
+      expect(response.body.lines.size).to eq(3)
+    end
   end
 
   describe 'PATCH /api/v1/accounts/{account.id}/relatorio_equipe/ia_users' do

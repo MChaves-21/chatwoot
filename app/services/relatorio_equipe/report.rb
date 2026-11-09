@@ -19,7 +19,9 @@ class RelatorioEquipe::Report
   MAX_DAYS = 366
   DEFAULT_DAYS = 30
   CSV_LIMIT = 50_000
+  CSV_BATCH = 2_000
   CONTENT_LIMIT = 2_000
+  CSV_HEADER = ['Data/hora', 'Caixa', 'Conversa', 'Contato', 'Telefone', 'Quem enviou', 'Tipo', 'Etiquetas', 'Mensagem'].freeze
   DEFAULT_TZ = 'America/Fortaleza'.freeze
   IA_SENDER_TYPES = %w[AgentBot Captain::Assistant].freeze
   INCOMING = 0
@@ -55,16 +57,24 @@ class RelatorioEquipe::Report
     }
   end
 
-  # [csv, truncado?]
-  def to_csv
+  # Quantas linhas o CSV teria, contando ate CSV_LIMIT + 1: passou do teto = truncado.
+  def csv_count
+    messages.limit(CSV_LIMIT + 1).count
+  end
+
+  # O CSV em pedacos (09/11/2026). Antes eram ate 50 mil mensagens com o texto
+  # inteiro num pluck so, mais a String do arquivo, na memoria do Puma — no
+  # mesmo servidor que atende os clientes. Agora vai em lotes de CSV_BATCH,
+  # paginando por (created_at, id), e o texto ja vem cortado pelo banco.
+  def csv_enum
     require 'csv'
-    rows = csv_rows
-    names = sender_names(rows)
-    csv = CSV.generate(col_sep: ';') do |out|
-      out << ['Data/hora', 'Caixa', 'Conversa', 'Contato', 'Telefone', 'Quem enviou', 'Tipo', 'Etiquetas', 'Mensagem']
-      rows.each { |row| out << csv_line(row, names) }
+    Enumerator.new do |out|
+      out << "\uFEFF#{CSV.generate_line(CSV_HEADER, col_sep: ';')}"
+      each_csv_batch do |rows|
+        names = sender_names(rows)
+        out << rows.map { |row| CSV.generate_line(csv_line(row, names), col_sep: ';') }.join
+      end
     end
-    ["\uFEFF#{csv}", rows.size >= CSV_LIMIT]
   end
 
   private
@@ -198,17 +208,36 @@ class RelatorioEquipe::Report
     end
   end
 
+  # 09/11/2026: a coluna Conversa usa o display_id, o numero que aparece no
+  # Chatwoot e nas URLs. O id do banco so coincidia com ele enquanto a conta 1
+  # era a unica com conversas (o mesmo defeito do Dashboard IA, 26/10/2026).
+  # As duas ultimas colunas (created_at e id) servem so de cursor.
   CSV_COLUMNS = [
-    'messages.created_at', 'inboxes.name', 'messages.conversation_id', 'contacts.name', 'contacts.phone_number',
-    'messages.sender_type', 'messages.sender_id', nil, 'conversations.cached_label_list', 'messages.content'
+    'messages.created_at', 'inboxes.name', 'conversations.display_id', 'contacts.name', 'contacts.phone_number',
+    'messages.sender_type', 'messages.sender_id', nil, 'conversations.cached_label_list',
+    "LEFT(messages.content, #{CONTENT_LIMIT})", 'messages.created_at', 'messages.id'
   ].freeze
 
-  def csv_rows
+  def each_csv_batch
+    sent = 0
+    cursor = nil
+    while sent < CSV_LIMIT
+      rows = csv_rows(cursor, [CSV_BATCH, CSV_LIMIT - sent].min)
+      break if rows.empty?
+
+      yield rows
+      sent += rows.size
+      break if rows.size < CSV_BATCH
+
+      cursor = rows.last.last(2)
+    end
+  end
+
+  def csv_rows(cursor, limit)
     columns = CSV_COLUMNS.map { |c| Arel.sql(c || category_sql) }
-    messages.left_joins(:inbox, conversation: :contact)
-            .reorder(Arel.sql('messages.created_at ASC, messages.id ASC'))
-            .limit(CSV_LIMIT)
-            .pluck(*columns)
+    scope = messages.left_joins(:inbox, conversation: :contact)
+    scope = scope.where('(messages.created_at, messages.id) > (?, ?)', *cursor) if cursor
+    scope.reorder(Arel.sql('messages.created_at ASC, messages.id ASC')).limit(limit).pluck(*columns)
   end
 
   def sender_names(rows)
@@ -221,7 +250,7 @@ class RelatorioEquipe::Report
   end
 
   def csv_line(row, names)
-    at, inbox, conversation_id, contact, phone, sender_type, sender_id, category, labels, content = row
+    at, inbox, conversation_id, contact, phone, sender_type, sender_id, category, labels, content, = row
     sender = category == 'recebida' ? contact : (names.dig(sender_type, sender_id) || CATEGORY_TITLES[category])
     [
       at&.in_time_zone(tz)&.strftime('%d/%m/%Y %H:%M:%S'),

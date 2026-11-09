@@ -118,6 +118,19 @@ describe Whatsapp::OneoffCampaignService do
         described_class.new(campaign: campaign).perform
       end
 
+      it 'reaches contacts by conversation label only in the campaign inbox' do
+        here, elsewhere = create_list(:contact, 2, :with_phone_number, account: account)
+        here_inbox = create(:contact_inbox, contact: here, inbox: whatsapp_inbox, source_id: here.phone_number.delete('+'))
+        create(:conversation, account: account, inbox: whatsapp_inbox, contact: here, contact_inbox: here_inbox)
+          .update_labels([label1.title])
+        create(:conversation, account: account, inbox: create(:inbox, account: account), contact: elsewhere)
+          .update_labels([label1.title])
+
+        expect(whatsapp_channel).to receive(:send_template).once.with(here.phone_number, anything, nil)
+
+        described_class.new(campaign: campaign).perform
+      end
+
       it 'skips contacts without phone numbers' do
         contact_without_phone = create(:contact, account: account, phone_number: nil)
         contact_without_phone.update_labels([label1.title])

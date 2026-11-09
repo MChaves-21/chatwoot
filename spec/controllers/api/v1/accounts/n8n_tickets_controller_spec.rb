@@ -35,4 +35,29 @@ RSpec.describe 'n8n ticket API', type: :request do
       end
     end
   end
+
+  describe 'purpose' do
+    let(:ticket_url) { "/api/v1/accounts/#{account.id}/n8n_ticket" }
+
+    def claims_of(body)
+      JSON.parse(Base64.urlsafe_decode64(body['ticket'].split('.').first))
+    end
+
+    it 'signs an allowed purpose into the ticket and is never cached' do
+      with_modified_env N8N_TICKET_SECRET: 'segredo-de-teste' do
+        get ticket_url, params: { purpose: 'kanban_lead' }, headers: agent.create_new_auth_token
+
+        expect(claims_of(response.parsed_body)['p']).to eq('kanban_lead')
+        expect(response.headers['Cache-Control']).to include('no-store')
+      end
+    end
+
+    it 'leaves an unknown purpose out of the ticket' do
+      with_modified_env N8N_TICKET_SECRET: 'segredo-de-teste' do
+        get ticket_url, params: { purpose: 'qualquer_coisa' }, headers: agent.create_new_auth_token
+
+        expect(claims_of(response.parsed_body)).not_to have_key('p')
+      end
+    end
+  end
 end

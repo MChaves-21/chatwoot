@@ -151,6 +151,7 @@ const showSettings = ref(false);
 const showDayView = ref(false);
 const dayMode = ref('created');
 const dayLoading = ref(false);
+const dayConversations = ref([]);
 const openConversation = ref(null);
 const draggingId = ref(null);
 const dragFromLabel = ref(null);
@@ -345,16 +346,51 @@ const saveSettings = payload => {
   board.loadAll();
 };
 
-const openDayView = async mode => {
-  dayMode.value = mode;
-  showDayView.value = true;
+/*
+ * Telas Criados/Atualizados — 09/11/2026. Antes a abertura chamava
+ * loadEverything (todas as paginas de todas as colunas: 4 requisicoes de 1 a
+ * 1,6 s com "So trafego", centenas sem ele no 0300). Agora o modal pede o dia
+ * (evento load) e so o dia vem do servidor. Se o endpoint faltar (imagem
+ * antiga) ou o funil nao tiver caixa, volta para o caminho antigo.
+ * daySeq descarta resposta atrasada quando a pessoa troca de dia rapido.
+ */
+let daySeq = 0;
+const fetchDay = async ({ mode, date }) => {
+  daySeq += 1;
+  const seq = daySeq;
   dayLoading.value = true;
+  let list = null;
   try {
-    await board.loadEverything();
+    const data = await board.loadDay(mode, date);
+    if (data) {
+      list = data.payload;
+      if (data.truncated && seq === daySeq) {
+        useAlert(
+          `Mostrando ${data.payload.length} de ${data.total} conversas deste dia.`
+        );
+      }
+    }
   } catch (e) {
-    useAlert(`Falha ao carregar: ${e.message}`);
+    list = null;
   }
+  if (list === null) {
+    try {
+      await board.loadEverything();
+      list = board.allConversations();
+    } catch (e) {
+      if (seq === daySeq) useAlert(`Falha ao carregar: ${e.message}`);
+      list = [];
+    }
+  }
+  if (seq !== daySeq) return;
+  dayConversations.value = list;
   dayLoading.value = false;
+};
+
+const openDayView = mode => {
+  dayMode.value = mode;
+  dayConversations.value = [];
+  showDayView.value = true;
 };
 
 const exportBoard = async () => {
@@ -777,7 +813,7 @@ const ICON_BTN =
 
     <DayViewModal
       v-if="showDayView"
-      :conversations="board.allConversations()"
+      :conversations="dayConversations"
       :columns="columnDefs"
       :tags="tagDefs"
       :initial-mode="dayMode"
@@ -785,6 +821,7 @@ const ICON_BTN =
       :conversation-url="conversationUrl"
       @close="showDayView = false"
       @export="exportDay"
+      @load="fetchDay"
     />
 
     <ContactPopup

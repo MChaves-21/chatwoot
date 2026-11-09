@@ -63,6 +63,39 @@ class KanbanAPI extends ApiClient {
   }
 
   /**
+   * Conversas do quadro criadas (mode=created) ou atualizadas (mode=updated)
+   * num dia, numa chamada so — 09/11/2026 (kanban_board_controller.rb#day).
+   * Devolve { payload, total, truncated }. Lanca erro se o endpoint nao
+   * existir (imagem antiga); quem chama volta para o loadEverything.
+   */
+  async day({
+    inboxId,
+    labels,
+    excludeLabels = [],
+    status = 'all',
+    unstaged,
+    mode,
+    date,
+  }) {
+    const params = new URLSearchParams();
+    params.set('inbox_id', String(inboxId));
+    params.set('status', status || 'all');
+    params.set('mode', mode === 'updated' ? 'updated' : 'created');
+    params.set('date', date);
+    labels.forEach(l => params.append('labels[]', l));
+    excludeLabels.forEach(l => params.append('exclude_labels[]', l));
+    if (unstaged) params.set('unstaged', '1');
+    const res = await axios.get(
+      `${this.base}/kanban_board/day?${params.toString()}`
+    );
+    const data = res.data || {};
+    if (!Array.isArray(data.payload)) {
+      throw new Error('Resposta inesperada do endpoint do Kanban.');
+    }
+    return data;
+  }
+
+  /**
    * Uma pagina de conversas de uma etiqueta. O tamanho da pagina vem de
    * CONVERSATION_RESULTS_PER_PAGE no servidor (25 por padrao), entao nao ha
    * constante equivalente aqui; o total confiavel e o meta.all_count.
@@ -271,7 +304,7 @@ export async function fetchLead({ url, secret, phone }) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         phone,
-        ticket: await n8nTicket(),
+        ticket: await n8nTicket('kanban_lead'),
         secret: secret || undefined,
       }),
     });
@@ -303,7 +336,7 @@ export async function fetchSummary({ conversationId, force = false }) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        ticket: await n8nTicket(),
+        ticket: await n8nTicket('kanban_resumo'),
         conversation_id: conversationId,
         force: force || undefined,
       }),
@@ -353,7 +386,7 @@ export async function scheduleMessage({
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         secret: secret || undefined,
-        ticket: await n8nTicket(),
+        ticket: await n8nTicket('kanban_agendar'),
         conversation_id: conversationId,
         inbox_id: inboxId,
         phone,

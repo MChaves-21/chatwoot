@@ -352,6 +352,26 @@ export function useKanbanBoard(accountId) {
     statusText.value = '';
   }
 
+  /**
+   * So as conversas do quadro criadas/atualizadas num dia, do servidor —
+   * 09/11/2026. As telas Criados e Atualizados usavam loadEverything (todas as
+   * paginas de todas as colunas, centenas de requisicoes no 0300). Devolve null
+   * quando o funil nao tem caixa; erro do endpoint sobe para quem chama.
+   */
+  async function loadDay(mode, date) {
+    const { inboxId } = activeFunnel.value;
+    if (!inboxId) return null;
+    return KanbanAPI.day({
+      inboxId,
+      labels: stageLabels.value,
+      excludeLabels: excludeLabels.value,
+      status: prefs.status,
+      unstaged: columnDefs.value.some(c => c.label === UNSTAGED_LABEL),
+      mode,
+      date,
+    });
+  }
+
   function allConversations() {
     const seen = new Set();
     const out = [];
@@ -609,6 +629,7 @@ export function useKanbanBoard(accountId) {
     loadColumn,
     loadAll,
     loadEverything,
+    loadDay,
     allConversations,
     // leads
     ensureLead,

@@ -24,6 +24,7 @@ import {
   MAX_HISTORY_PAGES,
   MAX_PAGES_PER_INBOX,
   SCAN_CONCURRENCY,
+  SIGNED_OR_LATER_LABELS,
 } from './constants';
 import { toRow } from './metrics';
 
@@ -83,6 +84,8 @@ class DashboardIaAPI extends ApiClient {
   async snapshot({ inboxIds, refresh = false }) {
     const params = new URLSearchParams();
     inboxIds.forEach(id => params.append('inbox_ids[]', String(id)));
+    // Fechamentos: o servidor usa esta lista (fonte unica: FUNNEL_READING).
+    SIGNED_OR_LATER_LABELS.forEach(l => params.append('signed_labels[]', l));
     // O servidor guarda o retrato por 2 min; o botao Atualizar pula esse cache.
     if (refresh) params.set('refresh', '1');
     const res = await axios.get(`${this.base}/dashboard_ia?${params.toString()}`);
@@ -226,7 +229,7 @@ export default new DashboardIaAPI();
  */
 export async function fetchLossReasons() {
   try {
-    const ticket = await n8nTicket();
+    const ticket = await n8nTicket('dashboard_ia_motivos');
     if (!ticket) return null;
     const res = await fetch(LOSS_REASONS_URL, {
       method: 'POST',

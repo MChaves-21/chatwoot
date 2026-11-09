@@ -176,6 +176,30 @@ export const SIGNED_LABELS = [
   ...new Set(ALL_DASH_FUNNELS.map(f => f.signedFrom).filter(Boolean)),
 ];
 
+/**
+ * Etiquetas de contrato assinado OU etapa posterior, de todos os funis: de
+ * `signedFrom` ate o fim do `path`, mais as de `rankAs` que caem nesse trecho.
+ *
+ * 09/11/2026: vai para o servidor (dashboard_ia_controller.rb, `signed_labels[]`)
+ * escolher os fechamentos. Antes o servidor tinha a propria lista, digitada a
+ * mao, que ja tinha ficado para tras (faltavam as do Trabalhista). Agora a
+ * fonte e uma so: este FUNNEL_READING.
+ */
+export const SIGNED_OR_LATER_LABELS = [
+  ...new Set(
+    ALL_DASH_FUNNELS.flatMap(f => {
+      const path = Array.isArray(f.path) ? f.path : [];
+      const from = path.indexOf(f.signedFrom);
+      if (from < 0) return [];
+      const after = path.slice(from);
+      const ranked = Object.entries(f.rankAs || {})
+        .filter(([, target]) => after.includes(target))
+        .map(([label]) => label);
+      return [...after, ...ranked];
+    })
+  ),
+];
+
 export const PERIODS = [
   { key: 'hoje', title: 'Hoje' },
   { key: 'ontem', title: 'Ontem' },

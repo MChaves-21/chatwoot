@@ -95,4 +95,67 @@ RSpec.describe 'Kanban board API', type: :request do
       expect(response.parsed_body['columns']['sdr']['total']).to eq(1)
     end
   end
+
+  describe 'GET /api/v1/accounts/{account.id}/kanban_board/day' do
+    let(:day_url) { "#{url}/day" }
+    let(:zone) { ActiveSupport::TimeZone['America/Sao_Paulo'] }
+    let(:today) { zone.today }
+
+    it 'returns not found for an agent outside the inbox' do
+      get day_url, params: { inbox_id: inbox.id, labels: ['sdr'], date: today.iso8601 }, headers: agent.create_new_auth_token
+
+      expect(response).to have_http_status(:not_found)
+    end
+
+    it 'rejects an invalid date' do
+      get day_url, params: { inbox_id: inbox.id, labels: ['sdr'], date: 'ontem' }, headers: admin.create_new_auth_token
+
+      expect(response).to have_http_status(:unprocessable_entity)
+    end
+
+    it 'returns only the board conversations created on the day, newest first' do
+      noon = zone.local(today.year, today.month, today.day, 12)
+      morning = create(:conversation, account: account, inbox: inbox, created_at: noon - 2.hours)
+      morning.update_labels(['sdr'])
+      afternoon = create(:conversation, account: account, inbox: inbox, created_at: noon + 2.hours)
+      afternoon.update_labels(['comercial'])
+      create(:conversation, account: account, inbox: inbox, created_at: noon - 1.day).update_labels(['sdr'])
+      create(:conversation, account: account, inbox: inbox, created_at: noon).update_labels(%w[sdr importado])
+      create(:conversation, account: account, inbox: inbox, created_at: noon)
+
+      get day_url, params: { inbox_id: inbox.id, labels: %w[sdr comercial], exclude_labels: ['importado'], status: 'all',
+                             mode: 'created', date: today.iso8601 },
+                   headers: admin.create_new_auth_token
+
+      expect(response).to have_http_status(:success)
+      body = response.parsed_body
+      expect(body['payload'].pluck('id')).to eq([afternoon.display_id, morning.display_id])
+      expect(body['total']).to eq(2)
+      expect(body['truncated']).to be(false)
+    end
+
+    it 'includes conversations without a stage when the board has the unstaged column' do
+      noon = zone.local(today.year, today.month, today.day, 12)
+      unstaged = create(:conversation, account: account, inbox: inbox, created_at: noon)
+      create(:conversation, account: account, inbox: inbox, created_at: noon).update_labels(['importado'])
+
+      get day_url, params: { inbox_id: inbox.id, labels: ['sdr'], exclude_labels: ['importado'], unstaged: '1', status: 'all',
+                             date: today.iso8601 },
+                   headers: admin.create_new_auth_token
+
+      expect(response.parsed_body['payload'].pluck('id')).to eq([unstaged.display_id])
+    end
+
+    it 'uses the last activity in updated mode' do
+      noon = zone.local(today.year, today.month, today.day, 12)
+      old_but_active = create(:conversation, account: account, inbox: inbox, created_at: noon - 30.days, last_activity_at: noon)
+      old_but_active.update_labels(['sdr'])
+      create(:conversation, account: account, inbox: inbox, created_at: noon, last_activity_at: noon - 2.days).update_labels(['sdr'])
+
+      get day_url, params: { inbox_id: inbox.id, labels: ['sdr'], status: 'all', mode: 'updated', date: today.iso8601 },
+                   headers: admin.create_new_auth_token
+
+      expect(response.parsed_body['payload'].pluck('id')).to eq([old_but_active.display_id])
+    end
+  end
 end

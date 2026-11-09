@@ -23,6 +23,10 @@ class Api::V1::Accounts::KanbanBoardController < Api::V1::Accounts::BaseControll
   UNSTAGED_KEY = '__sem_etapa__'.freeze
   # Igual a Conversation#unread_incoming_messages, que corta em 10.
   MAX_UNREAD = 10
+  # Teto da tela do dia. Num dia normal sao dezenas; o teto so pesa em dia de
+  # importacao em massa (28-30/10/2026: milhares de conversas criadas).
+  MAX_DAY_ROWS = 3000
+  DAY_ZONE = 'America/Sao_Paulo'.freeze
 
   def show
     inbox = Current.user.assigned_inboxes.find_by(id: params[:inbox_id])
@@ -37,7 +41,55 @@ class Api::V1::Accounts::KanbanBoardController < Api::V1::Accounts::BaseControll
     }
   end
 
+  # GET /api/v1/accounts/:account_id/kanban_board/day
+  #     ?inbox_id=11&labels[]=sdr&exclude_labels[]=importado&unstaged=1&status=all&mode=created&date=2026-11-09
+  #
+  # 09/11/2026: as telas Criados e Atualizados do Kanban precisavam de TODAS as
+  # conversas do quadro (loadEverything: 25 por pagina pelo /conversations/filter,
+  # 1 a 1,6 s cada, centenas de paginas no 0300) so para mostrar as do dia.
+  # Aqui sai so o dia pedido, numa consulta: as conversas do quadro (com etapa,
+  # ou sem etapa quando o funil tem essa coluna, sempre sem as exclude_labels)
+  # criadas (mode=created) ou com ultima atividade (mode=updated) no dia, no
+  # fuso de Sao Paulo, mais recentes primeiro. Mesmo card do show.
+  def day
+    inbox = Current.user.assigned_inboxes.find_by(id: params[:inbox_id])
+    return render json: { error: 'Caixa não encontrada' }, status: :not_found if inbox.nil?
+
+    start = day_start
+    return render json: { error: 'Data inválida' }, status: :unprocessable_entity if start.nil?
+
+    render json: day_payload(inbox, start)
+  end
+
   private
+
+  def day_payload(inbox, start)
+    column = params[:mode] == 'updated' ? :last_activity_at : :created_at
+    scope = funnel_scope(filtered_by_status(accessible_conversations(inbox)))
+            .where(conversations: { column => start...(start + 1.day) })
+    total = scope.count
+    rows = scope.order(column => :desc).limit(MAX_DAY_ROWS).includes(:contact, :assignee, :assignee_agent_bot).to_a.uniq(&:id)
+    unread = unread_counts(rows)
+    { date: start.to_date.iso8601, mode: column == :last_activity_at ? 'updated' : 'created',
+      total: total, truncated: total > rows.size, payload: rows.map { |c| card(c, unread[c.id]) } }
+  end
+
+  # O quadro inteiro: as colunas de etapa e, se o funil tem, a Sem etapa — que
+  # juntas sao toda conversa sem exclude_labels. Sem etapa e sem a coluna Sem
+  # etapa, nada.
+  def funnel_scope(base)
+    return base.none if stage_labels.empty? && !unstaged?
+
+    scope = unstaged? ? base : base.tagged_with(stage_labels, any: true)
+    exclude_labels.any? ? scope.tagged_with(exclude_labels, exclude: true) : scope
+  end
+
+  def day_start
+    date = Date.iso8601(params[:date].to_s)
+    ActiveSupport::TimeZone[DAY_ZONE].local(date.year, date.month, date.day)
+  rescue ArgumentError, Date::Error
+    nil
+  end
 
   def column_pages(base)
     pages = stage_labels.index_with { |label| page_of(with_label(base, label)) }
