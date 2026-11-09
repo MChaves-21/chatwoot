@@ -27,12 +27,13 @@ class Api::V1::Accounts::KanbanBoardController < Api::V1::Accounts::BaseControll
   # importacao em massa (28-30/10/2026: milhares de conversas criadas).
   MAX_DAY_ROWS = 3000
   DAY_ZONE = 'America/Sao_Paulo'.freeze
+  # Teto do Excel do quadro. Hoje o maior quadro (0300) tem ~8 mil cards.
+  MAX_EXPORT_ROWS = 20_000
+
+  before_action :set_inbox
 
   def show
-    inbox = Current.user.assigned_inboxes.find_by(id: params[:inbox_id])
-    return render json: { error: 'Caixa não encontrada' }, status: :not_found if inbox.nil?
-
-    pages = column_pages(filtered_by_status(accessible_conversations(inbox)))
+    pages = column_pages(filtered_by_status(accessible_conversations(@inbox)))
     unread = unread_counts(pages.values.flat_map { |page| page[:rows] })
     render json: {
       per_page: per_page,
@@ -52,16 +53,34 @@ class Api::V1::Accounts::KanbanBoardController < Api::V1::Accounts::BaseControll
   # criadas (mode=created) ou com ultima atividade (mode=updated) no dia, no
   # fuso de Sao Paulo, mais recentes primeiro. Mesmo card do show.
   def day
-    inbox = Current.user.assigned_inboxes.find_by(id: params[:inbox_id])
-    return render json: { error: 'Caixa não encontrada' }, status: :not_found if inbox.nil?
-
     start = day_start
     return render json: { error: 'Data inválida' }, status: :unprocessable_entity if start.nil?
 
-    render json: day_payload(inbox, start)
+    render json: day_payload(@inbox, start)
+  end
+
+  # GET /api/v1/accounts/:account_id/kanban_board/cards
+  #     ?inbox_id=11&labels[]=sdr&exclude_labels[]=importado&unstaged=1&status=all
+  #
+  # 09/11/2026: o Excel do Kanban paginava cada coluna de 25 em 25 pelo
+  # /conversations/filter ate MAX_PAGES_PER_COLUMN (200) — cortava em 5.000
+  # cards por coluna (o SDR do 0300 tem ~5.300) e levava minutos. Aqui sai o
+  # quadro inteiro numa consulta, no mesmo card do show, ate MAX_EXPORT_ROWS.
+  # Sem contagem de nao lidas: o Excel nao usa.
+  def cards
+    scope = funnel_scope(filtered_by_status(accessible_conversations(@inbox)))
+    total = scope.count
+    rows = scope.sort_on_last_activity_at(:desc).limit(MAX_EXPORT_ROWS)
+                .includes(:contact, :assignee, :assignee_agent_bot).to_a.uniq(&:id)
+    render json: { total: total, truncated: total > rows.size, payload: rows.map { |c| card(c, 0) } }
   end
 
   private
+
+  def set_inbox
+    @inbox = Current.user.assigned_inboxes.find_by(id: params[:inbox_id])
+    render json: { error: 'Caixa não encontrada' }, status: :not_found if @inbox.nil?
+  end
 
   def day_payload(inbox, start)
     column = params[:mode] == 'updated' ? :last_activity_at : :created_at

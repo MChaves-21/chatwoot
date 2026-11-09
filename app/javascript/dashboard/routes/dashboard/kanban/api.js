@@ -63,6 +63,29 @@ class KanbanAPI extends ApiClient {
   }
 
   /**
+   * Todos os cards do quadro numa chamada, para o Excel — 09/11/2026
+   * (kanban_board_controller.rb#cards). Devolve { payload, total, truncated }.
+   * Lanca erro se o endpoint nao existir; quem chama volta para o
+   * loadEverything (que corta em MAX_PAGES_PER_COLUMN paginas por coluna).
+   */
+  async cards({ inboxId, labels, excludeLabels = [], status = 'all', unstaged }) {
+    const params = new URLSearchParams();
+    params.set('inbox_id', String(inboxId));
+    params.set('status', status || 'all');
+    labels.forEach(l => params.append('labels[]', l));
+    excludeLabels.forEach(l => params.append('exclude_labels[]', l));
+    if (unstaged) params.set('unstaged', '1');
+    const res = await axios.get(
+      `${this.base}/kanban_board/cards?${params.toString()}`
+    );
+    const data = res.data || {};
+    if (!Array.isArray(data.payload)) {
+      throw new Error('Resposta inesperada do endpoint do Kanban.');
+    }
+    return data;
+  }
+
+  /**
    * Conversas do quadro criadas (mode=created) ou atualizadas (mode=updated)
    * num dia, numa chamada so — 09/11/2026 (kanban_board_controller.rb#day).
    * Devolve { payload, total, truncated }. Lanca erro se o endpoint nao

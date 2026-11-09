@@ -393,13 +393,35 @@ const openDayView = mode => {
   showDayView.value = true;
 };
 
+/*
+ * Excel do quadro — 09/11/2026. Os cards vem do servidor numa chamada
+ * (kanban_board/cards), sem o corte de 5.000 por coluna do loadEverything.
+ * O caminho antigo fica para o filtro por flag do lead (precisa do quadro
+ * carregado para o enrichLeads) e para imagem sem o endpoint novo.
+ */
+const exportCards = async () => {
+  if (!filters.flag) {
+    try {
+      const data = await board.loadAllCards();
+      if (data) {
+        if (data.truncated) {
+          useAlert(`O Excel vai com ${data.payload.length} de ${data.total} cartões (limite do servidor).`);
+        }
+        return data.payload;
+      }
+    } catch (e) {
+      // segue para o caminho antigo
+    }
+  }
+  await board.loadEverything();
+  if (filters.flag) await board.enrichLeads();
+  return board.allConversations();
+};
+
 const exportBoard = async () => {
   isExporting.value = true;
   try {
-    await board.loadEverything();
-    if (filters.flag) await board.enrichLeads();
-
-    const all = board.allConversations();
+    const all = await exportCards();
     const list = filtersActive.value
       ? all.filter(c => passesFilter(c, filters, leadCache))
       : all;

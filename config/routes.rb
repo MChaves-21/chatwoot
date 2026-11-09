@@ -333,6 +333,8 @@ Rails.application.routes.draw do
           resource :kanban_board, only: [:show], controller: 'kanban_board' do
             # Telas Criados/Atualizados do dia numa consulta so (09/11/2026).
             get :day
+            # Todos os cards do quadro numa chamada, para o Excel (09/11/2026).
+            get :cards
           end
 
           # Passe assinado para os webhooks do n8n (fork Goncalves & Silva), no lugar do login da sessao.

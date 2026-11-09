@@ -35,8 +35,13 @@ module Enterprise::Whatsapp::OneoffCampaignService
     send_whatsapp_template_message(recipient: recipient, to: contact.phone_number, template_params: processed_template_params)
   end
 
+  # Fork Goncalves & Silva (09/11/2026): o publico vem de `audience_contacts`
+  # (app/services/whatsapp/oneoff_campaign_service.rb), que inclui os contatos
+  # cujas CONVERSAS desta caixa tem a etiqueta — as etapas do Kanban sao
+  # etiquetas de conversa. O upstream daqui so olhava etiqueta do contato, e
+  # como a imagem e "ee", a regra do fork (08/10/2026) nunca chegava a rodar.
   def create_recipients(audience_labels)
-    contacts = campaign.account.contacts.tagged_with(audience_labels, any: true)
+    contacts = audience_contacts(audience_labels)
     Rails.logger.info "Processing #{contacts.count} contacts for campaign #{campaign.id}"
 
     contacts.find_each.map do |contact|

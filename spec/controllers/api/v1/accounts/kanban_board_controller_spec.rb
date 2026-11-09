@@ -158,4 +158,38 @@ RSpec.describe 'Kanban board API', type: :request do
       expect(response.parsed_body['payload'].pluck('id')).to eq([old_but_active.display_id])
     end
   end
+
+  describe 'GET /api/v1/accounts/{account.id}/kanban_board/cards' do
+    let(:cards_url) { "#{url}/cards" }
+
+    it 'returns not found for an agent outside the inbox' do
+      get cards_url, params: { inbox_id: inbox.id, labels: ['sdr'] }, headers: agent.create_new_auth_token
+
+      expect(response).to have_http_status(:not_found)
+    end
+
+    it 'returns every card of the board beyond one page, without the excluded labels' do
+      create_list(:conversation, 27, account: account, inbox: inbox).each { |c| c.update_labels(['sdr']) }
+      create(:conversation, account: account, inbox: inbox).update_labels(%w[sdr importado])
+      unstaged = create(:conversation, account: account, inbox: inbox)
+
+      get cards_url, params: { inbox_id: inbox.id, labels: ['sdr'], exclude_labels: ['importado'], unstaged: '1', status: 'all' },
+                     headers: admin.create_new_auth_token
+
+      body = response.parsed_body
+      expect(body['payload'].size).to eq(28)
+      expect(body['payload'].pluck('id')).to include(unstaged.display_id)
+      expect(body['truncated']).to be(false)
+    end
+
+    it 'flags a board larger than the export limit' do
+      stub_const('Api::V1::Accounts::KanbanBoardController::MAX_EXPORT_ROWS', 1)
+      create_list(:conversation, 2, account: account, inbox: inbox).each { |c| c.update_labels(['sdr']) }
+
+      get cards_url, params: { inbox_id: inbox.id, labels: ['sdr'], status: 'all' }, headers: admin.create_new_auth_token
+
+      expect(response.parsed_body).to include('total' => 2, 'truncated' => true)
+      expect(response.parsed_body['payload'].size).to eq(1)
+    end
+  end
 end

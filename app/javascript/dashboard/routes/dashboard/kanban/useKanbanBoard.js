@@ -372,6 +372,22 @@ export function useKanbanBoard(accountId) {
     });
   }
 
+  /**
+   * O quadro inteiro do servidor, para o Excel — 09/11/2026. Devolve null
+   * quando o funil nao tem caixa; erro do endpoint sobe para quem chama.
+   */
+  async function loadAllCards() {
+    const { inboxId } = activeFunnel.value;
+    if (!inboxId) return null;
+    return KanbanAPI.cards({
+      inboxId,
+      labels: stageLabels.value,
+      excludeLabels: excludeLabels.value,
+      status: prefs.status,
+      unstaged: columnDefs.value.some(c => c.label === UNSTAGED_LABEL),
+    });
+  }
+
   function allConversations() {
     const seen = new Set();
     const out = [];
@@ -630,6 +646,7 @@ export function useKanbanBoard(accountId) {
     loadAll,
     loadEverything,
     loadDay,
+    loadAllCards,
     allConversations,
     // leads
     ensureLead,
