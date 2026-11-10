@@ -30,7 +30,7 @@ import DailyTableModal from './components/DailyTableModal.vue';
 import { useKanbanBoard } from './useKanbanBoard';
 import { useStateBoard } from './useStateBoard';
 import { exportToExcel } from './excel';
-import { BPC_FUNNEL_ID, TRABALHISTA_FUNNEL_ID } from './constants';
+import { BPC_FUNNEL_ID } from './constants';
 import { activeFilterCount, passesFilter } from './helpers';
 import { searchEverywhere, stateTermFor, locate } from './search';
 
@@ -118,10 +118,12 @@ const isStateMode = computed(() => activeFunnel.value.mode === 'state');
  * A decisao mora aqui, e nao dentro do ContactPopup, porque quem sabe qual
  * funil esta aberto e esta tela. O popup so recebe um booleano.
  */
-// 25/09/2026: Trabalhista tambem fica sem Resumo (o resumo le as flags do
-// lead de Auxilio Acidente, que nao existem para o canal trabalhista).
+// 25/09/2026: Trabalhista ficou sem Resumo (o resumo lia as flags do lead de
+// Auxilio Acidente). 10/11/2026 (pedido do Flavio, "resumo tipo LawChat"): o
+// Resumo por IA (n8n "Kanban - Resumo do card") agora tem ficha propria para a
+// caixa trabalhista, entao a aba volta no funil Trabalhista. BPC segue sem.
 const showCardSummary = computed(
-  () => ![BPC_FUNNEL_ID, TRABALHISTA_FUNNEL_ID].includes(activeFunnelId.value)
+  () => ![BPC_FUNNEL_ID].includes(activeFunnelId.value)
 );
 
 /**
@@ -271,6 +273,16 @@ watch(searchText, () => {
   searchTimer = setTimeout(runSearch, 350);
 });
 
+// Ao vivo — 10/11/2026: a cada 30 s, com a aba visivel, os cards com atividade
+// nova sobem para o topo (e trocam de coluna se a etapa mudou). Ver syncRecent
+// em useKanbanBoard.js. Ao voltar para a aba, sincroniza na hora.
+const LIVE_SYNC_MS = 30000;
+let liveTimer = null;
+const tickLive = () => {
+  if (document.hidden || isStateMode.value) return;
+  board.syncRecent();
+};
+
 onMounted(() => {
   if (isStateMode.value) ensureStateLoaded();
   else board.loadAll();
@@ -278,10 +290,14 @@ onMounted(() => {
   // nasceriam escondidas mesmo com 15 colunas na tela.
   nextTick(syncScrollState);
   window.addEventListener('resize', syncScrollState);
+  liveTimer = setInterval(tickLive, LIVE_SYNC_MS);
+  document.addEventListener('visibilitychange', tickLive);
 });
 
 onBeforeUnmount(() => {
   window.removeEventListener('resize', syncScrollState);
+  if (liveTimer) clearInterval(liveTimer);
+  document.removeEventListener('visibilitychange', tickLive);
 });
 
 // ------------------------------------------------------------- drag & drop

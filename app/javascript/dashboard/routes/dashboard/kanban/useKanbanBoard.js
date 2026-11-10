@@ -290,6 +290,7 @@ export function useKanbanBoard(accountId) {
   async function loadAll() {
     isLoading.value = true;
     resetColumns();
+    lastSyncAt.value = 0;
 
     statusText.value = 'Carregando…';
     await loadAllAtOnce();
@@ -402,6 +403,95 @@ export function useKanbanBoard(accountId) {
       });
     });
     return out;
+  }
+
+  // ------------------------------------------------------------ ao vivo
+
+  /**
+   * Atualizacao ao vivo — 10/11/2026 (pedido do Flavio: os cards se movem de
+   * acordo com a atividade mais recente, ex.: contato com o lead faz o card
+   * subir). O Index chama syncRecent a cada 30 s com a aba visivel. Pede ao
+   * servidor as conversas do quadro atualizadas hoje (o mesmo endpoint da tela
+   * Atualizados, uma chamada so) e, para cada uma com atividade nova desde a
+   * ultima rodada, poe o card no topo da coluna; se a etapa mudou (n8n, IA ou
+   * outro agente), o card troca de coluna. Lead novo entra no topo da coluna
+   * dele. Totais: so o +1/-1 de quem trocou de coluna — card que estava numa
+   * pagina ainda nao carregada nao tem como ser descontado da coluna antiga.
+   */
+  const lastSyncAt = ref(0);
+  let syncBusy = false;
+
+  function targetColumnOf(card) {
+    const stages = convLabels(card).filter(l => stageLabels.value.includes(l));
+    if (stages.length) {
+      // Mesma regra do applyPage: descarte vence.
+      return stages.find(l => DISQUALIFIED_LABELS.includes(l)) || stages[0];
+    }
+    return columnDefs.value.some(c => c.label === UNSTAGED_LABEL)
+      ? UNSTAGED_LABEL
+      : null;
+  }
+
+  function todayIso() {
+    // en-CA formata como AAAA-MM-DD; o servidor conta o dia em Sao Paulo.
+    return new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'America/Sao_Paulo',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(new Date());
+  }
+
+  async function syncRecent() {
+    if (syncBusy || isLoading.value || !loadedAt.value) return 0;
+    if (!activeFunnel.value.inboxId) return 0;
+    syncBusy = true;
+    const funnelAtStart = activeFunnelId.value;
+    try {
+      const data = await loadDay('updated', todayIso());
+      // Funil trocado ou recarga no meio do caminho: descarta a rodada.
+      if (!data || funnelAtStart !== activeFunnelId.value || isLoading.value)
+        return 0;
+      const since =
+        lastSyncAt.value || Math.floor(loadedAt.value / 1000) - 60;
+      // Do mais antigo para o mais recente: o ultimo a entrar fica no topo.
+      const fresh = data.payload
+        .filter(c => (c.last_activity_at || 0) > since)
+        .sort((a, b) => (a.last_activity_at || 0) - (b.last_activity_at || 0));
+      let moved = 0;
+      fresh.forEach(card => {
+        const to = targetColumnOf(card);
+        let fromLabel = null;
+        let old = null;
+        Object.keys(columns).forEach(label => {
+          const st = columns[label];
+          const i = st.loaded.findIndex(c => c.id === card.id);
+          if (i === -1) return;
+          if (!old) {
+            old = st.loaded[i];
+            fromLabel = label;
+          }
+          st.loaded.splice(i, 1);
+          if (label !== to && st.total !== null)
+            st.total = Math.max(0, st.total - 1);
+        });
+        if (!to || !columns[to]) return;
+        columns[to].loaded.unshift(old ? { ...old, ...card } : card);
+        if (fromLabel !== to && columns[to].total !== null)
+          columns[to].total += 1;
+        moved += 1;
+      });
+      lastSyncAt.value = data.payload.reduce(
+        (m, c) => Math.max(m, c.last_activity_at || 0),
+        since
+      );
+      return moved;
+    } catch (e) {
+      // Imagem antiga sem o endpoint ou rede: tenta de novo na proxima rodada.
+      return 0;
+    } finally {
+      syncBusy = false;
+    }
   }
 
   // ------------------------------------------------------------ leads
@@ -648,6 +738,7 @@ export function useKanbanBoard(accountId) {
     loadDay,
     loadAllCards,
     allConversations,
+    syncRecent,
     // leads
     ensureLead,
     enrichLeads,

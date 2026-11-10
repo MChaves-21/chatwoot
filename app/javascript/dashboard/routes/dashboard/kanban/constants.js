@@ -251,11 +251,10 @@ export const TRABALHISTA_COLUMNS = [
     label: 'trab_aguardando_assinatura',
     color: '#f59e0b',
   },
-  {
-    title: 'Contrato enviado',
-    label: 'trab_contrato_enviado',
-    color: '#eab308',
-  },
+  // 10/11/2026 (pedido do Flavio): saiu a coluna "Contrato enviado"
+  // (trab_contrato_enviado) — era a mesma coisa que "Aguardando assinatura".
+  // A IA trabalhista agora grava trab_aguardando_assinatura quando gera o
+  // contrato; as conversas que tinham trab_contrato_enviado foram migradas.
   {
     title: 'Contrato assinado',
     label: 'trab_contrato_assinado',
