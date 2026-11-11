@@ -29,6 +29,10 @@ class Api::V1::Accounts::KanbanBoardController < Api::V1::Accounts::BaseControll
   DAY_ZONE = 'America/Sao_Paulo'.freeze
   # Teto do Excel do quadro. Hoje o maior quadro (0300) tem ~8 mil cards.
   MAX_EXPORT_ROWS = 20_000
+  # Excel com as conversas: ids por chamada e tamanho do texto por conversa
+  # (a celula do Excel aceita 32.767 caracteres).
+  MAX_TRANSCRIPT_IDS = 500
+  MAX_TRANSCRIPT_CHARS = 30_000
 
   before_action :set_inbox
 
@@ -75,7 +79,41 @@ class Api::V1::Accounts::KanbanBoardController < Api::V1::Accounts::BaseControll
     render json: { total: total, truncated: total > rows.size, payload: rows.map { |c| card(c, 0) } }
   end
 
+  # POST /api/v1/accounts/:account_id/kanban_board/transcripts
+  #      { inbox_id: 11, ids: [display_id, ...] }  (ate MAX_TRANSCRIPT_IDS)
+  #
+  # 11/11/2026: botao "Conversas" do Kanban — o Excel com o texto de cada
+  # conversa, para a equipe consultar fora do Chatwoot. Devolve
+  # { payload: { display_id => "[dd/mm/aa hh:mm] Cliente: ..." } }, so mensagens
+  # publicas de cliente e escritorio, na ordem. Mesmo filtro de permissao do quadro.
+  def transcripts
+    conversations = accessible_conversations(@inbox).where(display_id: Array(params[:ids]).map(&:to_i).first(MAX_TRANSCRIPT_IDS))
+    render json: { payload: transcript_texts(conversations.pluck(:id, :display_id).to_h) }
+  end
+
   private
+
+  def transcript_texts(display_ids)
+    texts = Hash.new { |hash, key| hash[key] = +'' }
+    transcript_messages(display_ids.keys).each do |conversation_id, message_type, content, created_at|
+      text = texts[display_ids[conversation_id]]
+      text << transcript_line(message_type, content, created_at) if text.length <= MAX_TRANSCRIPT_CHARS
+    end
+    texts.transform_values { |text| text.truncate(MAX_TRANSCRIPT_CHARS) }
+  end
+
+  def transcript_messages(conversation_ids)
+    Message.unscoped
+           .where(account_id: Current.account.id, conversation_id: conversation_ids, private: false, message_type: %i[incoming outgoing])
+           .where.not(content: [nil, ''])
+           .order(:conversation_id, :created_at)
+           .pluck(:conversation_id, :message_type, :content, :created_at)
+  end
+
+  def transcript_line(message_type, content, created_at)
+    who = message_type.to_s == 'incoming' ? 'Cliente' : 'Escritório'
+    "[#{created_at.in_time_zone(DAY_ZONE).strftime('%d/%m/%y %H:%M')}] #{who}: #{content.squish}\n"
+  end
 
   def set_inbox
     @inbox = Current.user.assigned_inboxes.find_by(id: params[:inbox_id])

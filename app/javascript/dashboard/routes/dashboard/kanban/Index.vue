@@ -29,7 +29,8 @@ import DailyTableModal from './components/DailyTableModal.vue';
 
 import { useKanbanBoard } from './useKanbanBoard';
 import { useStateBoard } from './useStateBoard';
-import { exportToExcel } from './excel';
+import KanbanAPI from './api';
+import { exportConversationsToExcel, exportToExcel } from './excel';
 import { BPC_FUNNEL_ID } from './constants';
 import { activeFilterCount, passesFilter } from './helpers';
 import { searchEverywhere, stateTermFor, locate } from './search';
@@ -466,6 +467,42 @@ const exportBoard = async () => {
   }
 };
 
+/**
+ * Excel "Conversas" — 11/11/2026. Os mesmos cards do Excel do quadro (com os
+ * filtros da tela), mais o texto de cada conversa, que o servidor manda de 500
+ * em 500 (kanban_board/transcripts).
+ */
+const exportConversations = async () => {
+  isExporting.value = true;
+  try {
+    const all = await exportCards();
+    const list = filtersActive.value
+      ? all.filter(c => passesFilter(c, filters, leadCache))
+      : all;
+    if (!list.length) {
+      useAlert('Nenhuma conversa para exportar com o filtro atual.');
+      return;
+    }
+    useAlert(`Buscando as mensagens de ${list.length} conversas…`);
+    const transcripts = await KanbanAPI.transcripts({
+      inboxId: activeFunnel.value.inboxId,
+      ids: list.map(c => c.id),
+    });
+    await exportConversationsToExcel({
+      conversations: list,
+      transcripts,
+      prefix: `conversas-${activeFunnel.value.id}${filtersActive.value ? '-filtrado' : ''}`,
+      columns: columnDefs.value,
+      conversationUrl: id => `${window.location.origin}${conversationUrl(id)}`,
+    });
+    useAlert(`Excel gerado (${list.length} conversas).`);
+  } catch (err) {
+    useAlert(`Falha no Excel: ${err.message}`);
+  } finally {
+    isExporting.value = false;
+  }
+};
+
 const exportDay = async ({ list, mode, date }) => {
   try {
     await exportToExcel({
@@ -641,6 +678,14 @@ const ICON_BTN =
           @click="exportBoard"
         >
           {{ isExporting ? 'Gerando…' : 'Excel' }}
+        </button>
+        <button
+          :class="BTN"
+          :disabled="isExporting"
+          title="Exportar as conversas, com as mensagens, para Excel"
+          @click="exportConversations"
+        >
+          Conversas
         </button>
         <!--
           Criados e Atualizados abrem a mesma tela do dia, so mudando o recorte.

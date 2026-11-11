@@ -335,6 +335,8 @@ Rails.application.routes.draw do
             get :day
             # Todos os cards do quadro numa chamada, para o Excel (09/11/2026).
             get :cards
+            # Texto das conversas para o Excel "Conversas" (11/11/2026).
+            post :transcripts
           end
 
           # Passe assinado para os webhooks do n8n (fork Goncalves & Silva), no lugar do login da sessao.

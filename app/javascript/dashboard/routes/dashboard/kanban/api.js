@@ -86,6 +86,24 @@ class KanbanAPI extends ApiClient {
   }
 
   /**
+   * Texto das conversas para o Excel "Conversas" — 11/11/2026
+   * (kanban_board_controller.rb#transcripts). Vai de 500 em 500 ids, um lote
+   * por vez (o servidor tem 2 vCPU). Devolve { display_id: texto }.
+   */
+  async transcripts({ inboxId, ids }) {
+    const out = {};
+    for (let i = 0; i < ids.length; i += 500) {
+      // eslint-disable-next-line no-await-in-loop
+      const res = await axios.post(`${this.base}/kanban_board/transcripts`, {
+        inbox_id: inboxId,
+        ids: ids.slice(i, i + 500),
+      });
+      Object.assign(out, (res.data || {}).payload || {});
+    }
+    return out;
+  }
+
+  /**
    * Conversas do quadro criadas (mode=created) ou atualizadas (mode=updated)
    * num dia, numa chamada so — 09/11/2026 (kanban_board_controller.rb#day).
    * Devolve { payload, total, truncated }. Lanca erro se o endpoint nao
