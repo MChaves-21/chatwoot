@@ -1,7 +1,7 @@
 <script setup>
 import { computed, onMounted, onBeforeUnmount, ref } from 'vue';
-import KanbanAPI, { fetchSummary } from '../api';
-import { LEAD_FLAGS, UNSTAGED_LABEL } from '../constants';
+import KanbanAPI, { fetchLawchatHistory, fetchSummary } from '../api';
+import { LAWCHAT_INBOX_ID, LEAD_FLAGS, UNSTAGED_LABEL } from '../constants';
 import {
   buildPrevSummary,
   convAssignee,
@@ -57,6 +57,41 @@ const busyStage = ref(null);
 const summaryText = ref('');
 const summaryFromAI = ref(false);
 const isSummarizing = ref(false);
+
+/**
+ * Aba LawChat — 11/11/2026. So nos cards da caixa do 0300, que e para onde o
+ * LawChat foi migrado. Carrega na primeira vez que a aba e aberta (nao a cada
+ * card): a maioria dos cards abertos no dia nao precisa dela.
+ */
+const showLawchat = computed(
+  () => Number(props.conversation.inbox_id) === LAWCHAT_INBOX_ID
+);
+const lawchat = ref(null);
+const lawchatError = ref('');
+const isLoadingLawchat = ref(false);
+
+const tabs = computed(() => {
+  const list = [];
+  if (props.showSummary) list.push({ id: 'resumo', label: 'Resumo' });
+  list.push({ id: 'historico', label: 'Histórico' });
+  if (showLawchat.value) list.push({ id: 'lawchat', label: 'LawChat' });
+  return list;
+});
+
+async function openTab(id) {
+  tab.value = id;
+  if (id !== 'lawchat' || lawchat.value || isLoadingLawchat.value) return;
+  isLoadingLawchat.value = true;
+  lawchatError.value = '';
+  try {
+    lawchat.value = await fetchLawchatHistory({
+      conversationId: props.conversation.id,
+    });
+  } catch (err) {
+    lawchatError.value = err.message || 'Falha ao buscar o histórico';
+  }
+  isLoadingLawchat.value = false;
+}
 
 const stageLabels = computed(() => props.columns.map(c => c.label));
 const name = computed(() => convDisplayName(props.conversation));
@@ -390,16 +425,11 @@ const SEC =
         <div class="flex flex-col flex-1 min-w-0">
           <div class="flex gap-1 px-3.5 pt-2.5">
             <button
-              v-for="t in showSummary
-                ? [
-                    { id: 'resumo', label: 'Resumo' },
-                    { id: 'historico', label: 'Histórico' },
-                  ]
-                : [{ id: 'historico', label: 'Histórico' }]"
+              v-for="t in tabs"
               :key="t.id"
               class="px-3 py-1.5 text-xs rounded-t-lg border border-b-0 border-n-weak"
               :class="tab === t.id ? 'font-semibold bg-n-alpha-2 text-n-slate-12' : 'text-n-slate-11'"
-              @click="tab = t.id"
+              @click="openTab(t.id)"
             >
               {{ t.label }}
             </button>
@@ -452,6 +482,71 @@ const SEC =
                   >
                     Ver ficha local
                   </button>
+                </div>
+              </template>
+            </template>
+
+            <!-- lawchat -->
+            <template v-else-if="tab === 'lawchat'">
+              <p v-if="isLoadingLawchat" class="text-sm text-n-slate-11">
+                Buscando histórico do LawChat...
+              </p>
+              <p v-else-if="lawchatError" class="text-sm text-n-ruby-11">
+                Erro: {{ lawchatError }}
+              </p>
+              <p
+                v-else-if="lawchat && !lawchat.length"
+                class="text-sm text-n-slate-11"
+              >
+                Nenhum atendimento do LawChat para este telefone.
+              </p>
+              <template v-else-if="lawchat">
+                <div
+                  v-for="a in lawchat"
+                  :key="a.id"
+                  class="pb-3 mb-4 border-b border-n-weak last:border-b-0"
+                >
+                  <p class="mb-2 text-[11px] font-semibold text-n-slate-11">
+                    Atendimento de {{ fmtDate(a.criado_em) }}
+                    <template v-if="a.encerrado_em">
+                      a {{ fmtDate(a.encerrado_em) }}
+                    </template>
+                    <template v-if="a.etapa"> · {{ a.etapa }}</template>
+                    <template v-if="a.atendente"> · {{ a.atendente }}</template>
+                  </p>
+                  <p v-if="!a.mensagens.length" class="text-sm text-n-slate-11">
+                    Sem mensagens.
+                  </p>
+                  <div
+                    v-for="(m, i) in a.mensagens"
+                    :key="i"
+                    class="my-2 max-w-[85%]"
+                    :class="m.quem === 'escritorio' ? 'ml-auto text-right' : 'mr-auto'"
+                  >
+                    <div class="mb-0.5 text-[10.5px] text-n-slate-11">
+                      {{ m.autor || (m.quem === 'escritorio' ? 'Escritório' : 'Cliente') }}
+                      - {{ fmtDate(m.em) }}
+                    </div>
+                    <div
+                      class="inline-block px-2.5 py-1.5 text-sm text-left break-words whitespace-pre-wrap rounded-lg border text-n-slate-12"
+                      :class="
+                        m.quem === 'escritorio'
+                          ? 'border-n-brand bg-n-alpha-2'
+                          : 'border-n-weak bg-n-background'
+                      "
+                    >
+                      {{ m.texto }}
+                      <a
+                        v-if="m.anexo"
+                        :href="m.anexo"
+                        target="_blank"
+                        rel="noopener"
+                        class="block text-xs text-n-brand hover:underline"
+                      >
+                        Abrir anexo
+                      </a>
+                    </div>
+                  </div>
                 </div>
               </template>
             </template>

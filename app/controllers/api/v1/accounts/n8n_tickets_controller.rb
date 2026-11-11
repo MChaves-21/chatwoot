@@ -23,7 +23,7 @@
 # antigo — da para publicar o fork antes de configurar o n8n.
 class Api::V1::Accounts::N8nTicketsController < Api::V1::Accounts::BaseController
   TTL = 5.minutes
-  PURPOSES = %w[kanban_lead kanban_resumo kanban_agendar disparador dashboard_ia_motivos].freeze
+  PURPOSES = %w[kanban_lead kanban_resumo kanban_lawchat kanban_agendar disparador dashboard_ia_motivos].freeze
 
   def show
     # Ticket e credencial de curta duracao: nada de cache no navegador ou em proxy.
