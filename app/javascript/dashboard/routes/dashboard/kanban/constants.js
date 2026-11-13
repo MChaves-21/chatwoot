@@ -572,6 +572,17 @@ export const SCHEDULE_WEBHOOK_URL =
 export const SUMMARY_WEBHOOK_URL =
   'https://n8n.goncalvesesilva.cloud/webhook/kanban-resumo';
 
+/**
+ * Historico do LawChat no card — 11/11/2026.
+ *
+ * As conversas importadas so trazem uma nota com o resumo do atendimento; as
+ * mensagens ficaram nos arquivos do Drive. O n8n ("Kanban - Historico LawChat")
+ * le a tabela lawchat_historico pelo telefone do contato e devolve os
+ * atendimentos. Mesmo esquema do resumo: ticket assinado e conversation_id.
+ */
+export const LAWCHAT_HISTORY_WEBHOOK_URL =
+  'https://n8n.goncalvesesilva.cloud/webhook/kanban-lawchat';
+
 export const DEFAULT_PREFS = {
   funnelId: DEFAULT_FUNNEL_ID,
   tags: DEFAULT_TAGS,

@@ -61,6 +61,65 @@ const HEAD = [
 ];
 
 /**
+ * Excel "Conversas" — 11/11/2026, pedido do Flavio: as conversas numa planilha
+ * para consultar. Uma linha por conversa, com o texto dela na ultima coluna
+ * (`transcripts`: { display_id: texto }, do kanban_board/transcripts).
+ */
+export async function exportConversationsToExcel({
+  conversations,
+  transcripts,
+  prefix,
+  columns,
+  conversationUrl,
+}) {
+  const XLSX = await loadSheetJS();
+  const stageLabels = columns.map(c => c.label);
+  const stageTitle = label =>
+    (columns.find(c => c.label === label) || {}).title || '';
+  const rows = [
+    [
+      'Conversa',
+      'Link',
+      'Nome',
+      'Telefone',
+      'Etapa',
+      'Etiquetas',
+      'Situação',
+      'Responsável',
+      'Criada em',
+      'Última atividade',
+      'Mensagens',
+    ],
+  ];
+  conversations.forEach(conv => {
+    const stage = convStageLabel(conv, stageLabels);
+    rows.push([
+      conv.id,
+      conversationUrl(conv.id),
+      convDisplayName(conv),
+      fmtPhoneBR(convPhone(conv)),
+      stage ? stageTitle(stage) : '',
+      convLabels(conv)
+        .filter(l => !stageLabels.includes(l))
+        .join(', '),
+      situacaoBR(conv.status),
+      convAssignee(conv),
+      fmtBR(convCreatedRaw(conv)),
+      fmtBR(conv.last_activity_at || conv.timestamp),
+      transcripts[conv.id] || '',
+    ]);
+  });
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), 'Conversas');
+  const d = new Date();
+  const pad = n => String(n).padStart(2, '0');
+  XLSX.writeFile(
+    wb,
+    `${prefix}-${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}.xlsx`
+  );
+}
+
+/**
  * @param {Array}  conversations lista ja filtrada — a funcao nao filtra nada
  * @param {String} prefix        prefixo do nome do arquivo
  * @param {Array}  columns       definicao das colunas/etapas

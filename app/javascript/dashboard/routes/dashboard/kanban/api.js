@@ -16,7 +16,7 @@
 
 import ApiClient from '../../../api/ApiClient';
 import { n8nTicket } from '../n8nTicket';
-import { SUMMARY_WEBHOOK_URL } from './constants';
+import { LAWCHAT_HISTORY_WEBHOOK_URL, SUMMARY_WEBHOOK_URL } from './constants';
 
 class KanbanAPI extends ApiClient {
   constructor() {
@@ -83,6 +83,24 @@ class KanbanAPI extends ApiClient {
       throw new Error('Resposta inesperada do endpoint do Kanban.');
     }
     return data;
+  }
+
+  /**
+   * Texto das conversas para o Excel "Conversas" — 11/11/2026
+   * (kanban_board_controller.rb#transcripts). Vai de 500 em 500 ids, um lote
+   * por vez (o servidor tem 2 vCPU). Devolve { display_id: texto }.
+   */
+  async transcripts({ inboxId, ids }) {
+    const out = {};
+    for (let i = 0; i < ids.length; i += 500) {
+      // eslint-disable-next-line no-await-in-loop
+      const res = await axios.post(`${this.base}/kanban_board/transcripts`, {
+        inbox_id: inboxId,
+        ids: ids.slice(i, i + 500),
+      });
+      Object.assign(out, (res.data || {}).payload || {});
+    }
+    return out;
   }
 
   /**
@@ -375,6 +393,34 @@ export async function fetchSummary({ conversationId, force = false }) {
     return null;
   } finally {
     if (timer) clearTimeout(timer);
+  }
+}
+
+/**
+ * Historico do LawChat do contato do card — 11/11/2026.
+ *
+ * Devolve { atendimentos: [{ id, etapa, atendente, criado_em, encerrado_em,
+ * mensagens: [{ em, quem, autor, texto, anexo }] }] } ou lanca erro (a aba
+ * mostra o erro; nao ha plano B local, o historico so existe no banco).
+ */
+export async function fetchLawchatHistory({ conversationId }) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 30000);
+  try {
+    const r = await fetch(LAWCHAT_HISTORY_WEBHOOK_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ticket: await n8nTicket('kanban_lawchat'),
+        conversation_id: conversationId,
+      }),
+      signal: ctrl.signal,
+    });
+    if (!r.ok) throw new Error(`n8n respondeu ${r.status}`);
+    const d = await r.json();
+    return Array.isArray(d.atendimentos) ? d.atendimentos : [];
+  } finally {
+    clearTimeout(timer);
   }
 }
 
