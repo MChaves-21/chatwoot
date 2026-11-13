@@ -108,19 +108,18 @@ export const AUXILIO_COLUMNS = [
   /*
    * 13/11/2026 — pedido da Karol (0300), via Murilo.
    *
-   *   futuros_clientes  lead que ainda nao fecha, mas pode virar cliente
-   *                     depois. Fica "em espera" (como aguardando_tempo):
-   *                     conta no total e fora do funil.
-   *   excluir           caso aleatorio que nao e lead (nem desqualificado
-   *                     nem descarte). So estaciona aqui; nada e apagado.
-   *                     Fora de CLOSED_LABELS de proposito: nao e perda do
-   *                     funil, e nao deve pesar na taxa de desqualificacao.
+   *   excluir  caso que nao e lead do 0300: aleatorio, ou cliente do outro
+   *            comercial (Julia/Davi) cujo contrato saiu pelo 0300. O SUB
+   *            "Mensagem ao cliente pelo Chatwoot" ja cria essas conversas
+   *            com esta etiqueta. So estaciona; nada e apagado. Fora de
+   *            CLOSED_LABELS de proposito: nao e perda do funil.
    *
-   * Os dois estao nas etapas protegidas dos Kanban Sync (caixas 6 e 11) e na
-   * trava da IA do 1. COMERCIAL: o sync nao tira o card daqui e a IA nao
-   * responde.
+   * 'Futuros clientes' chegou a ser criada no mesmo dia e saiu: a Karol
+   * confirmou que 'Aguardando tempo' ja cumpre essa funcao.
+   *
+   * excluir esta nas etapas protegidas do Kanban Sync 0300 e na trava da IA
+   * do 1. COMERCIAL: o sync nao tira o card daqui e a IA nao responde.
    */
-  { title: 'Futuros clientes', label: 'futuros_clientes', color: '#06b6d4' },
   { title: 'Excluir', label: 'excluir', color: '#475569' },
 ];
 
@@ -443,7 +442,6 @@ export const STAGE_EMOJI = {
   desqualificado: '❌',
   descarte_sdr: '🗑️',
   aguardando_tempo: '⏳',
-  futuros_clientes: '🔜',
   excluir: '🧹',
   // BPC
   bpc_lead_novo: '🆕',

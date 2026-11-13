@@ -385,8 +385,6 @@ export function nextSteps(label) {
     desqualificado: 'Lead desqualificado - sem acao.',
     descarte_sdr: 'Lead descartado no SDR - sem acao.',
     aguardando_tempo: 'Retomar o contato no periodo definido.',
-    futuros_clientes:
-      'Possivel cliente no futuro - retomar quando fizer sentido.',
     excluir: 'Caso aleatorio, fora do funil - sem acao.',
 
     // ------------------------------------------------------ BPC (caixa 9)
