@@ -43,7 +43,7 @@ permissions:
 jobs:
   verificar:
     name: Verificar
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -75,9 +75,13 @@ jobs:
   # 09/11/2026: os specs do fork nao rodavam em lugar nenhum (o upstream so
   # roda os dele em develop/master). Aqui rodam so os arquivos do fork — poucos
   # minutos, em vez da suite inteira — e o build depende deles.
+  # 13/11/2026: runs-on fixado em ubuntu-24.04 nos 4 jobs. O ubuntu-latest
+  # virou 26.04 e la nao existe Ruby 3.4.4 (o Gemfile exige 3.4.4): a run #72
+  # falhou no setup-ruby antes de testar qualquer coisa. Ao subir o Ruby do
+  # Gemfile para 3.4.12+, pode voltar para ubuntu-latest.
   testes:
     name: Testes do fork (rspec)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     services:
       postgres:
         image: pgvector/pgvector:pg16
@@ -129,7 +133,7 @@ jobs:
     name: Build e publicacao
     needs: [verificar, testes]
     if: github.event_name != 'pull_request'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     outputs:
       image: ${{ steps.nome.outputs.image }}
     steps:
@@ -188,7 +192,7 @@ jobs:
     name: Implantar no Easypanel
     needs: build
     if: github.event_name != 'pull_request'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       # O deploy so acontece se o segredo EASYPANEL_DEPLOY_HOOK existir. Sem
       # ele o job passa avisando, em vez de falhar — assim quem ainda nao
