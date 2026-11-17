@@ -526,7 +526,9 @@ export function stageDurations(rows, funnel) {
       return {
         label,
         title: titles.get(label) || label,
-        color: colors.get(label),
+        // 17/11/2026: etapa do caminho que nao esta mais nas colunas do
+        // Kanban sai em cinza, para nao ficar sem a bolinha de cor.
+        color: colors.get(label) || '#94a3b8',
         n: days.length,
         avgDays: days.length
           ? days.reduce((a, b) => a + b, 0) / days.length
