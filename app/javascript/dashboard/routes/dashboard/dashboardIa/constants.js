@@ -98,7 +98,9 @@ export const FUNNEL_READING = {
       'trab_comercial',
       'trab_contrato_em_elaboracao',
       'trab_aguardando_assinatura',
-      'trab_contrato_enviado',
+      // 17/11/2026: saiu 'trab_contrato_enviado' — a coluna foi tirada do
+      // Kanban em 10/11 (era o mesmo que aguardando assinatura). Ficava no
+      // painel sem nome nem cor e quebrava a barra do caminho.
       'trab_contrato_assinado',
       'trab_efetivado',
     ],

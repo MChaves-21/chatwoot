@@ -20,6 +20,9 @@ const props = defineProps({
 });
 
 const max = computed(() => Math.max(1, ...props.items.map(i => i.value)));
+// 17/11/2026: se um item da lista tem bolinha de cor, todos reservam o espaco
+// dela. Antes o item sem cor comecava 20px antes e a barra dele ficava maior.
+const hasDots = computed(() => props.items.some(i => i.color));
 const fmt = n => Number(n).toLocaleString('pt-BR');
 
 const MEDALS = ['#f59e0b', '#94a3b8', '#f97316'];
@@ -43,9 +46,9 @@ const MEDALS = ['#f59e0b', '#94a3b8', '#f97316'];
         {{ i + 1 }}
       </span>
       <span
-        v-else-if="item.color"
+        v-else-if="hasDots"
         class="flex-shrink-0 rounded-full size-2"
-        :style="{ background: item.color }"
+        :style="{ background: item.color || 'transparent' }"
         aria-hidden="true"
       />
       <span

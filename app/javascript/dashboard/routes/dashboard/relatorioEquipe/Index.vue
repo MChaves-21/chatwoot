@@ -343,7 +343,7 @@ const BTN =
 
 <template>
   <div class="flex flex-col w-full h-full bg-n-background">
-    <div class="overflow-y-auto flex-1">
+    <div class="overflow-y-auto relative flex-1">
       <div class="flex flex-col gap-5 px-6 py-5 mx-auto max-w-[1200px]">
         <header class="flex flex-wrap gap-4 justify-between items-end">
           <div>
@@ -645,7 +645,7 @@ const BTN =
                     <th class="px-2 py-1.5 font-medium text-right">
                       Conversas
                     </th>
-                    <th class="px-2 py-1.5 font-medium w-1/3">
+                    <th class="relative px-2 py-1.5 font-medium w-1/3">
                       <span class="sr-only">Proporção de conversas</span>
                     </th>
                     <th class="px-2 py-1.5 font-medium text-right">
