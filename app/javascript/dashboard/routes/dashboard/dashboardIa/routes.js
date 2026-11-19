@@ -1,11 +1,15 @@
 import { frontendURL } from '../../../helper/URLHelper';
+import {
+  ROLES,
+  CONVERSATION_PERMISSIONS,
+} from 'dashboard/constants/permissions';
 import DashboardIaIndex from './Index.vue';
 
-// So administrador: o endpoint do fork (controller) so responde a
-// administrador. Com `report_manage` aqui, a tela abria, o endpoint negava e
-// o painel caia calado no plano B, com outros numeros (26/10/2026).
+// 19/11/2026 (Flavio): liberado para o time. Mesma lista do Kanban — com
+// custom_role a string 'agent' nao aparece nas permissoes. O endpoint do fork
+// libera o GET para todos; so salvar meta exige administrador.
 const meta = {
-  permissions: ['administrator'],
+  permissions: [...ROLES, ...CONVERSATION_PERMISSIONS],
 };
 
 export const routes = [

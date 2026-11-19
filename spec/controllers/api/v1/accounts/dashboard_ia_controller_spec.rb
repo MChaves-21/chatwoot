@@ -14,10 +14,12 @@ RSpec.describe 'Dashboard IA API', type: :request do
       expect(response).to have_http_status(:unauthorized)
     end
 
-    it 'is forbidden for agents' do
+    # 19/11/2026: o painel foi liberado para o time; so a meta e de admin.
+    it 'is open to agents' do
       get url, params: { inbox_ids: [inbox.id] }, headers: agent.create_new_auth_token
 
-      expect(response).to have_http_status(:forbidden)
+      expect(response).to have_http_status(:ok)
+      expect(response.parsed_body['rows']).to be_an(Array)
     end
 
     it 'returns one row per conversation of the asked inboxes, by display id' do

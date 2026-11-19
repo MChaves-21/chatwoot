@@ -16,6 +16,7 @@
 import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { useMapGetter, useStore } from 'dashboard/composables/store';
+import { useAdmin } from 'dashboard/composables/useAdmin';
 import RelatorioEquipeAPI from './api';
 import { CATEGORIES, DEFAULT_PERIOD, LS_KEY, PERIODS } from './constants';
 import { FUNNELS, HOME_ACCOUNT_ID } from '../kanban/constants';
@@ -175,6 +176,8 @@ async function exportCsv() {
 
 // ----------------------------------------------------------- quem e IA
 
+// 19/11/2026: tela aberta ao time; CSV e "Quem conta como IA" so admin.
+const { isAdmin } = useAdmin();
 const showIaConfig = ref(false);
 const iaDraft = ref([]);
 const savingIa = ref(false);
@@ -364,7 +367,11 @@ const BTN =
             </p>
           </div>
           <div class="flex flex-wrap gap-2">
-            <button :class="BTN" @click="showIaConfig = !showIaConfig">
+            <button
+              v-if="isAdmin"
+              :class="BTN"
+              @click="showIaConfig = !showIaConfig"
+            >
               <span class="i-lucide-bot size-3.5" aria-hidden="true" />
               Quem conta como IA
             </button>
@@ -389,6 +396,7 @@ const BTN =
               />
             </button>
             <button
+              v-if="isAdmin"
               :class="BTN"
               :disabled="exporting || !data"
               @click="exportCsv"
@@ -416,7 +424,7 @@ const BTN =
 
         <!-- Quem conta como IA -->
         <DashPanel
-          v-if="showIaConfig"
+          v-if="isAdmin && showIaConfig"
           :level="2"
           title="Quem conta como IA"
           subtitle="O n8n responde pela Juliana usando o login de um usuário. Marque esse usuário para as mensagens dele contarem como IA, e não como equipe. Vale para todos que abrem o relatório."

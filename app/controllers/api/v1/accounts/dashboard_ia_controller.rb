@@ -15,6 +15,10 @@
 class Api::V1::Accounts::DashboardIaController < Api::V1::Accounts::BaseController
   include ForkAdministratorOnly
 
+  # 19/11/2026 (Flavio): o time inteiro ve o painel. Alterar a meta continua
+  # so com administrador.
+  skip_before_action :ensure_fork_administrator, only: [:show]
+
   GOALS_KEY = 'dashboard_ia_goals'.freeze
   MAX_INBOXES = 20
   SNAPSHOT_TTL = 2.minutes

@@ -755,7 +755,7 @@ const ICON_BTN =
           </template>
           <template v-else-if="searchBusy">Buscando no servidor…</template>
           <template v-else>
-            {{ searchHits.length }} resultado(s) nos dois funis
+            {{ searchHits.length }} resultado(s) em todos os funis
           </template>
         </span>
         <button

@@ -14,10 +14,11 @@ RSpec.describe 'Relatorio da Equipe API', type: :request do
       expect(response).to have_http_status(:unauthorized)
     end
 
-    it 'is forbidden for agents' do
+    # 19/11/2026: o resumo foi liberado para o time; CSV e ia_users seguem so admin.
+    it 'is open to agents' do
       get url, headers: agent.create_new_auth_token
 
-      expect(response).to have_http_status(:forbidden)
+      expect(response).to have_http_status(:ok)
     end
 
     it 'counts client and team messages of the period' do

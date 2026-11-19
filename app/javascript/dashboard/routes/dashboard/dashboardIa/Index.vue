@@ -25,6 +25,7 @@ import {
 } from './constants';
 import { ymdToBR } from './metrics';
 import { useDashboardIa } from './useDashboardIa';
+import { useAdmin } from 'dashboard/composables/useAdmin';
 import DashPanel from './components/DashPanel.vue';
 import DashKpi from './components/DashKpi.vue';
 import DashRing from './components/DashRing.vue';
@@ -342,6 +343,8 @@ const goalStatus = computed(() => {
   };
 });
 
+// 19/11/2026: painel aberto ao time; alterar a meta so administrador.
+const { isAdmin } = useAdmin();
 const editingGoal = ref(false);
 const goalDraft = ref('');
 
@@ -855,7 +858,7 @@ const stateCount = computed(
                   </button>
                 </form>
                 <button
-                  v-else
+                  v-else-if="isAdmin"
                   class="flex justify-center items-center rounded-lg dia-no-print size-7 text-n-slate-10 hover:text-n-slate-12 hover:bg-n-alpha-2"
                   :title="
                     dash.hasHistory.value

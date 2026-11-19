@@ -19,6 +19,11 @@
 class Api::V1::Accounts::RelatorioEquipeController < Api::V1::Accounts::BaseController
   include ForkAdministratorOnly
 
+  # 19/11/2026 (Flavio): o time inteiro ve o relatorio (numeros por dia e por
+  # usuario). O CSV, que traz o texto das mensagens dos clientes (LGPD), e a
+  # lista "Quem conta como IA" continuam so com administrador.
+  skip_before_action :ensure_fork_administrator, only: [:show]
+
   IA_USERS_KEY = 'relatorio_equipe_ia_users'.freeze
 
   def show

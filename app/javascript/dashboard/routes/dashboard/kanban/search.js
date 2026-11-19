@@ -34,7 +34,7 @@ import {
   AUXILIO_COLUMNS,
   BPC_COLUMNS,
   FUNNELS,
-  PARTNER_INBOX_IDS,
+  PARTNER_FUNNELS,
   TRABALHISTA_COLUMNS,
 } from './constants';
 import {
@@ -179,9 +179,23 @@ const STAGE_INDEX = (() => {
   return idx;
 })();
 
+/**
+ * Todos os funis com caixa propria: os da G&S e os das contas parceiras.
+ * 19/11/2026: a busca passou a ler as caixas daqui (ver RELEVANT_INBOX_IDS).
+ */
+const ALL_FUNNELS = [...FUNNELS, ...Object.values(PARTNER_FUNNELS).flat()];
+
 /** Em que funil e etapa a conversa esta, olhando as etiquetas dela. */
 export function locate(conv) {
   const labels = Array.isArray(conv && conv.labels) ? conv.labels : [];
+  // 19/11/2026: o nome do funil vem da CAIXA quando ela tem funil proprio.
+  // Antes vinha so da etiqueta, e um lead do 0300 aparecia como
+  // "Auxilio Acidente", sem dizer de qual numero.
+  const funnel = ALL_FUNNELS.find(f => f.inboxId === (conv && conv.inbox_id));
+  if (funnel) {
+    const col = funnel.columns.find(c => labels.includes(c.label));
+    return { funnel: funnel.title, stage: col ? col.title : 'Sem etapa' };
+  }
   for (const l of labels) {
     if (STAGE_INDEX[l]) return STAGE_INDEX[l];
   }
@@ -199,7 +213,15 @@ export function stateTitle(conv) {
 
 // A busca de contatos ja e restrita a conta aberta; somar as caixas das contas
 // parceiras so deixa o F&P (caixa 16) achar as conversas dele.
-const RELEVANT_INBOX_IDS = [...STATE_INBOX_IDS, ...PARTNER_INBOX_IDS];
+//
+// 19/11/2026 (Flavio): a lista era fixa em [6, 15] + parceiras. As caixas
+// que viraram funil depois — 0300 (11) e Trabalhista (10) — ficavam de fora,
+// e a busca por "6464" nao achava o 6464 Carlos, que esta em Aguardando
+// assinatura no 0300. Agora a lista sai dos proprios funis: funil novo entra
+// na busca sozinho.
+const RELEVANT_INBOX_IDS = [
+  ...new Set([...STATE_INBOX_IDS, ...ALL_FUNNELS.map(f => f.inboxId)]),
+].filter(Boolean);
 const isRelevantInbox = c => RELEVANT_INBOX_IDS.includes(c && c.inbox_id);
 
 /**
