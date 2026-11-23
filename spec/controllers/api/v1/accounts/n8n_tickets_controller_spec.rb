@@ -52,6 +52,14 @@ RSpec.describe 'n8n ticket API', type: :request do
       end
     end
 
+    it 'signs the audio transcription purpose' do
+      with_modified_env N8N_TICKET_SECRET: 'segredo-de-teste' do
+        get ticket_url, params: { purpose: 'transcrever_audio' }, headers: agent.create_new_auth_token
+
+        expect(claims_of(response.parsed_body)['p']).to eq('transcrever_audio')
+      end
+    end
+
     it 'leaves an unknown purpose out of the ticket' do
       with_modified_env N8N_TICKET_SECRET: 'segredo-de-teste' do
         get ticket_url, params: { purpose: 'qualquer_coisa' }, headers: agent.create_new_auth_token

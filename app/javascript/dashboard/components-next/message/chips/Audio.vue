@@ -11,8 +11,13 @@ import { timeStampAppendedURL } from 'dashboard/helper/URLHelper';
 import { downloadFile } from '@chatwoot/utils';
 import { useEmitter } from 'dashboard/composables/emitter';
 import { emitter } from 'shared/helpers/mitt';
+import { useMapGetter } from 'dashboard/composables/store';
+import {
+  transcreverAudio,
+  transcricaoDaNota,
+} from 'dashboard/helper/transcreverAudio';
 
-const { attachment } = defineProps({
+const { attachment, allowTranscribe, messageId, conversationId } = defineProps({
   attachment: {
     type: Object,
     required: true,
@@ -20,6 +25,19 @@ const { attachment } = defineProps({
   showTranscribedText: {
     type: Boolean,
     default: true,
+  },
+  // Fork G&S 23/11/2026: botao "Transcrever" (so na bolha de mensagem).
+  allowTranscribe: {
+    type: Boolean,
+    default: false,
+  },
+  messageId: {
+    type: Number,
+    default: null,
+  },
+  conversationId: {
+    type: Number,
+    default: null,
   },
 });
 
@@ -31,13 +49,59 @@ const timeStampURL = computed(() => {
   return timeStampAppendedURL(attachment.dataUrl);
 });
 
+// Transcricao feita pelo n8n: vem da nota privada "🎙️ Transcrição do áudio #id"
+// (ja carregada na conversa) ou da resposta do botao.
+const selectedChat = useMapGetter('getSelectedChat');
+const audioMessageId = computed(() => messageId || attachment.messageId);
+const fetchedTranscript = ref('');
+const noteTranscript = computed(() => {
+  if (!allowTranscribe) return '';
+  const chat = selectedChat.value || {};
+  if (conversationId && chat.id !== conversationId) return '';
+  return transcricaoDaNota(chat.messages || [], audioMessageId.value);
+});
+const n8nTranscript = computed(
+  () => fetchedTranscript.value || noteTranscript.value
+);
+const showN8nTranscript = ref(false);
+const isTranscribing = ref(false);
+const transcribeError = ref('');
+
+const transcriptText = computed(() => {
+  if (attachment.transcribedText) return attachment.transcribedText;
+  return showN8nTranscript.value ? n8nTranscript.value : '';
+});
+
+const toggleTranscript = async () => {
+  if (isTranscribing.value) return;
+  transcribeError.value = '';
+  if (showN8nTranscript.value) {
+    showN8nTranscript.value = false;
+    return;
+  }
+  if (!n8nTranscript.value) {
+    isTranscribing.value = true;
+    const res = await transcreverAudio({
+      conversationId,
+      messageId: audioMessageId.value,
+    });
+    isTranscribing.value = false;
+    if (!res.ok) {
+      transcribeError.value = res.error;
+      return;
+    }
+    fetchedTranscript.value = res.text;
+  }
+  showN8nTranscript.value = true;
+};
+
 const TRANSCRIPT_PREVIEW_LENGTH = 200;
 const isTranscriptExpanded = ref(false);
 const isTranscriptLong = computed(
-  () => (attachment.transcribedText?.length || 0) > TRANSCRIPT_PREVIEW_LENGTH
+  () => (transcriptText.value?.length || 0) > TRANSCRIPT_PREVIEW_LENGTH
 );
 const displayedTranscript = computed(() => {
-  const text = attachment.transcribedText || '';
+  const text = transcriptText.value || '';
   if (!isTranscriptLong.value || isTranscriptExpanded.value) return text;
   return `${text.slice(0, TRANSCRIPT_PREVIEW_LENGTH).trimEnd()}…`;
 });
@@ -220,10 +284,42 @@ const downloadAudio = async () => {
       >
         <Icon class="size-4" icon="i-lucide-download" />
       </button>
+      <button
+        v-if="allowTranscribe && !attachment.transcribedText"
+        class="p-0 border-0 size-8 grid place-content-center rounded-lg"
+        :class="showN8nTranscript ? 'bg-n-alpha-2 text-n-blue-11' : ''"
+        :disabled="isTranscribing"
+        :title="
+          isTranscribing
+            ? 'Transcrevendo…'
+            : showN8nTranscript
+              ? 'Ocultar transcrição'
+              : 'Transcrever áudio'
+        "
+        :aria-label="
+          showN8nTranscript ? 'Ocultar transcrição' : 'Transcrever áudio'
+        "
+        @click="toggleTranscript"
+      >
+        <Icon
+          v-if="isTranscribing"
+          class="size-4 animate-spin"
+          icon="i-lucide-loader-circle"
+        />
+        <Icon v-else class="size-4" icon="i-lucide-file-text" />
+      </button>
     </div>
 
     <div
-      v-if="attachment.transcribedText && showTranscribedText"
+      v-if="transcribeError"
+      class="text-n-ruby-11 px-2 text-xs w-full"
+      role="alert"
+    >
+      {{ transcribeError }}
+    </div>
+
+    <div
+      v-if="transcriptText && showTranscribedText"
       class="text-n-slate-12 p-3 text-sm bg-n-alpha-1 rounded-lg w-full break-words"
     >
       {{ displayedTranscript }}
