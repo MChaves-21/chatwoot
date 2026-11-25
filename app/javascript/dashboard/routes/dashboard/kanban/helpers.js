@@ -636,15 +636,15 @@ export function buildPrevSummary({ conv, full, lead, msgs, columns, tags }) {
   const advogado = simNao(text, /advogad|\badv\b/);
 
   const L = [];
-  L.push(`📅 Ano do acidente: ${ano}`);
-  L.push(`📅 Mês do acidente: ${mes}`);
-  L.push(`👷 Profissão na época: ${profissao}`);
-  L.push(`📍 Como aconteceu: ${como}`);
-  L.push(`💥 Sequela/limitação: ${sequela}`);
-  L.push(`💼 Situação na época: ${situacao}`);
-  L.push(`🩺 Recebeu auxílio-doença: ${auxDoenca}`);
-  L.push(`📄 Tem documentos médicos: ${docs}`);
-  L.push(`⚖️ Tem advogado na causa: ${advogado}`);
+  L.push(`Ano do acidente: ${ano}`);
+  L.push(`Mês do acidente: ${mes}`);
+  L.push(`Profissão na época: ${profissao}`);
+  L.push(`Como aconteceu: ${como}`);
+  L.push(`Sequela/limitação: ${sequela}`);
+  L.push(`Situação na época: ${situacao}`);
+  L.push(`Recebeu auxílio-doença: ${auxDoenca}`);
+  L.push(`Tem documentos médicos: ${docs}`);
+  L.push(`Tem advogado na causa: ${advogado}`);
 
   // Desqualificacao: so aparece quando a etapa diz isso.
   const desqualificado = ['desqualificado', 'descarte_sdr'].includes(stageLbl);
@@ -656,7 +656,7 @@ export function buildPrevSummary({ conv, full, lead, msgs, columns, tags }) {
       motivos.push('sem contribuição ao INSS');
     if (/n[aã]o.{0,30}rural/.test(text)) motivos.push('sem vínculo rural comprovado');
     L.push('');
-    L.push('🚫 MOTIVO DA DESQUALIFICAÇÃO:');
+    L.push('MOTIVO DA DESQUALIFICAÇÃO:');
     L.push(
       motivos.length
         ? `${capitalize(motivos.join('; '))}. Sem vínculo válido com o INSS para análise de direito ao benefício.`
@@ -688,14 +688,14 @@ export function buildPrevSummary({ conv, full, lead, msgs, columns, tags }) {
 
   if (problemas.length) {
     L.push('');
-    L.push('⚠️ PROBLEMAS IDENTIFICADOS:');
+    L.push('PROBLEMAS IDENTIFICADOS:');
     problemas.forEach(p => L.push(`- ${p}`));
   }
 
   L.push('');
-  if (desqualificado) L.push('📌 Status: ❌ DESQUALIFICADO para o Auxílio-Acidente');
-  else if (stageLbl === 'efetivado') L.push('📌 Status: ✅ EFETIVADO');
-  else L.push(`📌 Status: ${stageTitle}`);
+  if (desqualificado) L.push('Status: DESQUALIFICADO para o Auxílio-Acidente');
+  else if (stageLbl === 'efetivado') L.push('Status: EFETIVADO');
+  else L.push(`Status: ${stageTitle}`);
 
   // Rodape operacional: o que o quadro sabe e a conversa nao diz.
   const tgs = labels
