@@ -219,7 +219,7 @@ const TD = 'px-2.5 py-1.5 text-left border-b border-n-weak whitespace-nowrap';
         <input
           v-model="date"
           type="date"
-          class="px-2 py-1 text-xs rounded-lg border bg-n-background border-n-weak text-n-slate-12"
+          class="reset-base px-2.5 py-1 text-sm rounded-lg border bg-n-background border-n-weak text-n-slate-12"
         />
         <button :class="NAV" title="Próximo dia" @click="date = shiftYmd(date, 1)">
           ›
